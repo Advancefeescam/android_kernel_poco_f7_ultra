@@ -1130,7 +1130,8 @@ static void mtk_wdma_addon_config(struct mtk_ddp_comp *comp,
 		return;
 	}
 	cfg_info->addr = addr;
-
+	DDPINFO("%s WDMA config iommu, CRTC%d\n", __func__, crtc_idx);
+	mtk_ddp_comp_iommu_enable(comp, handle);
 	write_dst_addr(comp, handle, 0, addr);
 
 	src_w = addon_config->addon_wdma_config.wdma_src_roi.width;

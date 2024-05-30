@@ -445,6 +445,8 @@ static const struct snd_kcontrol_new mtk_hw_src_1_in_ch1_mix[] = {
 				    I_I2S0_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL5_CH1", AFE_CONN40_1,
 				    I_DL5_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_GAIN1_OUT_CH1", AFE_CONN40,
+				    I_GAIN1_OUT_CH1, 1, 0),
 };
 
 static const struct snd_kcontrol_new mtk_hw_src_1_in_ch2_mix[] = {
@@ -462,6 +464,8 @@ static const struct snd_kcontrol_new mtk_hw_src_1_in_ch2_mix[] = {
 				    I_I2S0_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL5_CH2", AFE_CONN41_1,
 				    I_DL5_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_GAIN1_OUT_CH2", AFE_CONN41,
+				    I_GAIN1_OUT_CH2, 1, 0),
 };
 
 static const struct snd_kcontrol_new mtk_hw_src_2_in_ch1_mix[] = {

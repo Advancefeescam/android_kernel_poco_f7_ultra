@@ -951,6 +951,7 @@ struct mtk_drm_crtc {
 	bool is_dsc_output_swap;
 
 	bool dsi_null_pkt_postpone;
+	bool dsi_mmclk_descend;
 };
 
 struct mtk_crtc_state {

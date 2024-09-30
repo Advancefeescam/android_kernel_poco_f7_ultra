@@ -588,6 +588,7 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
 				&en);
+	mtk_crtc->dsi_mmclk_descend = false;
 
 	/* 6. disconnect path */
 	mtk_crtc_disconnect_default_path(mtk_crtc);

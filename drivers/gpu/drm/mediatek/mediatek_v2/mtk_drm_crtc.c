@@ -4693,11 +4693,13 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, DSI_LFR_SET, &en);
 	/* pull up mm clk if dst fps is higher than src fps */
 	if (output_comp && fps_dst >= fps_src
-		&& !mtk_crtc_is_frame_trigger_mode(crtc)) {
+		&& (!mtk_crtc_is_frame_trigger_mode(crtc)
+		|| mtk_crtc->panel_ext->params->cmd_null_pkt_en)) {
 		if (mtk_crtc->qos_ctx)
 			mtk_crtc->qos_ctx->last_mmclk_req_idx += 1;
 		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
 				&en);
+		mtk_crtc->dsi_mmclk_descend = false;
 	}
 
 	if ((mode_chg_index & MODE_DSI_RES)
@@ -6656,9 +6658,11 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		drm_atomic_get_old_crtc_state(atomic_state, crtc);
 	struct mtk_crtc_state *old_mtk_state =
 		to_mtk_crtc_state(old_crtc_state);
+	struct mtk_ddp_comp *output_comp;
 	unsigned int frame_idx = old_mtk_state->prop_val[CRTC_PROP_OVL_DSI_SEQ];
 
 	int session_id, id;
+	int en = 1;
 	unsigned int ovl_status = 0;
 	/*Msync2.0 related*/
 	unsigned int is_vfp_period = 0;
@@ -6769,6 +6773,18 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 		if (atomic_read(&priv->need_recover))
 			atomic_set(&priv->need_recover, 0);
+
+		/*after null_pkt_len update to high value, we need update new mmclk in cb*/
+		if (mtk_crtc->dsi_null_pkt_postpone == false
+			&& mtk_crtc->dsi_mmclk_descend == true) {
+			output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+				if (output_comp) {
+					DDPINFO("dsi_mmclk_descend\n");
+					mtk_ddp_comp_io_cmd(output_comp, NULL,
+						SET_MMCLK_BY_DATARATE, &en);
+				}
+			mtk_crtc->dsi_mmclk_descend = false;
+		}
 	}
 	CRTC_MMP_MARK(id, frame_cfg, ovl_status, 0);
 
@@ -10505,6 +10521,8 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
 				&en);
+	mtk_crtc->dsi_mmclk_descend = false;
+
 	if (priv && priv->usage[crtc_id] == DISP_OPENING &&
 			output_comp && mtk_ddp_comp_get_type(output_comp->id) == MTK_DISP_WDMA) {
 		;/* no goto end when display WDMA output in OPENING state */
@@ -11737,6 +11755,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 					DSI_NULL_PKT_SET, NULL);
 		}
 		mtk_crtc->dsi_null_pkt_postpone = false;
+		mtk_crtc->dsi_mmclk_descend = true;
 	}
 
 #ifndef DRM_CMDQ_DISABLE

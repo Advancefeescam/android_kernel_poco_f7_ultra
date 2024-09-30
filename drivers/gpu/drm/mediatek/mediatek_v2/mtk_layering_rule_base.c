@@ -2021,6 +2021,7 @@ static int _calc_hrt_num(struct drm_device *dev,
 	int bw_monitor_is_on = 0;
 	int gpu_cache_is_on = 0;
 	unsigned int disp_list;
+	struct mtk_drm_private *priv = dev->dev_private;
 
 	/* BWM + GPU Cache */
 	if (get_layering_opt(LYE_OPT_OVL_BW_MONITOR))
@@ -2145,18 +2146,30 @@ static int _calc_hrt_num(struct drm_device *dev,
 				}
 			}
 
-			if (layer_info->src_width > 40 || skipped == 1) {
+			if (priv->data->mmsys_id == MMSYS_MT6886) {
 				sum_overlap_w += overlap_w;
 				add_layer_entry(layer_info, true, overlap_w);
 				if ((disp == HRT_PRIMARY) && bw_monitor_is_on) {
 					sum_overlap_w_of_bwm += overlap_w_of_bwm;
 					DDPDBG("BWM line:%d sum_o_w:%d sum_o_w_of_bwm:%d\n",
-						__LINE__, sum_overlap_w, sum_overlap_w_of_bwm);
+							__LINE__, sum_overlap_w, sum_overlap_w_of_bwm);
 					add_layer_entry_for_compare(layer_info, true,
-						overlap_w_of_bwm);
+							overlap_w_of_bwm);
 				}
 			} else {
-				skipped = 1;
+				if (layer_info->src_width > 40 || skipped == 1) {
+					sum_overlap_w += overlap_w;
+					add_layer_entry(layer_info, true, overlap_w);
+					if ((disp == HRT_PRIMARY) && bw_monitor_is_on) {
+						sum_overlap_w_of_bwm += overlap_w_of_bwm;
+						DDPDBG("BWM line:%d sum_o_w:%d sum_o_w_of_bwm:%d\n",
+								__LINE__, sum_overlap_w, sum_overlap_w_of_bwm);
+						add_layer_entry_for_compare(layer_info, true,
+								overlap_w_of_bwm);
+					}
+				} else {
+					skipped = 1;
+				}
 			}
 		} else if (i == disp_info->gles_head[disp]) {
 			/* Add GLES layer */

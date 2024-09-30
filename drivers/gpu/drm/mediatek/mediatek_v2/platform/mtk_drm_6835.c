@@ -122,7 +122,7 @@ const struct mtk_disp_wdma_data mt6835_wdma_driver_data = {
 };
 
 // rdma
-const struct mtk_disp_rdma_data mt6835_rdma_driver_data = {
+struct mtk_disp_rdma_data mt6835_rdma_driver_data = {
 	.fifo_size = SZ_1K * 3 + SZ_32K,
 	.pre_ultra_low_us = 250,
 	.pre_ultra_high_us = 260,
@@ -1598,7 +1598,7 @@ const struct mtk_mmsys_driver_data mt6835_mmsys_driver_data = {
 	.mmsys_id = MMSYS_MT6835,
 	.mode_tb = mt6835_mode_tb,
 	.sodi_config = mt6835_mtk_sodi_config,
-	.has_smi_limitation = false,
+	.has_smi_limitation = true,
 	.doze_ctrl_pmic = true,
 	.can_compress_rgb565 = true,
 	.bypass_infra_ddr_control = true,

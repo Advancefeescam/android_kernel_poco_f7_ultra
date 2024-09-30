@@ -9654,22 +9654,29 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 		mtk_crtc->skip_frame = dsi->pending_switch;
 	}
 
+
+#ifndef DRM_CMDQ_DISABLE
+	/* 1. power on cmdq client */
+	client = mtk_crtc->gce_obj.client[CLIENT_CFG];
+	cmdq_mbox_enable(client->chan);
+#endif
+
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
-		/* 1. power on mtcmos & init apsrc*/
+		/* 2. power on mtcmos & init apsrc*/
 		mtk_drm_top_clk_prepare_enable(crtc->dev);
+
+		mtk_crtc_rst_module(crtc);
+
 		mtk_crtc_v_idle_apsrc_control(crtc, NULL, true, true,
 			MTK_APSRC_CRTC_DEFAULT, false);
 
-		/* 2. prepare modules would be used in this CRTC */
+		/* 3. prepare modules would be used in this CRTC */
 		mtk_crtc_ddp_prepare(mtk_crtc);
 	}
 
 	mtk_gce_backup_slot_init(mtk_crtc);
 
 #ifndef DRM_CMDQ_DISABLE
-	/* 3. power on cmdq client */
-	client = mtk_crtc->gce_obj.client[CLIENT_CFG];
-	cmdq_mbox_enable(client->chan);
 	CRTC_MMP_MARK((int) crtc_id, enable, 1, 1);
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_USE_M4U))
 		mtk_crtc_prepare_instr(crtc);
@@ -17258,3 +17265,214 @@ struct total_tile_overhead mtk_crtc_get_total_overhead(struct mtk_drm_crtc *mtk_
 {
 	return mtk_crtc->tile_overhead;
 }
+
+void mtk_crtc_addon_connector_rst(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
+{
+	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
+	struct mtk_ddp_comp *dsc_comp;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	if (panel_ext && panel_ext->output_mode == MTK_PANEL_DSC_SINGLE_PORT) {
+		if (drm_crtc_index(crtc) == 3)
+			dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC1];
+		else
+			dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+
+		mtk_ddp_rst_module(mtk_crtc, dsc_comp->id, cmdq_handle);
+	}
+}
+
+void mtk_crtc_cwb_addon_rst(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
+{
+	int i,j;
+	int index = drm_crtc_index(crtc);
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	const struct mtk_addon_scenario_data *addon_data;
+	const struct mtk_addon_scenario_data *addon_data_dual;
+	const struct mtk_addon_module_data *addon_module;
+	const struct mtk_addon_path_data *path_data;
+	struct mtk_cwb_info *cwb_info;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+
+	cwb_info = mtk_crtc->cwb_info;
+
+	if (index != 0 || mtk_crtc_is_dc_mode(crtc) || !cwb_info)
+		return;
+
+	mtk_crtc_cwb_set_sec(crtc);
+	if (!cwb_info->enable || cwb_info->is_sec || priv->need_cwb_path_disconnect)
+		return;
+
+
+	addon_data = mtk_addon_get_scenario_data(__func__, crtc, cwb_info->scn);
+	if (!addon_data)
+		return;
+
+	if (mtk_crtc->is_dual_pipe) {
+		addon_data_dual = mtk_addon_get_scenario_data_dual(__func__, crtc, cwb_info->scn);
+
+		if (!addon_data_dual)
+			return;
+	}
+
+	for (i = 0; i < addon_data->module_num; i++) {
+		addon_module = &addon_data->module_data[i];
+		path_data = mtk_addon_module_get_path(addon_module->module);
+		for (j = 0; j < path_data->path_len; j++)
+			mtk_ddp_rst_module(mtk_crtc, path_data->path[j], cmdq_handle);
+
+		if (!mtk_crtc->is_dual_pipe)
+			continue;
+
+		addon_module = &addon_data_dual->module_data[i];
+		path_data = mtk_addon_module_get_path(addon_module->module);
+		for (j = 0; j < path_data->path_len; j++)
+			mtk_ddp_rst_module(mtk_crtc, path_data->path[j], cmdq_handle);
+	}
+}
+
+void mtk_crtc_wb_addon_rst(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
+{
+	int i, j;
+	int index = drm_crtc_index(crtc);
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	enum addon_scenario scn;
+	const struct mtk_addon_scenario_data *addon_data;
+	const struct mtk_addon_scenario_data *addon_data_dual;
+	const struct mtk_addon_module_data *addon_module;
+	const struct mtk_addon_path_data *path_data;
+
+
+	if (index != 0 || mtk_crtc_is_dc_mode(crtc) ||
+		!state->prop_val[CRTC_PROP_OUTPUT_ENABLE])
+		return;
+
+	if (state->prop_val[CRTC_PROP_OUTPUT_SCENARIO] == 0)
+		scn = WDMA_WRITE_BACK_OVL;
+	else
+		scn = WDMA_WRITE_BACK;
+
+	addon_data = mtk_addon_get_scenario_data(__func__, crtc, scn);
+	if (!addon_data)
+		return;
+
+	if (mtk_crtc->is_dual_pipe) {
+		addon_data_dual = mtk_addon_get_scenario_data_dual(__func__, crtc, scn);
+
+		if (!addon_data_dual)
+			return;
+	}
+
+	for (i = 0; i < addon_data->module_num; i++) {
+		addon_module = &addon_data->module_data[i];
+		path_data = mtk_addon_module_get_path(addon_module->module);
+		for (j = 0; j < path_data->path_len; j++)
+			mtk_ddp_rst_module(mtk_crtc, path_data->path[j], cmdq_handle);
+
+		if (!mtk_crtc->is_dual_pipe)
+			continue;
+
+		addon_module = &addon_data_dual->module_data[i];
+		path_data = mtk_addon_module_get_path(addon_module->module);
+		for (j = 0; j < path_data->path_len; j++)
+			mtk_ddp_rst_module(mtk_crtc, path_data->path[j], cmdq_handle);
+	}
+}
+
+void mtk_crtc_default_path_rst(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
+{
+	int i, j;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_ddp_comp *comp;
+	bool only_output;
+
+	only_output = (priv->usage[drm_crtc_index(crtc)] == DISP_OPENING);
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+		if (only_output && !mtk_ddp_comp_is_output(comp))
+			continue;
+		mtk_ddp_rst_module(mtk_crtc, comp->id, cmdq_handle);
+	}
+
+	if(!mtk_crtc->is_dual_pipe)
+		return;
+
+	for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+		if (only_output && !mtk_ddp_comp_is_output(comp))
+			continue;
+		mtk_ddp_rst_module(mtk_crtc, comp->id, cmdq_handle);
+	}
+}
+
+void mtk_crtc_lye_addon_module_rst(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
+{
+
+	int i, j;
+	const struct mtk_addon_scenario_data *addon_data;
+	const struct mtk_addon_scenario_data *addon_data_dual;
+	const struct mtk_addon_module_data *addon_module;
+	const struct mtk_addon_path_data *path_data;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
+
+	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
+					crtc_state->lye_state.scn[drm_crtc_index(crtc)]);
+	if (!addon_data)
+		return;
+
+	if (mtk_crtc->is_dual_pipe) {
+		addon_data_dual = mtk_addon_get_scenario_data_dual
+			(__func__, crtc, crtc_state->lye_state.scn[drm_crtc_index(crtc)]);
+
+		if (!addon_data_dual)
+			return;
+	}
+
+	for (i = 0; i < addon_data->module_num; i++) {
+		addon_module = &addon_data->module_data[i];
+		path_data = mtk_addon_module_get_path(addon_module->module);
+		for (j = 0; j < path_data->path_len; j++)
+			mtk_ddp_rst_module(mtk_crtc, path_data->path[j], cmdq_handle);
+
+		if (!mtk_crtc->is_dual_pipe)
+			continue;
+
+		addon_module = &(addon_data_dual->module_data[i]);
+		path_data = mtk_addon_module_get_path(addon_module->module);
+		for (j = 0; j < path_data->path_len; j++)
+			mtk_ddp_rst_module(mtk_crtc, path_data->path[j], cmdq_handle);
+	}
+}
+
+void mtk_crtc_rst_module(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct cmdq_pkt *cmdq_handle;
+
+	DDPINFO("%s+\n", __func__);
+
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	if (!cmdq_handle)
+		DDPPR_ERR("%s: cmdq_handle is null\n", __func__);
+
+	mtk_crtc_default_path_rst(crtc, cmdq_handle);
+
+	mtk_crtc_addon_connector_rst(crtc, cmdq_handle);
+
+	if (mtk_crtc->mml_ir_state != MML_IR_IDLE) {
+		mtk_crtc_wb_addon_rst(crtc, cmdq_handle);
+		mtk_crtc_cwb_addon_rst(crtc, cmdq_handle);
+		mtk_crtc_lye_addon_module_rst(crtc, cmdq_handle);
+	}
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+	DDPINFO("%s-\n", __func__);
+}
+

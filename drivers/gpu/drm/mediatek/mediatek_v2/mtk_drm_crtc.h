@@ -1259,4 +1259,11 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level,
 int mtk_drm_setbacklight_grp(struct drm_crtc *crtc, unsigned int level,
 			unsigned int panel_ext_param, unsigned int cfg_flag);
 void mtk_crtc_update_gce_event(struct mtk_drm_crtc *mtk_crtc);
+void mtk_crtc_cwb_addon_rst(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle);
+void mtk_crtc_wb_addon_rst(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle);
+void mtk_crtc_lye_addon_module_rst(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle);
+void mtk_crtc_addon_connector_rst(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle);
+void mtk_crtc_default_path_rst(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle);
+void mtk_crtc_rst_module(struct drm_crtc *crtc);
+
 #endif /* MTK_DRM_CRTC_H */

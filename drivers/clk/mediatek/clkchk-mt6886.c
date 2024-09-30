@@ -876,6 +876,7 @@ static void devapc_dump(void)
 	for (i = 0; i < CHK_FM_NUM; i++)
 		freq[i] = mt_get_fmeter_freq(chk_fm_list[i].fm_id, chk_fm_list[i].fm_type);
 
+	release_mt6886_hwv_secure();
 	set_subsys_reg_dump_mt6886(devapc_dump_id);
 	for (i = 0; i < CHK_FM_NUM; i++)
 		pr_notice("[%s] %d khz\n", chk_fm_list[i].fm_name, freq[i]);
@@ -891,6 +892,7 @@ static void serror_dump(void)
 	for (i = 0; i < CHK_FM_NUM; i++)
 		freq[i] = mt_get_fmeter_freq(chk_fm_list[i].fm_id, chk_fm_list[i].fm_type);
 
+	release_mt6886_hwv_secure();
 	set_subsys_reg_dump_mt6886(devapc_dump_id);
 	for (i = 0; i < CHK_FM_NUM; i++)
 		pr_notice("[%s] %d khz\n", chk_fm_list[i].fm_name, freq[i]);
@@ -1009,6 +1011,9 @@ static void dump_bus_reg(struct regmap *regmap, u32 ofs)
 
 static enum chk_sys_id pll_dump_id[] = {
 	apmixed,
+	top,
+	hwv,
+	hwv_ext,
 	chk_sys_num,
 };
 

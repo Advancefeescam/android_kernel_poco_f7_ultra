@@ -424,6 +424,8 @@ static enum chk_sys_id debug_dump_id[] = {
 	cpu_ll,
 	cpu_bl,
 	ptp,
+	hwv,
+	hwv_ext,
 	chk_sys_num,
 };
 
@@ -433,6 +435,8 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 
 	if (id >= MT6886_CHK_PD_NUM)
 		return;
+
+	release_mt6886_hwv_secure();
 
 	set_subsys_reg_dump_mt6886(debug_dump_id);
 

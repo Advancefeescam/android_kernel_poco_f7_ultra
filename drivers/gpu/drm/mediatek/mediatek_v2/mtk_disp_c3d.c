@@ -853,13 +853,13 @@ static int disp_c3d_write_1dlut_to_reg(struct mtk_ddp_comp *comp,
 				c3d_lut1d[2], c3d_lut1d[3], c3d_lut1d[5], c3d_lut1d[6]);
 
 		if (id >= 0 && id < HW_ENGINE_NUM) {
-			mutex_lock(&g_c3d_global_lock);
+			//mutex_lock(&g_c3d_global_lock);
 			if (!gHasSet1DLut[id] ||
 				memcmp(&g_c3d_lut1d[0], c3d_lut1d, sizeof(g_c3d_lut1d))) {
 				memcpy(&g_c3d_lut1d[0], c3d_lut1d, sizeof(g_c3d_lut1d));
-				ret = disp_c3d_set_1dlut(comp, handle, 0);
+				ret = disp_c3d_set_1dlut(comp, handle, 1);
 			}
-			mutex_unlock(&g_c3d_global_lock);
+			//mutex_unlock(&g_c3d_global_lock);
 		} else {
 			pr_notice("%s: invalid ID = %d\n", __func__, comp->id);
 			ret = -EFAULT;

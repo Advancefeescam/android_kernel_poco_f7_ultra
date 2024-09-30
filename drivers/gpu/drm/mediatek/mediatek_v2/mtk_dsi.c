@@ -589,9 +589,16 @@ static void mtk_dsi_dphy_timconfig(struct mtk_dsi *dsi, void *handle)
 
 		/* hs_trail > max(8*UI, 60ns+4*UI) (spec) */
 		/* hs_trail = 80ns+4*UI */
-		hs_trail = 80 + 4 * ui;
-		hs_trail = (hs_trail > cycle_time) ?
-		NS_TO_CYCLE1(hs_trail, cycle_time) + 1 : 2;
+		if (dsi->driver_data->clk_hs_trail_en) {
+			if (dsi->data_rate < 740)
+				hs_trail = (dsi->data_rate * 66 + 44300) / 8000 + 1;
+			else
+				hs_trail = (dsi->data_rate * 66 + 42000) / 8000 + 1;
+		} else {
+			hs_trail = 80 + 4 * ui;
+			hs_trail = (hs_trail > cycle_time) ?
+			NS_TO_CYCLE1(hs_trail, cycle_time) + 1 : 2;
+		}
 
 		/* hs_exit > 100ns (spec) */
 		/* hs_exit = 120ns */
@@ -621,10 +628,13 @@ static void mtk_dsi_dphy_timconfig(struct mtk_dsi *dsi, void *handle)
 
 		/* clk_trail > 60ns (spec) */
 		/* clk_trail = 100ns */
-		clk_trail = NS_TO_CYCLE1(100, cycle_time) + 1;
-		if (clk_trail < 2)
-			clk_trail = 2;
-
+		if (dsi->driver_data->clk_hs_trail_en)
+			clk_trail = (dsi->data_rate * 65 + 52000) / 8000 + 1;
+		else {
+			clk_trail = NS_TO_CYCLE1(100, cycle_time) + 1;
+			if (clk_trail < 2)
+				clk_trail = 2;
+		}
 		/* clk_exit > 100ns (spec) */
 		/* clk_exit = 200ns */
 		/* timcon3.CLK_EXIT = NS_TO_CYCLE(200, cycle_time); */
@@ -650,10 +660,16 @@ static void mtk_dsi_dphy_timconfig(struct mtk_dsi *dsi, void *handle)
 		hs_zero = hs_zero > hs_prpr ? hs_zero - hs_prpr : hs_zero;
 
 		/* spec.  hs_trail > max(8ui, 60ns+4ui) */
-		hs_trail = NS_TO_CYCLE((9 * ui), cycle_time) > NS_TO_CYCLE((80 + 5 * ui),
-				cycle_time) ? NS_TO_CYCLE((9 * ui), cycle_time) :
-				NS_TO_CYCLE((80 + 5 * ui), cycle_time);
-
+		if (dsi->driver_data->clk_hs_trail_en) {
+			if (dsi->data_rate < 740)
+				hs_trail = (dsi->data_rate * 66 + 44300) / 8000 + 1;
+			else
+				hs_trail = (dsi->data_rate * 66 + 42000) / 8000 + 1;
+		} else {
+			hs_trail = NS_TO_CYCLE((9 * ui), cycle_time) > NS_TO_CYCLE((80 + 5 * ui),
+					cycle_time) ? NS_TO_CYCLE((9 * ui), cycle_time) :
+					NS_TO_CYCLE((80 + 5 * ui), cycle_time);
+		}
 		/* spec. ta_get = 5*lpx */
 		ta_get = 5 * lpx;
 		/* spec. ta_sure = 1.5*lpx */
@@ -669,7 +685,10 @@ static void mtk_dsi_dphy_timconfig(struct mtk_dsi *dsi, void *handle)
 		clk_zero = NS_TO_CYCLE(350, cycle_time);
 		clk_zero = clk_zero > clk_hs_prpr ? clk_zero - clk_hs_prpr : clk_zero;
 		/* spec. clk_trail > 60ns */
-		clk_trail = NS_TO_CYCLE(80, cycle_time);
+		if (dsi->driver_data->clk_hs_trail_en)
+			clk_trail = (dsi->data_rate * 65 + 52000) / 8000 + 1;
+		else
+			clk_trail = NS_TO_CYCLE(80, cycle_time);
 		da_hs_sync = 1;
 		cont_det = 3;
 
@@ -10402,6 +10421,7 @@ static const struct mtk_dsi_driver_data mt6886_dsi_driver_data = {
 	.sram_unit = 18,
 	.max_vfp = 0xffe,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
+	.clk_hs_trail_en = true,
 };
 
 static const struct mtk_dsi_driver_data mt6873_dsi_driver_data = {

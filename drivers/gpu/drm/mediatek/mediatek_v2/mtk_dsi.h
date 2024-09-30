@@ -40,6 +40,7 @@ struct mtk_dsi_driver_data {
 	s32 (*poll_for_idle)(struct mtk_dsi *dsi, struct cmdq_pkt *handle);
 	irqreturn_t (*irq_handler)(int irq, void *dev_id);
 	char *esd_eint_compat;
+	bool clk_hs_trail_en;
 	bool support_shadow;
 	bool need_bypass_shadow;
 	bool need_wait_fifo;

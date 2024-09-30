@@ -33,6 +33,9 @@
 #include "vtskin_temp.h"
 #include "thermal_interface.h"
 
+#define PPC_OFFSET    (0x350)
+#define PPC_enable    (0xC8)
+#define PPC_disable   (0x64)
 #define MAX_HEADROOM		(100)
 #define CSRAM_INIT_VAL		(0x27bc86aa)
 #define is_opp_limited(opp)	(opp > 0 && opp != CSRAM_INIT_VAL)
@@ -1450,6 +1453,55 @@ static const struct file_operations gpu_temp_debug_fops = {
 	.release = single_release,
 };
 
+static int ppc_enable_show(struct seq_file *m, void *unused)
+{
+	seq_printf(m, "%d\n", therm_intf_read_csram(PPC_OFFSET));
+	return 0;
+}
+
+static ssize_t ppc_enable_write(struct file *flip,
+			const char *ubuf, size_t cnt, loff_t *data)
+{
+	int ret;
+	char *buf;
+	int value = 0;
+
+	buf = kzalloc(cnt + 1, GFP_KERNEL);
+	if (buf == NULL)
+		return -ENOMEM;
+
+	if (copy_from_user(buf, ubuf, cnt)) {
+		ret = -EFAULT;
+		goto err;
+	}
+	buf[cnt] = '\0';
+	ret = kstrtoint(buf, 10, &value);
+	if (ret)
+		goto err;
+
+	if (value)
+		therm_intf_write_csram(PPC_enable, PPC_OFFSET);
+	else
+		therm_intf_write_csram(PPC_disable, PPC_OFFSET);
+
+err:
+	kfree(buf);
+	return cnt;
+}
+
+static int ppc_enable_open(struct inode *i, struct file *file)
+{
+	return single_open(file, ppc_enable_show, i->i_private);
+}
+
+static const struct file_operations ppc_enable_fops = {
+	.owner = THIS_MODULE,
+	.open = ppc_enable_open,
+	.read = seq_read,
+	.write = ppc_enable_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 
 static void therm_intf_debugfs_init(void)
 {
@@ -1463,6 +1515,7 @@ static void therm_intf_debugfs_init(void)
 	debugfs_create_file("gpu_cooler_debug", 0640, tm_data.debug_dir, NULL, &gpu_cooler_fops);
 	debugfs_create_file("gpu_temp_check", 0640, tm_data.debug_dir, NULL, &gpu_temp_debug_fops);
 	debugfs_create_file("cpu_cooler_debug", 0640, tm_data.debug_dir, NULL, &cpu_cooler_fops);
+	debugfs_create_file("ppc_enable", 0640, tm_data.debug_dir, NULL, &ppc_enable_fops);
 
 	therm_intf_write_csram(THERMAL_TEMP_INVALID, EMUL_TEMP_OFFSET);
 	therm_intf_write_csram(THERMAL_TEMP_INVALID, EMUL_TEMP_OFFSET + 4);

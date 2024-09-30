@@ -612,6 +612,7 @@ static void hdr_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 	if (unlikely(!task->pq_task->hdr_hist[pipe])) {
 		mml_pq_err("%s job_id[%d] hdr_hist is null", __func__,
 			task->job.jobid);
+		hdr_frm->is_hdr_need_readback = false;
 		return;
 	}
 
@@ -833,6 +834,7 @@ static s32 hdr_config_repost(struct mml_comp *comp, struct mml_task *task,
 		if (unlikely(!task->pq_task->hdr_hist[pipe])) {
 			mml_pq_err("%s job_id[%d] hdr_hist is null", __func__,
 				task->job.jobid);
+			hdr_frm->is_hdr_need_readback = false;
 			goto comp_config_put;
 		}
 

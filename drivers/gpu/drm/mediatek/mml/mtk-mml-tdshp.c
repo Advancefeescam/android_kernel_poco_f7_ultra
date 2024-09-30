@@ -547,6 +547,8 @@ static void tdshp_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 	if (unlikely(!task->pq_task->tdshp_hist[pipe])) {
 		mml_pq_err("%s job_id[%d] engine_id[%d] tdshp_hist is null",
 			__func__, task->job.jobid, comp->id);
+		tdshp_frm->is_clarity_need_readback = false;
+		tdshp_frm->is_dc_need_readback = false;
 		return;
 	}
 
@@ -671,6 +673,8 @@ static s32 tdshp_config_repost(struct mml_comp *comp, struct mml_task *task,
 		if (unlikely(!task->pq_task->tdshp_hist[pipe])) {
 			mml_pq_err("%s job_id[%d] tdshp_hist is null", __func__,
 				task->job.jobid);
+			tdshp_frm->is_clarity_need_readback = false;
+			tdshp_frm->is_dc_need_readback = false;
 			goto comp_config_put;
 		}
 

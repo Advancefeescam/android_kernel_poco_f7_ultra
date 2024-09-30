@@ -812,6 +812,8 @@ static void aal_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 	if (unlikely(!task->pq_task->aal_hist[pipe])) {
 		mml_pq_err("%s job_id[%d] aal_hist is null", __func__,
 			task->job.jobid);
+		aal_frm->is_aal_need_readback = false;
+		aal_frm->is_clarity_need_readback = false;
 		return;
 	}
 
@@ -1102,6 +1104,8 @@ static s32 aal_config_repost(struct mml_comp *comp, struct mml_task *task,
 		if (unlikely(!task->pq_task->aal_hist[pipe])) {
 			mml_pq_err("%s job_id[%d] aal_hist is null", __func__,
 				task->job.jobid);
+			aal_frm->is_aal_need_readback = false;
+			aal_frm->is_clarity_need_readback = false;
 			goto comp_config_put;
 		}
 

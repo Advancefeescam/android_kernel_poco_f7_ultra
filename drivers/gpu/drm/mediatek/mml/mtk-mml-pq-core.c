@@ -429,10 +429,17 @@ void mml_pq_get_readback_buffer(struct mml_task *task, u8 pipe,
 	if (!temp_buffer->va && !temp_buffer->pa) {
 		mutex_lock(&task->pq_task->buffer_mutex);
 		temp_buffer->va = (u32 *)cmdq_mbox_buf_alloc(clt, &temp_buffer->pa);
+		if (!temp_buffer->va) {
+			mml_pq_err("%s allocate va failed", __func__);
+			kfree(temp_buffer);
+			temp_buffer = NULL;
+			*hist = NULL;
+		}
 		mutex_unlock(&task->pq_task->buffer_mutex);
 	}
-	mml_pq_rb_msg("%s job_id[%d] va[%p] pa[%llx] buffer_num[%d]", __func__,
-		task->job.jobid, temp_buffer->va, temp_buffer->pa, buffer_num);
+	if (temp_buffer)
+		mml_pq_rb_msg("%s job_id[%d] va[%p] pa[%llx] buffer_num[%d]", __func__,
+			task->job.jobid, temp_buffer->va, temp_buffer->pa, buffer_num);
 }
 
 void mml_pq_put_readback_buffer(struct mml_task *task, u8 pipe,

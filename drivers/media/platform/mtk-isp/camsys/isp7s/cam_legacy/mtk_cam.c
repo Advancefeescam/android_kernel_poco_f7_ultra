@@ -3091,8 +3091,8 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 		if (!mtk_cam_feature_change_is_mstream(s_data->feature.switch_feature_type))
 			s_data->flags |= MTK_CAM_REQ_SEAMLESS_SKIP_SENSOR_WORKER;
 
-		if (s_data->feature.prev_scen.scen.normal.stagger_type == MTK_CAM_STAGGER_NONE &&
-			s_data->feature.scen->scen.normal.stagger_type == MTK_CAM_STAGGER_NONE) {
+		if (s_data->feature.prev_scen.scen.normal.exp_num == 1 &&
+			s_data->feature.scen->scen.normal.exp_num == 1) {
 			s_data->flags |= MTK_CAM_REQ_SEAMLESS_IN_SEN_ZOOM;
 		}
 

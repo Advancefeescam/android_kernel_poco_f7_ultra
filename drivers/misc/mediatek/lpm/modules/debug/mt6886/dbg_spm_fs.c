@@ -7,6 +7,7 @@
 #include <linux/fs.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
+#include <linux/rtc.h>
 #include <linux/spinlock.h>
 
 #include <lpm_dbg_common_v1.h>
@@ -18,6 +19,7 @@
 #include <pwr_ctrl.h>
 #include <lpm_dbg_fs_common.h>
 #include <lpm_spm_comm.h>
+#include "lpm_logger.h"
 
 /* Determine for node route */
 #define MT_LP_RQ_NODE	"/proc/mtk_lpm/spm/spm_resource_req"
@@ -668,6 +670,30 @@ static const struct mtk_lp_sysfs_op vsram_lp_volt_fops = {
 	.fs_write = vsram_lp_volt_write,
 };
 
+static ssize_t block_threshold_read(char *ToUserBuf, size_t sz, void *priv)
+{
+	char *p = ToUserBuf;
+
+	mtk_dbg_spm_log("%u\n", is_lp_blocked_threshold);
+
+	return p - ToUserBuf;
+}
+
+static ssize_t block_threshold_write(char *FromUserBuf, size_t sz, void *priv)
+{
+	unsigned int val;
+
+	if (!kstrtouint(FromUserBuf, 10, &val))
+		is_lp_blocked_threshold = val;
+
+	return sz;
+}
+
+static const struct mtk_lp_sysfs_op block_threshold_fops = {
+	.fs_read = block_threshold_read,
+	.fs_write = block_threshold_write,
+};
+
 static const char * const mtk_lp_state_name[NUM_SPM_STAT] = {
 	"AP",
 	"26M",
@@ -696,7 +722,8 @@ static ssize_t system_stat_read(char *ToUserBuf, size_t sz, void *priv)
 	char *p = ToUserBuf;
 	struct md_sleep_status tmp_md_data;
 	struct lpm_dbg_lp_info info;
-	int i;
+	unsigned int i;
+	struct spm_req_sta_list *sta_list;
 
 	mtk_get_lp_info(&info, SPM_IDLE_STAT);
 	for (i = 0; i < NUM_SPM_STAT; i++) {
@@ -733,6 +760,29 @@ static ssize_t system_stat_read(char *ToUserBuf, size_t sz, void *priv)
 		cur_md_sleep_status.nr_sleep_time / 1000000,
 		(cur_md_sleep_status.nr_sleep_time % 1000000) / 1000);
 
+	/* dump last suspend blocking request */
+	sta_list = spm_get_req_sta_list();
+	if (!sta_list || sta_list->is_blocked == 0) {
+		mtk_dbg_spm_log("Last Suspend is not blocked\n");
+		goto SKIP_REQ_DUMP;
+	}
+
+	mtk_dbg_spm_log("Last Suspend %d-%02d-%02d %02d:%02d:%02d (UTC) blocked by ",
+		sta_list->suspend_tm->tm_year + 1900, sta_list->suspend_tm->tm_mon + 1,
+		sta_list->suspend_tm->tm_mday, sta_list->suspend_tm->tm_hour,
+		sta_list->suspend_tm->tm_min, sta_list->suspend_tm->tm_sec);
+
+	for (i = 0; i < sta_list->spm_req_num; i++) {
+		if (sta_list->spm_req[i].on)
+			mtk_dbg_spm_log("%s ", sta_list->spm_req[i].name);
+	}
+	for (i = 0; i < NUM_SPM_SCENE; i++) {
+		if ((sta_list->lp_scenario_sta & (1 << i)))
+			mtk_dbg_spm_log("%s ", get_spm_scenario_str(i));
+	}
+
+	mtk_dbg_spm_log("\n");
+SKIP_REQ_DUMP:
 	return p - ToUserBuf;
 }
 
@@ -757,6 +807,8 @@ int lpm_spm_fs_init(void)
 			, &vsram_lp_volt_fops, NULL);
 	mtk_spm_sysfs_entry_node_add("system_stat", 0444
 			, &system_stat_fops, NULL);
+	mtk_spm_sysfs_entry_node_add("block_threshold", 0444
+			, &block_threshold_fops, NULL);
 
 	r = mtk_lp_sysfs_entry_func_create(spm_root.name,
 					   spm_root.mode, NULL,

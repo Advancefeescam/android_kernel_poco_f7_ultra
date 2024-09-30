@@ -82,7 +82,6 @@ enum MT_SPM_SCENE_STATE {
 	NUM_SPM_SCENE,
 };
 
-
 struct lpm_stat_record {
 	u64 count;
 	u64 duration;

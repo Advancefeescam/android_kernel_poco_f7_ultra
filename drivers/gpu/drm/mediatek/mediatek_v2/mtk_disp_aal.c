@@ -1202,7 +1202,14 @@ static bool debug_dump_aal_hist;
 int mtk_drm_ioctl_aal_get_hist(struct drm_device *dev, void *data,
 	struct drm_file *file_priv)
 {
+	struct mtk_drm_private *private = dev->dev_private;
+	struct drm_crtc *crtc = private->crtc[0];
+
 	disp_aal_wait_hist();
+
+	if (drm_mode_vrefresh(&crtc->state->adjusted_mode) == 60)
+		usleep_range(1500, 2000);
+
 	if (disp_aal_copy_hist_to_user((struct DISP_AAL_HIST *) data) < 0)
 		return -EFAULT;
 	if (debug_dump_aal_hist)
@@ -2079,7 +2086,6 @@ static void disp_aal_update_dre3_sram(struct mtk_ddp_comp *comp,
 		}
 		spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 		if (result) {
-			AALIRQ_LOG("wake_up_interruptible");
 			wake_up_interruptible(&g_aal_hist_wq);
 		} else {
 			AALIRQ_LOG("result fail");

@@ -31,10 +31,9 @@
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <trace/hooks/traps.h>
 
+#include "pcie-mediatek-gen3.h"
 #include "../pci.h"
 #include "../../misc/mediatek/clkbuf/v1/inc/mtk_clkbuf_ctl.h"
-
-u32 mtk_pcie_dump_link_info(int port);
 
 /* pextp register, CG,HW mode */
 #define PCIE_PEXTP_CG_0			0x14
@@ -118,6 +117,7 @@ u32 mtk_pcie_dump_link_info(int port);
 #define PCIE_INT_STATUS_REG		0x184
 #define PCIE_AXIERR_COMPL_TIMEOUT	BIT(18)
 #define PCIE_AXI_READ_ERR		GENMASK(18, 16)
+#define PCIE_AER_EVT			BIT(29)
 #define PCIE_MSI_SET_ENABLE_REG		0x190
 #define PCIE_MSI_SET_ENABLE		GENMASK(PCIE_MSI_SET_NUM - 1, 0)
 
@@ -175,6 +175,9 @@ u32 mtk_pcie_dump_link_info(int port);
 /* AER status */
 #define PCIE_AER_UNC_STATUS		0x1204
 #define AER_UNC_CT			BIT(14)
+#define PCIE_AER_CO_STATUS		0x1210
+#define AER_CO_RE			BIT(0)
+#define AER_CO_BTLP			BIT(6)
 
 /* PHY sif register */
 #define PCIE_PHY_SIF			0x11100000
@@ -311,9 +314,30 @@ static void __iomem *mtk_pcie_map_bus(struct pci_bus *bus, unsigned int devfn,
 static int mtk_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 				int where, int size, u32 *val)
 {
+	struct mtk_pcie_port *port = bus->sysdata;
+	int ret_val;
+	u32 reg;
+
 	mtk_pcie_config_tlp_header(bus, devfn, where, size);
 
-	return pci_generic_config_read32(bus, devfn, where, size, val);
+	ret_val =  pci_generic_config_read32(bus, devfn, where, size, val);
+
+	/*
+	 * Workaround:
+	 * PCIe cannot read the config space of EP when an AER event occurs,
+	 * If rxerr, block PCIe data transmission and avoid system hang.
+	 */
+	if (ret_val == 0) {
+		reg = readl_relaxed(port->base + PCIE_INT_STATUS_REG);
+		if (reg & PCIE_AER_EVT) {
+			writel_relaxed(PCIE_RC_CFG, port->base + PCIE_CFGNUM_REG);
+			reg = readl_relaxed(port->base + PCIE_AER_CO_STATUS);
+			if (reg & (AER_CO_RE | AER_CO_BTLP))
+				mtk_pcie_disable_data_trans(0);
+		}
+	}
+
+	return ret_val;
 }
 
 static int mtk_pcie_config_write(struct pci_bus *bus, unsigned int devfn,

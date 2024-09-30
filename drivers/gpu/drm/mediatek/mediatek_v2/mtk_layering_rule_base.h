@@ -197,6 +197,10 @@ struct layering_rule_ops {
 #define HRT_SET_NO_COMPRESS_FLAG(hrt_num, value)                               \
 	(hrt_num = ((hrt_num & ~(0x7800)) | ((value & 0xf) << 11)))
 
+#define HRT_GET_NO_COMPRESS_FULL_FLAG(hrt_num) ((hrt_num & 0x18000) >> 15)
+#define HRT_SET_NO_COMPRESS_FULL_FLAG(hrt_num, value)                               \
+	(hrt_num = ((hrt_num & ~(0x18000)) | ((value & 0x3) << 15)))
+
 
 #define HRT_GET_PATH_ID(hrt_path) (hrt_path & 0x1F)
 

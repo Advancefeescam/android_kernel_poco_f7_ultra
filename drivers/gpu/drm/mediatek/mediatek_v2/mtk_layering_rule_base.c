@@ -2881,6 +2881,7 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 	int i;
 	int clear_idx = -1;
 	int no_compress_layer_num = 0;
+	int no_compress_layer_full_num = 0;
 	int idx = disp_idx;
 
 	if (get_layering_opt(LYE_OPT_SPHRT))
@@ -2964,6 +2965,25 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 			no_compress_layer_num++;
 		}
 
+		if (disp_idx == 0 && !is_extended_layer(layer_info)
+			&& layer_info->compress != 1) {
+			struct mtk_drm_private *priv = drm_dev->dev_private;
+			struct drm_crtc *crtc;
+
+			crtc = priv->crtc[disp_idx];
+			if (crtc) {
+				if (layer_info->dst_height == crtc->mode.vdisplay &&
+					layer_info->dst_width == crtc->mode.hdisplay) {
+					DDPINFO("%s lid %d no compr full phy layer, (%u, %u)\n",
+						__func__, i, crtc->mode.hdisplay,
+						crtc->mode.vdisplay);
+					no_compress_layer_full_num++;
+				}
+			} else {
+				DDPPR_ERR("%s:%d can't get mtk_crtc\n", __func__, __LINE__);
+			}
+		}
+
 		if (disp_idx >= MAX_CRTC || plane_idx >= OVL_LAYER_NR) {
 			dump_disp_info(disp_info, DISP_DEBUG_LEVEL_INFO);
 			DDPAEE("%s Error disp_idx %d, plane_idx %d\n", __func__,
@@ -2982,9 +3002,13 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 	if (disp_idx == 0) {
 		HRT_SET_NO_COMPRESS_FLAG(disp_info->hrt_num,
 				no_compress_layer_num);
-		DDPINFO("%s disp_info->hrt_num=0x%x,no_comp_layer_num=%d\n",
+		HRT_SET_NO_COMPRESS_FULL_FLAG(disp_info->hrt_num,
+				no_compress_layer_full_num);
+		DDPINFO("%s disp_info->hrt_num=0x%x,no_comp_layer_num=%d,%d,%d\n",
 				__func__, disp_info->hrt_num,
-				no_compress_layer_num);
+				no_compress_layer_num,
+				no_compress_layer_full_num,
+				HRT_GET_NO_COMPRESS_FULL_FLAG(disp_info->hrt_num));
 	}
 
 	return 0;
@@ -3462,6 +3486,15 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 	lyeblob_ids->free_cnt_mask = crtc_mask;
 	lyeblob_ids->hrt_valid = g_hrt_valid;
 	lyeblob_ids->disp_status = l_info->disp_list;
+	if (priv->data->has_emi_limit) {
+		int no_compress_num = HRT_GET_NO_COMPRESS_FULL_FLAG(lyeblob_ids->hrt_num);
+
+		if (lyeblob_ids->frame_weight == 800 && no_compress_num == 1) {
+			lyeblob_ids->frame_weight += 400;
+			DDPINFO("%s, overlap add one layer,%d\n",
+				__func__, lyeblob_ids->frame_weight);
+		}
+	}
 	INIT_LIST_HEAD(&lyeblob_ids->list);
 	mutex_lock(&priv->lyeblob_list_mutex);
 	if (get_layering_opt(LYE_OPT_SPHRT))

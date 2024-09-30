@@ -4407,6 +4407,7 @@ static const struct mtk_mmsys_driver_data mt6886_mmsys_driver_data = {
 	/* sodi is same as mt6895 */
 	.sodi_config = mt6895_mtk_sodi_config,
 	.has_smi_limitation = false,
+	.has_emi_limit = true,
 	.doze_ctrl_pmic = true,
 	.can_compress_rgb565 = true,
 	.bypass_infra_ddr_control = true,

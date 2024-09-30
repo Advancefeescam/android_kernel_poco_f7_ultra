@@ -76,6 +76,7 @@ struct mtk_mmsys_driver_data {
 	const struct mtk_fake_eng_data *fake_eng_data;
 	bool bypass_infra_ddr_control;
 	bool has_smi_limitation;
+	bool has_emi_limit;
 	bool doze_ctrl_pmic;
 	bool can_compress_rgb565;
 	void (*disable_merge_irq)(struct drm_device *drm);

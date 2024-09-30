@@ -1338,8 +1338,10 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level,
 		cmdq_handle = sb_cmdq_handle;
 		sb_cmdq_handle = NULL;
 	} else {
-		cmdq_handle =
-			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		if (is_frame_mode)
+			cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		else
+			cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 	}
 
 	if (!cmdq_handle) {

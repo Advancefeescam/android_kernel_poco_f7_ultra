@@ -778,6 +778,7 @@ int uarthub_core_dev0_is_uarthub_ready(void)
 		(0x1 << 9)) >> 9);
 
 	if (state == 1) {
+		uarthub_core_crc_ctrl(1);
 #if UARTHUB_DEBUG_LOG
 		uarthub_core_debug_clk_info("HUB_DBG_SetTX_E");
 #endif

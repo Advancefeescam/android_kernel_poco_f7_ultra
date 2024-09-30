@@ -741,7 +741,7 @@ static void mtk_spr_color_tune_config(struct mtk_ddp_comp *comp,
 			}
 			break;
 		case SPR_BORDER_SET:
-			for (i = 0; i < 72; i += 8) {
+			for (i = 0; i < 56; i += 8) {
 				reg_val = (spr_color_params_tune->tune_list[i] == 1 ?
 					spr_color_params_tune->para_list[i] :
 					spr_color_params->para_list[i]) |
@@ -766,6 +766,34 @@ static void mtk_spr_color_tune_config(struct mtk_ddp_comp *comp,
 					((spr_color_params_tune->tune_list[i+7] == 1 ?
 					spr_color_params_tune->para_list[i+7] :
 					spr_color_params->para_list[i+7]) << 28);
+				mtk_ddp_write(comp, reg_val,
+					DISP_REG_SPR_BORDER0 + 0x4 * i/8, handle);
+			}
+			for (i = 56; i < 72; i += 8) {
+				reg_val = (spr_color_params_tune->tune_list[i] == 1 ?
+					spr_color_params_tune->para_list[i] :
+					spr_color_params->para_list[i]) |
+					((spr_color_params_tune->tune_list[i+1] == 1 ?
+					spr_color_params_tune->para_list[i+1] :
+					spr_color_params->para_list[i+1]) << 2) |
+					((spr_color_params_tune->tune_list[i+2] == 1 ?
+					spr_color_params_tune->para_list[i+2] :
+					spr_color_params->para_list[i+2]) << 4) |
+					((spr_color_params_tune->tune_list[i+3] == 1 ?
+					spr_color_params_tune->para_list[i+3] :
+					spr_color_params->para_list[i+3]) << 6) |
+					((spr_color_params_tune->tune_list[i+4] == 1 ?
+					spr_color_params_tune->para_list[i+4] :
+					spr_color_params->para_list[i+4]) << 8) |
+					((spr_color_params_tune->tune_list[i+5] == 1 ?
+					spr_color_params_tune->para_list[i+5] :
+					spr_color_params->para_list[i+5]) << 10) |
+					((spr_color_params_tune->tune_list[i+6] == 1 ?
+					spr_color_params_tune->para_list[i+6] :
+					spr_color_params->para_list[i+6]) << 12) |
+					((spr_color_params_tune->tune_list[i+7] == 1 ?
+					spr_color_params_tune->para_list[i+7] :
+					spr_color_params->para_list[i+7]) << 14);
 				mtk_ddp_write(comp, reg_val,
 					DISP_REG_SPR_BORDER0 + 0x4 * i/8, handle);
 			}
@@ -844,7 +872,7 @@ static void mtk_spr_color_config(struct mtk_ddp_comp *comp,
 			}
 			break;
 		case SPR_BORDER_SET:
-			for (i = 0; i < 72; i += 8) {
+			for (i = 0; i < 56; i += 8) {
 				reg_val = (spr_color_params->para_list[i]) |
 					(spr_color_params->para_list[i+1] << 4) |
 					(spr_color_params->para_list[i+2] << 8) |
@@ -853,6 +881,18 @@ static void mtk_spr_color_config(struct mtk_ddp_comp *comp,
 					(spr_color_params->para_list[i+5] << 20) |
 					(spr_color_params->para_list[i+6] << 24) |
 					(spr_color_params->para_list[i+7] << 28);
+				mtk_ddp_write(comp, reg_val,
+					DISP_REG_SPR_BORDER0 + 0x4 * i/8, handle);
+			}
+			for (i = 56; i < 72; i += 8) {
+				reg_val = (spr_color_params->para_list[i]) |
+					(spr_color_params->para_list[i+1] << 2) |
+					(spr_color_params->para_list[i+2] << 4) |
+					(spr_color_params->para_list[i+3] << 6) |
+					(spr_color_params->para_list[i+4] << 8) |
+					(spr_color_params->para_list[i+5] << 10) |
+					(spr_color_params->para_list[i+6] << 12) |
+					(spr_color_params->para_list[i+7] << 14);
 				mtk_ddp_write(comp, reg_val,
 					DISP_REG_SPR_BORDER0 + 0x4 * i/8, handle);
 			}

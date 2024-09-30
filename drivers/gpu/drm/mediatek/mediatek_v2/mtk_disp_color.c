@@ -1295,9 +1295,6 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x01, 0x01);
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			(0x1 << 29), 0x20000000);
-		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_START(color), 0x1, 0x1);
 	}
 
@@ -1680,22 +1677,13 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 
 	if (g_color_bypass == 0) {
 		if (color->data->support_color21 == true) {
-			if (g_legacy_color_cust)
-				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + DISP_COLOR_CFG_MAIN,
-					(1 << 21)
-					| (g_Color_Index.LSP_EN << 20)
-					| (g_Color_Index.S_GAIN_BY_Y_EN << 15)
-					| (wide_gamut_en << 8)
-					| (0 << 7), 0x003081FF);
-			else
-				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + DISP_COLOR_CFG_MAIN,
-					(1 << 21)
-					| (color_reg->LSP_EN << 20)
-					| (color_reg->S_GAIN_BY_Y_EN << 15)
-					| (wide_gamut_en << 8)
-					| (0 << 7), 0x003081FF);
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_COLOR_CFG_MAIN,
+				(1 << 21)
+				| (color_reg->LSP_EN << 20)
+				| (color_reg->S_GAIN_BY_Y_EN << 15)
+				| (wide_gamut_en << 8)
+				| (0 << 7), 0x003081FF);
 		} else {
 			/* disable wide_gamut */
 			cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1725,9 +1713,6 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x01, 0x01);
 	} else {
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			(0x1 << 29), 0x20000000);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_START(color), 0x1, 0x1);
 	}
@@ -1982,22 +1967,13 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 		reg_index = 0;
 		for (i = 0; i < S_GAIN_BY_Y_CONTROL_CNT; i++) {
 			for (j = 0; j < S_GAIN_BY_Y_HUE_PHASE_CNT; j += 4) {
-				if (g_legacy_color_cust)
-					u4Temp = (g_Color_Index.S_GAIN_BY_Y[i][j]) +
-						(g_Color_Index.S_GAIN_BY_Y[i][j + 1]
-						<< 8) +
-						(g_Color_Index.S_GAIN_BY_Y[i][j + 2]
-						<< 16) +
-						(g_Color_Index.S_GAIN_BY_Y[i][j + 3]
-						<< 24);
-				else
-					u4Temp = (color_reg->S_GAIN_BY_Y[i][j]) +
-						(color_reg->S_GAIN_BY_Y[i][j + 1]
-						<< 8) +
-						(color_reg->S_GAIN_BY_Y[i][j + 2]
-						<< 16) +
-						(color_reg->S_GAIN_BY_Y[i][j + 3]
-						<< 24);
+				u4Temp = (color_reg->S_GAIN_BY_Y[i][j]) +
+					(color_reg->S_GAIN_BY_Y[i][j + 1]
+					<< 8) +
+					(color_reg->S_GAIN_BY_Y[i][j + 2]
+					<< 16) +
+					(color_reg->S_GAIN_BY_Y[i][j + 3]
+					<< 24);
 
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa +

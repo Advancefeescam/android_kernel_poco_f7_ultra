@@ -402,6 +402,13 @@ extern void __dl_server_attach_root(struct sched_dl_entity *dl_se, struct rq *rq
 extern int dl_server_apply_params(struct sched_dl_entity *dl_se,
 		    u64 runtime, u64 period, bool init);
 
+#if IS_ENABLED(CONFIG_MTK_ORIGIN_CHANGE)
+static inline bool dl_server_active(struct sched_dl_entity *dl_se)
+{
+	return dl_se->dl_server_active;
+}
+#endif  // CONFIG_MTK_ORIGIN_CHANGE
+
 #ifdef CONFIG_CGROUP_SCHED
 
 extern struct list_head task_groups;

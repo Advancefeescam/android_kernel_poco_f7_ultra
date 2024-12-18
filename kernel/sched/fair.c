@@ -1201,8 +1201,11 @@ static inline void update_curr_task(struct task_struct *p, s64 delta_exec)
 	trace_sched_stat_runtime(p, delta_exec);
 	account_group_exec_runtime(p, delta_exec);
 	cgroup_account_cputime(p, delta_exec);
+#if IS_ENABLED(CONFIG_MTK_ORIGIN_CHANGE)
+#else
 	if (p->dl_server)
 		dl_server_update(p->dl_server, delta_exec);
+#endif
 }
 
 static inline bool did_preempt_short(struct cfs_rq *cfs_rq, struct sched_entity *curr)
@@ -1278,6 +1281,20 @@ static void update_curr(struct cfs_rq *cfs_rq)
 
 		update_curr_task(p, delta_exec);
 
+#if IS_ENABLED(CONFIG_MTK_ORIGIN_CHANGE)
+		/*
+		 * If the fair_server is active, we need to account for the
+		 * fair_server time whether or not the task is running on
+		 * behalf of fair_server or not:
+		 * - If the task is running on behalf of fair_server, we need
+		 * to limit its time based on the assigned runtime.
+		 * - Fair task that runs outside of fair_server should account
+		 * against fair_server such that it can account for this time
+		 * and possibly avoid running this period.
+		 */
+		if (dl_server_active(&rq->fair_server))
+			dl_server_update(&rq->fair_server, delta_exec);
+#else
 		/*
 		 * Any fair task that runs outside of fair_server should
 		 * account against fair_server such that it can account for
@@ -1285,6 +1302,7 @@ static void update_curr(struct cfs_rq *cfs_rq)
 		 */
 		if (p->dl_server != &rq->fair_server)
 			dl_server_update(&rq->fair_server, delta_exec);
+#endif
 	}
 
 	account_cfs_rq_runtime(cfs_rq, delta_exec);

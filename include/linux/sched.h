@@ -1590,7 +1590,7 @@ struct task_struct {
 	struct callback_head		mce_kill_me;
 	int				mce_count;
 #endif
-	ANDROID_VENDOR_DATA_ARRAY(1, 64);
+	ANDROID_VENDOR_DATA_ARRAY(1, 6);
 	ANDROID_OEM_DATA_ARRAY(1, 6);
 
 #ifdef CONFIG_KRETPROBES

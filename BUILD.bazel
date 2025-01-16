@@ -1654,6 +1654,7 @@ ddk_headers(
         "drivers/pci/pci.h",
     ] + glob([
         "drivers/android/*.h",
+	"drivers/clocksource/*.h",
         "drivers/dma/dmaengine.h",
         "drivers/dma/virt-dma.h",
         "drivers/edac/*.h",

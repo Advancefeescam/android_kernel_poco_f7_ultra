@@ -1673,6 +1673,7 @@ ddk_headers(
         "drivers/pinctrl/*.h",
         "drivers/regulator/*.h",
         "drivers/thermal/*.h",
+        "drivers/tty/serial/serial_base.h",
         "drivers/tty/serial/serial_mctrl_gpio.h",
         "drivers/tty/serial/8250/8250.h",
         "drivers/usb/gadget/*.h",

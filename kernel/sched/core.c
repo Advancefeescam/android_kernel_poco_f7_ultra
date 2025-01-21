@@ -4685,11 +4685,6 @@ int try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	scoped_guard (raw_spinlock_irqsave, &p->pi_lock) {
 		smp_mb__after_spinlock();
 		if (!ttwu_state_match(p, state, &success)) {
-#if IS_ENABLED(CONFIG_MTK_ORIGIN_CHANGE)
-			if (!sched_proxy_exec())
-				break;
-#endif  // CONFIG_MTK_ORIGIN_CHANGE
-
 			/*
 			 * If we're already TASK_RUNNING, and BO_WAKING
 			 * continue on to ttwu_runnable check to force
@@ -4727,8 +4722,8 @@ int try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 		if (READ_ONCE(p->on_rq) && ttwu_runnable(p, wake_flags))
 			break;
 
-		if (READ_ONCE(p->__state) & TASK_UNINTERRUPTIBLE)
-			trace_sched_blocked_reason(p);
+	if (READ_ONCE(p->__state) & TASK_UNINTERRUPTIBLE)
+		trace_sched_blocked_reason(p);
 
 #ifdef CONFIG_SMP
 		/*

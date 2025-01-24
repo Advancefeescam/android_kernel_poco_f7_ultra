@@ -1664,6 +1664,7 @@ ddk_headers(
         "drivers/dma/virt-dma.h",
         "drivers/edac/*.h",
         "drivers/gpio/*.h",
+        "drivers/gpu/drm/*.h",
         "drivers/i2c/*.h",
         "drivers/interconnect/*.h",
         "drivers/iommu/*.h",

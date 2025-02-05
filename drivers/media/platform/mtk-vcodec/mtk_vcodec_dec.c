@@ -913,6 +913,9 @@ static dma_addr_t get_meta_buffer_dma_addr(struct mtk_vcodec_ctx *ctx, int fd)
 	dmabuf = dma_buf_get(fd);
 	mtk_v4l2_debug(8, "%s, dmabuf:%p", __func__, dmabuf);
 
+	if (IS_ERR(dmabuf))
+		return dma_addr;
+
 	if (dmabuf) {
 		for (i = 0; i < MAX_META_BUF_CNT; i++) {
 			if (dmabuf == ctx->dma_meta_list[i].dmabuf) {
@@ -3230,8 +3233,12 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 		if (mtkbuf->meta_user_fd > 0) {
 			mtkbuf->frame_buffer.dma_meta_buf =
 				dma_buf_get(mtkbuf->meta_user_fd);
-			mtkbuf->frame_buffer.dma_meta_addr =
-				get_meta_buffer_dma_addr(ctx, mtkbuf->meta_user_fd);
+			if (IS_ERR(mtkbuf->frame_buffer.dma_meta_buf))
+				mtkbuf->frame_buffer.dma_meta_buf = 0;
+			else {
+				mtkbuf->frame_buffer.dma_meta_addr =
+					get_meta_buffer_dma_addr(ctx, mtkbuf->meta_user_fd);
+			}
 		} else
 			mtkbuf->frame_buffer.dma_meta_buf = 0;
 

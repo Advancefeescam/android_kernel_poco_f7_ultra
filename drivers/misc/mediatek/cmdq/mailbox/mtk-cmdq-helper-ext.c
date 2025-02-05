@@ -2460,13 +2460,13 @@ static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	debug_end[debug_cnt++] = sched_clock();
 #endif
-	complete(&pkt->cmplt);
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	irq_long_times = cmdq_get_irq_long_times(client->chan);
 	if (debug_end[1] - debug_end[0] >= 500000 && !irq_long_times)
 		cmdq_util_err("IRQ_LONG:%llu in user callback",
 			debug_end[1] - debug_end[0]);
 #endif
+	complete(&pkt->cmplt);
 }
 #endif
 

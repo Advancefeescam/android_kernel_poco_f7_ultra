@@ -1729,6 +1729,7 @@ ddk_headers(
         "drivers/extcon/*.h",
         "fs/fuse/*.h",
         "kernel/**/*.h",
+        "net/**/*.h",
         "sound/usb/*.h",
         "drivers/firmware/arm_scmi/*.h",
         "security/selinux/include/*.h",

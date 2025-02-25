@@ -3023,6 +3023,10 @@ static inline const u8 *ieee80211_bss_get_ie(struct cfg80211_bss *bss, u8 id)
  *
  * @bss: The BSS to authenticate with, the callee must obtain a reference
  *	to it if it needs to keep it.
+ * @supported_selectors: List of selectors that should be assumed to be
+ *	supported by the station.
+ *	SAE_H2E must be assumed supported if set to %NULL.
+ * @supported_selectors_len: Length of supported_selectors in octets.
  * @auth_type: Authentication type (algorithm)
  * @ie: Extra IEs to add to Authentication frame or %NULL
  * @ie_len: Length of ie buffer in octets
@@ -3045,6 +3049,8 @@ struct cfg80211_auth_request {
 	struct cfg80211_bss *bss;
 	const u8 *ie;
 	size_t ie_len;
+	const u8 *supported_selectors;
+	u8 supported_selectors_len;
 	enum nl80211_auth_type auth_type;
 	const u8 *key;
 	u8 key_len;
@@ -3124,6 +3130,10 @@ enum cfg80211_assoc_req_flags {
  *	included in the Current AP address field of the Reassociation Request
  *	frame.
  * @flags:  See &enum cfg80211_assoc_req_flags
+ * @supported_selectors: supported selectors in IEEE 802.11 format
+ *	(or %NULL for no change).
+ *	If %NULL, then support for SAE_H2E should be assumed.
+ * @supported_selectors_len: Length of supported_selectors in octets.
  * @ht_capa:  HT Capabilities over-rides.  Values set in ht_capa_mask
  *	will be used in ht_capa.  Un-supported values will be ignored.
  * @ht_capa_mask:  The bits of ht_capa which are to be used.
@@ -3150,6 +3160,8 @@ struct cfg80211_assoc_request {
 	struct cfg80211_crypto_settings crypto;
 	bool use_mfp;
 	u32 flags;
+	const u8 *supported_selectors;
+	u8 supported_selectors_len;
 	struct ieee80211_ht_cap ht_capa;
 	struct ieee80211_ht_cap ht_capa_mask;
 	struct ieee80211_vht_cap vht_capa, vht_capa_mask;
@@ -6267,6 +6279,7 @@ enum ieee80211_ap_reg_power {
  *	entered.
  * @links.cac_time_ms: CAC time in ms
  * @valid_links: bitmap describing what elements of @links are valid
+ * @radio_mask: Bitmask of radios that this interface is allowed to operate on.
  */
 struct wireless_dev {
 	struct wiphy *wiphy;
@@ -6379,6 +6392,8 @@ struct wireless_dev {
 		unsigned int cac_time_ms;
 	} links[IEEE80211_MLD_MAX_NUM_LINKS];
 	u16 valid_links;
+
+	u32 radio_mask;
 };
 
 static inline const u8 *wdev_address(struct wireless_dev *wdev)
@@ -6563,6 +6578,17 @@ static inline bool cfg80211_channel_is_psc(struct ieee80211_channel *chan)
  */
 bool cfg80211_radio_chandef_valid(const struct wiphy_radio *radio,
 				  const struct cfg80211_chan_def *chandef);
+
+/**
+ * cfg80211_wdev_channel_allowed - Check if the wdev may use the channel
+ *
+ * @wdev: the wireless device
+ * @chan: channel to check
+ *
+ * Return: whether or not the wdev may use the channel
+ */
+bool cfg80211_wdev_channel_allowed(struct wireless_dev *wdev,
+				   struct ieee80211_channel *chan);
 
 /**
  * ieee80211_get_response_rate - get basic rate for a given rate

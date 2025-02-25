@@ -45,6 +45,7 @@
 #include <linux/init.h>
 #include <linux/mmu_notifier.h>
 #include <linux/cred.h>
+#include <linux/nmi.h>
 
 #include <asm/tlb.h>
 #include "internal.h"
@@ -434,10 +435,15 @@ void dump_tasks(struct oom_control *oc)
 		mem_cgroup_scan_tasks(oc->memcg, dump_task, oc);
 	else {
 		struct task_struct *p;
+		int i = 0;
 
 		rcu_read_lock();
-		for_each_process(p)
+		for_each_process(p) {
+			/* Avoid potential softlockup warning */
+			if ((++i & 1023) == 0)
+				touch_softlockup_watchdog();
 			dump_task(p, oc);
+		}
 		rcu_read_unlock();
 	}
 }
@@ -915,6 +921,21 @@ static bool task_will_free_mem(struct task_struct *task)
 	rcu_read_unlock();
 
 	return ret;
+}
+
+/* Adds a killed process to the reaper. @p->mm has to be non NULL. */
+void add_to_oom_reaper(struct task_struct *p)
+{
+	p = find_lock_task_mm(p);
+	if (!p)
+		return;
+
+	if (task_will_free_mem(p)) {
+		if (!cmpxchg(&p->signal->oom_mm, NULL, p->mm))
+			mmgrab(p->signal->oom_mm);
+		queue_oom_reaper(p);
+	}
+	task_unlock(p);
 }
 
 static void __oom_kill_process(struct task_struct *victim, const char *message)

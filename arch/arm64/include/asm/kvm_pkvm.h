@@ -268,6 +268,7 @@ static inline bool kvm_pvm_ext_allowed(long ext)
 enum pkvm_moveable_reg_type {
 	PKVM_MREG_MEMORY,
 	PKVM_MREG_PROTECTED_RANGE,
+	PKVM_MREG_ASSIGN_MMIO,
 };
 
 struct pkvm_moveable_reg {
@@ -467,4 +468,7 @@ struct pkvm_ptdump_log_hdr {
 	u64	w_index: 16;
 };
 
+int pkvm_call_hyp_nvhe_ppage(struct kvm_pinned_page *ppage,
+			     int (*call_hyp_nvhe)(u64, u64, u8, void*),
+			     void *args, bool unmap);
 #endif	/* __ARM64_KVM_PKVM_H__ */

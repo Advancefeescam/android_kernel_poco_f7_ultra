@@ -45,6 +45,7 @@
 #include <trace/events/block.h>
 
 #include "blk.h"
+#include "blk-mq-debugfs.h"
 #include "blk-mq-sched.h"
 #include "blk-pm.h"
 #include "blk-cgroup.h"
@@ -263,6 +264,7 @@ static void blk_free_queue_rcu(struct rcu_head *rcu_head)
 static void blk_free_queue(struct request_queue *q)
 {
 	blk_free_queue_stats(q->stats);
+	blk_disable_sub_page_limits(&q->limits);
 	if (queue_is_mq(q))
 		blk_mq_release(q);
 
@@ -635,8 +637,14 @@ static void __submit_bio(struct bio *bio)
 		blk_mq_submit_bio(bio);
 	} else if (likely(bio_queue_enter(bio) == 0)) {
 		struct gendisk *disk = bio->bi_bdev->bd_disk;
-
-		disk->fops->submit_bio(bio);
+	
+		if ((bio->bi_opf & REQ_POLLED) &&
+		    !(disk->queue->limits.features & BLK_FEAT_POLL)) {
+			bio->bi_status = BLK_STS_NOTSUPP;
+			bio_endio(bio);
+		} else {
+			disk->fops->submit_bio(bio);
+		}
 		blk_queue_exit(disk->queue);
 	}
 
@@ -811,12 +819,6 @@ void submit_bio_noacct(struct bio *bio)
 		}
 	}
 
-	if (!(q->limits.features & BLK_FEAT_POLL) &&
-			(bio->bi_opf & REQ_POLLED)) {
-		bio_clear_polled(bio);
-		goto not_supported;
-	}
-
 	switch (bio_op(bio)) {
 	case REQ_OP_READ:
 		break;
@@ -941,7 +943,7 @@ int bio_poll(struct bio *bio, struct io_comp_batch *iob, unsigned int flags)
 		return 0;
 
 	q = bdev_get_queue(bdev);
-	if (cookie == BLK_QC_T_NONE || !(q->limits.features & BLK_FEAT_POLL))
+	if (cookie == BLK_QC_T_NONE)
 		return 0;
 
 	blk_flush_plug(current->plug, false);
@@ -962,7 +964,8 @@ int bio_poll(struct bio *bio, struct io_comp_batch *iob, unsigned int flags)
 	} else {
 		struct gendisk *disk = q->disk;
 
-		if (disk && disk->fops->poll_bio)
+		if ((q->limits.features & BLK_FEAT_POLL) && disk &&
+		    disk->fops->poll_bio)
 			ret = disk->fops->poll_bio(bio, iob, flags);
 	}
 	blk_queue_exit(q);
@@ -1278,6 +1281,7 @@ int __init blk_dev_init(void)
 	blk_requestq_cachep = KMEM_CACHE(request_queue, SLAB_PANIC);
 
 	blk_debugfs_root = debugfs_create_dir("block", NULL);
+	blk_mq_debugfs_init();
 
 	return 0;
 }

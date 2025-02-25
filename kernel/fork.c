@@ -134,6 +134,7 @@
 #define MAX_THREADS FUTEX_TID_MASK
 
 EXPORT_TRACEPOINT_SYMBOL_GPL(task_newtask);
+EXPORT_TRACEPOINT_SYMBOL_GPL(task_rename);
 
 /*
  * Protected counters by write_lock_irq(&tasklist_lock)
@@ -1582,6 +1583,7 @@ struct mm_struct *mm_access(struct task_struct *task, unsigned int mode)
 
 	return mm;
 }
+EXPORT_SYMBOL_GPL(mm_access);
 
 static void complete_vfork_done(struct task_struct *tsk)
 {

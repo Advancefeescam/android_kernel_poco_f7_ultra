@@ -28,6 +28,7 @@
 #include <scsi/scsi_dbg.h>
 #include <scsi/scsi_driver.h>
 #include <scsi/scsi_eh.h>
+#include <ufs/ufs.h>
 #include "ufshcd-priv.h"
 #include <ufs/ufs_quirks.h>
 #include <ufs/unipro.h>
@@ -120,6 +121,10 @@ static bool is_mcq_supported(struct ufs_hba *hba)
 
 module_param(use_mcq_mode, bool, 0644);
 MODULE_PARM_DESC(use_mcq_mode, "Control MCQ mode for controllers starting from UFSHCI 4.0. 1 - enable MCQ, 0 - disable MCQ. MCQ is enabled by default");
+
+EXPORT_TRACEPOINT_SYMBOL_GPL(ufshcd_profile_hibern8);
+EXPORT_TRACEPOINT_SYMBOL_GPL(ufshcd_profile_clk_scaling);
+EXPORT_TRACEPOINT_SYMBOL_GPL(ufshcd_profile_clk_gating);
 
 static unsigned int uic_cmd_timeout = UIC_CMD_TIMEOUT_DEFAULT;
 
@@ -2550,6 +2555,7 @@ ufshcd_wait_for_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 	hba->active_uic_cmd = NULL;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
+	trace_android_vh_ufs_wait_for_uic_cmd(hba, uic_cmd, ret);
 	return ret;
 }
 
@@ -3185,7 +3191,7 @@ ufshcd_dev_cmd_completion(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 				__func__, resp);
 		break;
 	}
-
+	trace_android_vh_ufs_dev_cmd_completion(hba, lrbp, err);
 	return err;
 }
 
@@ -5110,6 +5116,7 @@ out:
 		ufshcd_print_pwr_info(hba);
 		ufshcd_print_evt_hist(hba);
 	}
+	trace_android_vh_ufs_link_startup(hba, ret);
 	return ret;
 }
 
@@ -5514,6 +5521,8 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp,
 	if ((host_byte(result) != DID_OK) &&
 	    (host_byte(result) != DID_REQUEUE) && !hba->silence_err_logs)
 		ufshcd_print_tr(hba, lrbp->task_tag, true);
+
+	trace_android_vh_ufs_transfer_rsp_status(hba, lrbp, cqe, result);
 	return result;
 }
 
@@ -9014,6 +9023,8 @@ static enum scsi_timeout_action ufshcd_eh_timed_out(struct scsi_cmnd *scmd)
 	dev_info(hba->dev, "%s() finished; outstanding_tasks = %#lx.\n",
 		 __func__, hba->outstanding_tasks);
 
+	trace_android_vh_ufs_eh_timed_out(hba, scmd);
+
 	return hba->outstanding_reqs ? SCSI_EH_RESET_TIMER : SCSI_EH_DONE;
 }
 
@@ -10631,14 +10642,17 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	}
 
 	/*
-	 * Set the default power management level for runtime and system PM.
+	 * Set the default power management level for runtime and system PM if
+	 * not set by the host controller drivers.
 	 * Default power saving mode is to keep UFS link in Hibern8 state
 	 * and UFS device in sleep state.
 	 */
-	hba->rpm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
+	if (!hba->rpm_lvl)
+		hba->rpm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
 						UFS_SLEEP_PWR_MODE,
 						UIC_LINK_HIBERN8_STATE);
-	hba->spm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
+	if (!hba->spm_lvl)
+		hba->spm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
 						UFS_SLEEP_PWR_MODE,
 						UIC_LINK_HIBERN8_STATE);
 

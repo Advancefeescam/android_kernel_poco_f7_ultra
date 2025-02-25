@@ -6,6 +6,7 @@
 
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/iommu.h>
 #include <linux/kmemleak.h>
 #include <linux/kvm_host.h>
 #include <linux/memblock.h>
@@ -14,6 +15,7 @@
 #include <linux/of_address.h>
 #include <linux/of_fdt.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/platform_device.h>
 #include <linux/sort.h>
 
 #include <asm/kvm_host.h>
@@ -24,8 +26,12 @@
 #include <asm/patching.h>
 #include <asm/setup.h>
 
+#include <kvm/device.h>
+
 #include "hyp_constants.h"
 #include "hyp_trace.h"
+
+#define PKVM_DEVICE_ASSIGN_COMPAT	"pkvm,device-assignment"
 
 DEFINE_STATIC_KEY_FALSE(kvm_protected_mode_initialized);
 
@@ -39,6 +45,9 @@ static unsigned int *hyp_memblock_nr_ptr = &kvm_nvhe_sym(hyp_memblock_nr);
 
 phys_addr_t hyp_mem_base;
 phys_addr_t hyp_mem_size;
+
+extern struct pkvm_device *kvm_nvhe_sym(registered_devices);
+extern u32 kvm_nvhe_sym(registered_devices_nr);
 
 static int cmp_hyp_memblock(const void *p1, const void *p2)
 {
@@ -103,11 +112,39 @@ static void __init sort_moveable_regs(void)
 	     NULL);
 }
 
+static int __init register_moveable_fdt_resource(struct device_node *np,
+						 enum pkvm_moveable_reg_type type)
+{
+	struct resource res;
+	u64 start, size;
+	unsigned int j = 0;
+	unsigned int i = kvm_nvhe_sym(pkvm_moveable_regs_nr);
+
+	while(!of_address_to_resource(np, j, &res)) {
+		if (i >= PKVM_NR_MOVEABLE_REGS)
+			return -ENOMEM;
+
+		start = res.start;
+		size = resource_size(&res);
+		if (!PAGE_ALIGNED(start) || !PAGE_ALIGNED(size))
+			return -EINVAL;
+
+		moveable_regs[i].start = start;
+		moveable_regs[i].size = size;
+		moveable_regs[i].type = type;
+		i++;
+		j++;
+	}
+
+	kvm_nvhe_sym(pkvm_moveable_regs_nr) = i;
+	return 0;
+}
+
 static int __init register_moveable_regions(void)
 {
 	struct memblock_region *reg;
 	struct device_node *np;
-	int i = 0;
+	int i = 0, ret = 0, idx = 0;
 
 	for_each_mem_region(reg) {
 		if (i >= PKVM_NR_MOVEABLE_REGS)
@@ -117,34 +154,33 @@ static int __init register_moveable_regions(void)
 		moveable_regs[i].type = PKVM_MREG_MEMORY;
 		i++;
 	}
+	kvm_nvhe_sym(pkvm_moveable_regs_nr) = i;
 
 	for_each_compatible_node(np, NULL, "pkvm,protected-region") {
-		struct resource res;
-		u64 start, size;
-		int ret;
-
-		if (i >= PKVM_NR_MOVEABLE_REGS)
-			return -ENOMEM;
-
-		ret = of_address_to_resource(np, 0, &res);
+		ret = register_moveable_fdt_resource(np, PKVM_MREG_PROTECTED_RANGE);
 		if (ret)
-			return ret;
-
-		start = res.start;
-		size = resource_size(&res);
-		if (!PAGE_ALIGNED(start) || !PAGE_ALIGNED(size))
-			return -EINVAL;
-
-		moveable_regs[i].start = start;
-		moveable_regs[i].size = size;
-		moveable_regs[i].type = PKVM_MREG_PROTECTED_RANGE;
-		i++;
+			goto out_fail;
 	}
 
-	kvm_nvhe_sym(pkvm_moveable_regs_nr) = i;
+	for_each_compatible_node(np, NULL, PKVM_DEVICE_ASSIGN_COMPAT) {
+		struct of_phandle_args args;
+
+		while (!of_parse_phandle_with_fixed_args(np, "devices", 1, idx, &args)) {
+			idx++;
+			ret = register_moveable_fdt_resource(args.np, PKVM_MREG_ASSIGN_MMIO);
+			of_node_put(args.np);
+			if (ret)
+				goto out_fail;
+		}
+	}
+
 	sort_moveable_regs();
 
-	return 0;
+	return ret;
+out_fail:
+	of_node_put(np);
+	kvm_nvhe_sym(pkvm_moveable_regs_nr) = 0;
+	return ret;
 }
 
 void __init kvm_hyp_reserve(void)
@@ -233,6 +269,79 @@ err_free_reqs:
 	return ret;
 }
 
+/*
+ * Handle broken down huge pages which have not been reported to the
+ * kvm_pinned_page.
+ */
+int pkvm_call_hyp_nvhe_ppage(struct kvm_pinned_page *ppage,
+			     int (*call_hyp_nvhe)(u64 pfn, u64 gfn, u8 order, void* args),
+			     void *args, bool unmap)
+{
+	size_t page_size, size = PAGE_SIZE << ppage->order;
+	u64 pfn = page_to_pfn(ppage->page);
+	u8 order = ppage->order;
+	u64 gfn = ppage->ipa >> PAGE_SHIFT;
+
+	/* We already know this huge-page has been broken down in the stage-2 */
+	if (ppage->pins < (1 << order))
+		order = 0;
+
+	while (size) {
+		int err = call_hyp_nvhe(pfn, gfn, order, args);
+
+		switch (err) {
+		/* The stage-2 huge page has been broken down */
+		case -E2BIG:
+			if (order)
+				order = 0;
+			else
+				/* Something is really wrong ... */
+				return -EINVAL;
+			break;
+		/* This has been unmapped already */
+		case -ENOENT:
+			/*
+			 * We are not supposed to lose track of PAGE_SIZE pinned
+			 * page.
+			 */
+			if (!ppage->order)
+				return -EINVAL;
+
+			fallthrough;
+		case 0:
+			page_size = PAGE_SIZE << order;
+			gfn += 1 << order;
+			pfn += 1 << order;
+
+			if (page_size > size)
+				return -EINVAL;
+
+			/* If -ENOENT, the pin was already dropped. */
+			if (unmap && !err)
+				ppage->pins -= 1 << order;
+
+			if (!ppage->pins)
+				return 0;
+
+			size -= page_size;
+			break;
+		default:
+			return err;
+		}
+	}
+
+	return 0;
+}
+
+static int __reclaim_dying_guest_page_call(u64 pfn, u64 gfn, u8 order, void *args)
+{
+	struct kvm *host_kvm = args;
+
+	return kvm_call_hyp_nvhe(__pkvm_reclaim_dying_guest_page,
+				 host_kvm->arch.pkvm.handle,
+				 pfn, gfn, order);
+}
+
 static void __pkvm_destroy_hyp_vm(struct kvm *host_kvm)
 {
 	struct mm_struct *mm = current->mm;
@@ -249,18 +358,18 @@ static void __pkvm_destroy_hyp_vm(struct kvm *host_kvm)
 	ppage = kvm_pinned_pages_iter_first(&host_kvm->arch.pkvm.pinned_pages, 0, ~(0UL));
 	while (ppage) {
 		struct kvm_pinned_page *next;
+		u16 pins = ppage->pins;
 
-		WARN_ON(kvm_call_hyp_nvhe(__pkvm_reclaim_dying_guest_page,
-					  host_kvm->arch.pkvm.handle,
-					  page_to_pfn(ppage->page),
-					  ppage->ipa));
+		WARN_ON(pkvm_call_hyp_nvhe_ppage(ppage,
+						 __reclaim_dying_guest_page_call,
+						 host_kvm, true));
 		cond_resched();
 
 		unpin_user_pages_dirty_lock(&ppage->page, 1, ppage->dirty);
 		next = kvm_pinned_pages_iter_next(ppage, 0, ~(0UL));
 		kvm_pinned_pages_remove(ppage, &host_kvm->arch.pkvm.pinned_pages);
+		pages += pins;
 		kfree(ppage);
-		pages++;
 		ppage = next;
 	}
 
@@ -340,6 +449,7 @@ static int __pkvm_create_hyp_vm(struct kvm *host_kvm)
 
 	/* Donate memory for the vcpus at hyp and initialize it. */
 	kvm_for_each_vcpu(idx, host_vcpu, host_kvm) {
+		__kvm_calculate_traps(host_vcpu);
 		ret = __pkvm_create_hyp_vcpu(host_kvm, host_vcpu, idx);
 		if (ret)
 			goto destroy_vm;
@@ -397,6 +507,113 @@ int pkvm_init_host_vm(struct kvm *host_kvm, unsigned long type)
 	return 0;
 }
 
+static int pkvm_register_device(struct of_phandle_args *args,
+				struct pkvm_device *dev)
+{
+	struct device_node *np = args->np;
+	struct of_phandle_args iommu_spec;
+	u32 group_id = args->args[0];
+	struct resource res;
+	u64 base, size, iommu_id;
+	unsigned int j = 0;
+
+	/* Parse regs */
+	while (!of_address_to_resource(np, j, &res)) {
+		if (j >= PKVM_DEVICE_MAX_RESOURCE)
+			return -E2BIG;
+
+		base = res.start;
+		size = resource_size(&res);
+		if (!PAGE_ALIGNED(base) || !PAGE_ALIGNED(size))
+			return -EINVAL;
+
+		dev->resources[j].base = base;
+		dev->resources[j].size = size;
+		j++;
+	}
+	dev->nr_resources = j;
+
+	/* Parse iommus */
+	j = 0;
+	while (!of_parse_phandle_with_args(np, "iommus",
+					   "#iommu-cells",
+					   j, &iommu_spec)) {
+		if (iommu_spec.args_count != 1) {
+			kvm_err("[Devices] Unsupported binding for %s, expected <&iommu id>",
+				np->full_name);
+			return -EINVAL;
+		}
+
+		if (j >= PKVM_DEVICE_MAX_RESOURCE) {
+			of_node_put(iommu_spec.np);
+			return -E2BIG;
+		}
+
+		iommu_id = kvm_get_iommu_id_by_of(iommu_spec.np);
+
+		dev->iommus[j].id = iommu_id;
+		dev->iommus[j].endpoint = iommu_spec.args[0];
+		of_node_put(iommu_spec.np);
+		j++;
+	}
+
+	dev->nr_iommus = j;
+	dev->ctxt = NULL;
+	dev->group_id = group_id;
+
+	return 0;
+}
+
+static int pkvm_init_devices(void)
+{
+	struct device_node *np;
+	int idx = 0, ret = 0, dev_cnt = 0;
+	size_t dev_sz;
+	struct pkvm_device *dev_base;
+
+	for_each_compatible_node (np, NULL, PKVM_DEVICE_ASSIGN_COMPAT) {
+		struct of_phandle_args args;
+
+		while (!of_parse_phandle_with_fixed_args(np, "devices", 1, dev_cnt, &args)) {
+			dev_cnt++;
+			of_node_put(args.np);
+		}
+	}
+	kvm_info("Found %d assignable devices", dev_cnt);
+
+	if (!dev_cnt)
+		return 0;
+
+	dev_sz = PAGE_ALIGN(size_mul(sizeof(struct pkvm_device), dev_cnt));
+
+	dev_base = alloc_pages_exact(dev_sz, GFP_KERNEL_ACCOUNT);
+
+	if (!dev_base)
+		return -ENOMEM;
+
+	for_each_compatible_node(np, NULL, PKVM_DEVICE_ASSIGN_COMPAT) {
+		struct of_phandle_args args;
+
+		while (!of_parse_phandle_with_fixed_args(np, "devices", 1, idx, &args)) {
+			ret = pkvm_register_device(&args, &dev_base[idx]);
+			of_node_put(args.np);
+			if (ret) {
+				of_node_put(np);
+				goto out_free;
+			}
+			idx++;
+		}
+	}
+
+	kvm_nvhe_sym(registered_devices_nr) = dev_cnt;
+	kvm_nvhe_sym(registered_devices) = dev_base;
+	return ret;
+
+out_free:
+	free_pages_exact(dev_base, dev_sz);
+	return ret;
+}
+
 static void __init _kvm_host_prot_finalize(void *arg)
 {
 	int *err = arg;
@@ -442,6 +659,16 @@ static int __init finalize_pkvm(void)
 		pkvm_firmware_rmem_clear();
 	}
 
+	ret = pkvm_init_devices();
+	if (ret) {
+		pr_err("Failed to init kvm devices %d\n", ret);
+		pkvm_firmware_rmem_clear();
+	}
+
+	ret = kvm_call_hyp_nvhe(__pkvm_devices_init);
+	if (ret)
+		pr_warn("Assignable devices failed to initialize in the hypervisor %d", ret);
+
 	/*
 	 * Exclude HYP sections from kmemleak so that they don't get peeked
 	 * at, which would end badly once inaccessible.
@@ -471,8 +698,16 @@ void pkvm_host_reclaim_page(struct kvm *host_kvm, phys_addr_t ipa)
 	write_lock(&host_kvm->mmu_lock);
 	ppage = kvm_pinned_pages_iter_first(&host_kvm->arch.pkvm.pinned_pages,
 					   ipa, ipa + PAGE_SIZE - 1);
-	if (ppage)
-		kvm_pinned_pages_remove(ppage, &host_kvm->arch.pkvm.pinned_pages);
+	if (ppage) {
+		if (ppage->pins)
+			ppage->pins--;
+		else
+			WARN_ON(1);
+
+		if (!ppage->pins)
+			kvm_pinned_pages_remove(ppage,
+						&host_kvm->arch.pkvm.pinned_pages);
+	}
 	write_unlock(&host_kvm->mmu_lock);
 
 	WARN_ON(!ppage);
@@ -934,12 +1169,71 @@ static int pkvm_map_module_sections(struct pkvm_mod_sec_mapping *secs_map,
 
 	return 0;
 }
+
 static int __pkvm_cmp_mod_sec(const void *p1, const void *p2)
 {
 	struct pkvm_mod_sec_mapping const *s1 = p1;
 	struct pkvm_mod_sec_mapping const *s2 = p2;
 
 	return s1->sec->start < s2->sec->start ? -1 : s1->sec->start > s2->sec->start;
+}
+
+static void *pkvm_map_module_struct(struct pkvm_el2_module *mod)
+{
+	void *addr = (void *)__get_free_page(GFP_KERNEL);
+
+	if (!addr)
+		return NULL;
+
+	if (kvm_share_hyp(addr, addr + PAGE_SIZE)) {
+		free_page((unsigned long)addr);
+		return NULL;
+	}
+
+	/*
+	 * pkvm_el2_module being stored in vmalloc we can't guarantee a
+	 * linear map for the hypervisor to rely on. Copy the struct instead.
+	 */
+	memcpy(addr, mod, sizeof(*mod));
+
+	return addr;
+}
+
+static void pkvm_unmap_module_struct(void *addr)
+{
+	kvm_unshare_hyp(addr, addr + PAGE_SIZE);
+	free_page((unsigned long)addr);
+}
+
+static void pkvm_module_kmemleak(struct module *this,
+				 struct pkvm_mod_sec_mapping *sec_map,
+				 int nr_sections)
+{
+	void *start, *end;
+	int i;
+
+	if (!this)
+		return;
+
+	/*
+	 * The module loader already removes read-only sections from kmemleak
+	 * scanned objects. However, few hyp sections are installed into
+	 * MOD_DATA. Skip those sections before they are made inaccessible from
+	 * the host.
+	 */
+
+	start = this->mem[MOD_DATA].base;
+	end = start + this->mem[MOD_DATA].size;
+
+	for (i = 0; i < nr_sections; i++, sec_map++) {
+		if (sec_map->sec->start < start || sec_map->sec->start >= end)
+			continue;
+
+		kmemleak_scan_area(start, sec_map->sec->start - start, GFP_KERNEL);
+		start = sec_map->sec->end;
+	}
+
+	kmemleak_scan_area(start, end - start, GFP_KERNEL);
 }
 
 int __pkvm_load_el2_module(struct module *this, unsigned long *token)
@@ -952,11 +1246,11 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 		{ &mod->event_ids, KVM_PGTABLE_PROT_R },
 		{ &mod->data, KVM_PGTABLE_PROT_R | KVM_PGTABLE_PROT_W },
 	};
-	void *start, *end, *hyp_va;
+	void *start, *end, *hyp_va, *mod_remap;
 	struct arm_smccc_res res;
 	kvm_nvhe_reloc_t *endrel;
 	int ret, i, secs_first;
-	size_t offset, size;
+	size_t size;
 
 	/* The pKVM hyp only allows loading before it is fully initialized */
 	if (!is_protected_kvm_enabled() || is_pkvm_initialized())
@@ -1015,16 +1309,7 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 	if (ret)
 		return ret;
 
-	/*
-	 * Sadly we have also to disable kmemleak for EL1 sections: we can't
-	 * reset created scan area and therefore we can't create a finer grain
-	 * scan excluding only EL2 sections.
-	 */
-	if (this) {
-		kmemleak_no_scan(this->mem[MOD_TEXT].base);
-		kmemleak_no_scan(this->mem[MOD_DATA].base);
-		kmemleak_no_scan(this->mem[MOD_RODATA].base);
-	}
+	pkvm_module_kmemleak(this, secs_map, ARRAY_SIZE(secs_map));
 
 	ret = hyp_trace_init_mod_events(mod->hyp_events,
 					mod->event_ids.start,
@@ -1034,18 +1319,25 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 	if (ret)
 		kvm_err("Failed to init module events: %d\n", ret);
 
+	mod_remap = pkvm_map_module_struct(mod);
+	if (!mod_remap) {
+		module_put(this);
+		return -ENOMEM;
+	}
+
 	ret = pkvm_map_module_sections(secs_map + secs_first, hyp_va,
 				       ARRAY_SIZE(secs_map) - secs_first);
 	if (ret) {
 		kvm_err("Failed to map EL2 module page: %d\n", ret);
+		pkvm_unmap_module_struct(mod_remap);
 		module_put(this);
 		return ret;
 	}
 
 	pkvm_el2_mod_add(mod);
 
-	offset = (size_t)((void *)mod->init - start);
-	ret = kvm_call_hyp_nvhe(__pkvm_init_module, hyp_va + offset);
+	ret = kvm_call_hyp_nvhe(__pkvm_init_module, mod_remap);
+	pkvm_unmap_module_struct(mod_remap);
 	if (ret) {
 		kvm_err("Failed to init EL2 module: %d\n", ret);
 		list_del(&mod->node);
@@ -1135,3 +1427,104 @@ int __pkvm_topup_hyp_alloc_mgt_gfp(unsigned long id, unsigned long nr_pages,
 	return ret;
 }
 EXPORT_SYMBOL(__pkvm_topup_hyp_alloc_mgt_gfp);
+
+static int __pkvm_donate_resource(struct resource *r)
+{
+	if (!PAGE_ALIGNED(resource_size(r)) || !PAGE_ALIGNED(r->start))
+		return -EINVAL;
+
+	return kvm_call_hyp_nvhe(__pkvm_host_donate_hyp_mmio,
+				 __phys_to_pfn(r->start),
+				 resource_size(r) >> PAGE_SHIFT);
+
+}
+
+static int __pkvm_reclaim_resource(struct resource *r)
+{
+	if (!PAGE_ALIGNED(resource_size(r)) || !PAGE_ALIGNED(r->start))
+		return -EINVAL;
+
+	return kvm_call_hyp_nvhe(__pkvm_host_reclaim_hyp_mmio,
+				 __phys_to_pfn(r->start),
+				 resource_size(r) >> PAGE_SHIFT);
+}
+
+static int __pkvm_arch_assign_device(struct device *dev, void *data)
+{
+	struct platform_device *pdev;
+	struct resource *r;
+	int index = 0;
+	int ret = 0;
+
+	if (!dev_is_platform(dev))
+		return -EOPNOTSUPP;
+
+	pdev = to_platform_device(dev);
+
+	while ((r = platform_get_resource(pdev, IORESOURCE_MEM, index++))) {
+		ret = __pkvm_donate_resource(r);
+		if (ret)
+			break;
+	}
+
+	if (ret) {
+		while (index--) {
+			r = platform_get_resource(pdev, IORESOURCE_MEM, index);
+			__pkvm_reclaim_resource(r);
+		}
+	}
+	return ret;
+}
+
+static int __pkvm_arch_reclaim_device(struct device *dev, void *data)
+{
+	struct platform_device *pdev;
+	struct resource *r;
+	int index = 0;
+
+	pdev = to_platform_device(dev);
+
+	while ((r = platform_get_resource(pdev, IORESOURCE_MEM, index++)))
+		__pkvm_reclaim_resource(r);
+
+	return 0;
+}
+
+int kvm_arch_assign_device(struct device *dev)
+{
+	if (!is_protected_kvm_enabled())
+		return 0;
+
+	return __pkvm_arch_assign_device(dev, NULL);
+}
+
+int kvm_arch_assign_group(struct iommu_group *group)
+{
+	int ret;
+
+	if (!is_protected_kvm_enabled())
+		return 0;
+
+	ret = iommu_group_for_each_dev(group, NULL, __pkvm_arch_assign_device);
+
+	if (ret)
+		iommu_group_for_each_dev(group, NULL, __pkvm_arch_reclaim_device);
+
+	return ret;
+}
+
+void kvm_arch_reclaim_device(struct device *dev)
+{
+	if (!is_protected_kvm_enabled())
+		return;
+
+	__pkvm_arch_reclaim_device(dev, NULL);
+}
+
+void kvm_arch_reclaim_group(struct iommu_group *group)
+{
+	if (!is_protected_kvm_enabled())
+		return;
+
+	iommu_group_for_each_dev(group, NULL, __pkvm_arch_reclaim_device);
+}

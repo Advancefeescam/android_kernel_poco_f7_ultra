@@ -11,6 +11,7 @@ typedef void (*dyn_hcall_t)(struct user_pt_regs *);
 struct kvm_hyp_iommu;
 struct iommu_iotlb_gather;
 struct kvm_hyp_iommu_domain;
+struct pkvm_device;
 
 #ifdef CONFIG_MODULES
 enum pkvm_psci_notification {
@@ -93,8 +94,11 @@ enum pkvm_psci_notification {
  * @host_stage2_get_leaf:	Query the host's stage2 page-table entry for
  *				the page @phys.
  * @register_host_smc_handler:	@cb is called whenever the host issues an SMC
- *				pKVM couldn't handle. If @cb returns false, the
- *				SMC will be forwarded to EL3.
+ *				pKVM couldn't handle.
+ *				Up-to 16 handlers can be registered. The handler
+ *				order depends on the registration order. If no
+ *				handler return True, the SMC is forwarded to
+ *				EL3.
  * @register_default_trap_handler:
  *				@cb is called whenever EL2 traps EL1 and pKVM
  *				has not handled it. If @cb returns false, the
@@ -166,6 +170,20 @@ enum pkvm_psci_notification {
  * @iommu_donate_pages_atomic:	Allocate memory from IOMMU identity pool.
  * @iommu_reclaim_pages_atomic:	Reclaim memory from iommu_donate_pages_atomic()
  * @hyp_smp_processor_id:	Current CPU id
+ * @device_register_reset:	Register a reset callback for devices that is called
+ *				before/after devices are assigned. Only one callback
+ *				can be registered per device.
+ *				Devices are identified by the base address of the MMIO
+ *				as defined in the device tree.
+ *				Reset is expected to clear any state/secrets on the
+ *				device and put it in quiescent state, where it can't
+ *				trigger any DMA.
+ *				If reset fails at device assignment to guest, the
+ *				device won't be assigned.
+ *				Or if it fails on the guest teardown path, that would
+ *				panic to avoid leaking any information.
+ *				Direction of assignment can be deduced from pkvm_device::ctxt
+ *				where NULL means host to guest and vice versa.
  */
 struct pkvm_module_ops {
 	int (*create_private_mapping)(phys_addr_t phys, size_t size,
@@ -207,7 +225,6 @@ struct pkvm_module_ops {
 	phys_addr_t (*hyp_pa)(void *x);
 	void* (*hyp_va)(phys_addr_t phys);
 	unsigned long (*kern_hyp_va)(unsigned long x);
-	int (*register_hyp_event_ids)(unsigned long start, unsigned long end);
 	void* (*tracing_reserve_entry)(unsigned long length);
 	void (*tracing_commit_entry)(void);
 	void (*tracing_mod_hyp_printk)(u8 fmt_id, u64 a, u64 b, u64 c, u64 d);
@@ -233,6 +250,8 @@ struct pkvm_module_ops {
 	void * (*iommu_donate_pages_atomic)(u8 order);
 	void (*iommu_reclaim_pages_atomic)(void *p, u8 order);
 	int (*hyp_smp_processor_id)(void);
+	int (*device_register_reset)(u64 phys, void *cookie,
+				     int (*cb)(void *cookie, bool host_to_guest));
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);

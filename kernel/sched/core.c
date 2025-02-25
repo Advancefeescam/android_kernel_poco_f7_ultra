@@ -122,6 +122,13 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(sched_util_est_se_tp);
 EXPORT_TRACEPOINT_SYMBOL_GPL(sched_update_nr_running_tp);
 EXPORT_TRACEPOINT_SYMBOL_GPL(sched_compute_energy_tp);
 EXPORT_TRACEPOINT_SYMBOL_GPL(sched_switch);
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_waking);
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_wakeup);
+#if defined(CONFIG_SCHEDSTATS)
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_stat_sleep);
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_stat_wait);
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_stat_blocked);
+#endif
 
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
 EXPORT_SYMBOL_GPL(runqueues);
@@ -2071,6 +2078,7 @@ unsigned long get_wchan(struct task_struct *p)
 
 	return ip;
 }
+EXPORT_SYMBOL_GPL(get_wchan);
 
 void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 {
@@ -2747,6 +2755,8 @@ void set_cpus_allowed_common(struct task_struct *p, struct affinity_context *ctx
 	 */
 	if (ctx->flags & SCA_USER)
 		swap(p->user_cpus_ptr, ctx->user_mask);
+
+	trace_android_rvh_set_cpus_allowed_comm(p, ctx->new_mask);
 }
 
 static void
@@ -3812,6 +3822,14 @@ static void do_activate_task(struct rq *rq, struct task_struct *p, int en_flags)
 	raw_spin_unlock(&p->blocked_lock);
 }
 
+static bool proxy_task_runnable_but_waking(struct task_struct *p)
+{
+	if (!sched_proxy_exec())
+		return false;
+	return (READ_ONCE(p->__state) == TASK_RUNNING &&
+		READ_ONCE(p->blocked_on_state) == BO_WAKING);
+}
+
 #ifdef CONFIG_SMP
 static inline void proxy_set_task_cpu(struct task_struct *p, int cpu)
 {
@@ -4079,6 +4097,11 @@ static inline void do_activate_task(struct rq *rq, struct task_struct *p,
 				    int en_flags)
 {
 	activate_task(rq, p, en_flags);
+}
+
+static bool proxy_task_runnable_but_waking(struct task_struct *p)
+{
+	return false;
 }
 
 static inline void activate_blocked_waiters(struct rq *target_rq,
@@ -4672,8 +4695,7 @@ int try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 			 * continue on to ttwu_runnable check to force
 			 * proxy_needs_return evaluation
 			 */
-			if (!(READ_ONCE(p->__state) == TASK_RUNNING &&
-			      READ_ONCE(p->blocked_on_state) == BO_WAKING))
+			if (!proxy_task_runnable_but_waking(p))
 				break;
 		}
 
@@ -7466,6 +7488,7 @@ find_proxy_task(struct rq *rq, struct task_struct *donor, struct rq_flags *rf)
 	return owner;
 
 needs_return:
+#ifdef CONFIG_SMP
 	WARN_ON(!is_cpu_allowed(p, p->wake_cpu));
 	if (p->wake_cpu == this_cpu) {
 		/* We can actually run here fine */
@@ -7483,7 +7506,11 @@ needs_return:
 	_trace_sched_pe_return_migration(p);
 	proxy_migrate_task(rq, rf, p, p->wake_cpu);
 	return NULL;
-
+#else
+	/* Nowhere else to migrate on UP */
+	p->blocked_on_state = BO_RUNNABLE;
+	ret = p;
+#endif
 out:
 	raw_spin_unlock(&p->blocked_lock);
 	raw_spin_unlock(&mutex->wait_lock);
@@ -7562,7 +7589,6 @@ static void __sched notrace __schedule(int sched_mode)
 	 * as a preemption by schedule_debug() and RCU.
 	 */
 	bool preempt = sched_mode > SM_NONE;
-	bool block = false;
 	unsigned long *switch_count;
 	unsigned long prev_state;
 	struct rq_flags rf;
@@ -7625,8 +7651,7 @@ static void __sched notrace __schedule(int sched_mode)
 			goto picked;
 		}
 	} else if (!preempt && prev_state) {
-		block = try_to_block_task(rq, prev, prev_state,
-					  !task_is_blocked(prev));
+		try_to_block_task(rq, prev, prev_state, !task_is_blocked(prev));
 		switch_count = &prev->nvcsw;
 	}
 
@@ -7694,7 +7719,8 @@ picked:
 
 		migrate_disable_switch(rq, prev);
 		psi_account_irqtime(rq, prev, next);
-		psi_sched_switch(prev, next, block);
+		psi_sched_switch(prev, next, !task_on_rq_queued(prev) ||
+					     prev->se.sched_delayed);
 
 		trace_sched_switch(preempt, prev, next, prev_state);
 

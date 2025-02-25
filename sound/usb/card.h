@@ -207,7 +207,6 @@ struct snd_usb_stream {
 	struct list_head list;
 };
 
-#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD_DEBUG)
 struct snd_usb_platform_ops {
 	void (*connect_cb)(struct snd_usb_audio *chip);
 	void (*disconnect_cb)(struct snd_usb_audio *chip);
@@ -217,6 +216,4 @@ struct snd_usb_platform_ops {
 
 int snd_usb_register_platform_ops(struct snd_usb_platform_ops *ops);
 int snd_usb_unregister_platform_ops(void);
-#endif
-
 #endif /* __USBAUDIO_CARD_H */

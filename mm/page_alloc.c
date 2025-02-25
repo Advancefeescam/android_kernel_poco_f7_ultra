@@ -176,6 +176,44 @@ EXPORT_PER_CPU_SYMBOL(numa_node);
 
 DEFINE_STATIC_KEY_TRUE(vm_numa_stat_key);
 
+/*
+ * By default, when restrict_cma_redirect is false, all movable allocations
+ * are eligible for redirection to CMA region (i.e movable allocations are
+ * not restricted from CMA region), when there is sufficient space there.
+ * (see __rmqueue()).
+ *
+ * If restrict_cma_redirect is set to true, only MOVABLE allocations marked
+ * __GFP_CMA are eligible to be redirected to CMA region. These allocations
+ * are redirected if *any* free space is available in the CMA region.
+ */
+DEFINE_STATIC_KEY_FALSE(restrict_cma_redirect);
+
+static int __init restrict_cma_redirect_setup(char *str)
+{
+#ifdef CONFIG_CMA
+	static_branch_enable(&restrict_cma_redirect);
+#else
+	pr_warn("CONFIG_CMA not set. Ignoring restrict_cma_redirect option\n");
+#endif
+	return 1;
+}
+__setup("restrict_cma_redirect", restrict_cma_redirect_setup);
+
+static inline bool cma_redirect_restricted(void)
+{
+	return static_key_enabled(&restrict_cma_redirect);
+}
+
+/*
+ * Return true if CMA has pcplist. We use the PCP list for CMA only if
+ * this returns true. For now, rather than define a new flag, reuse the
+ * restrict_cma_redirect flag itself to select this behavior.
+ */
+static inline bool cma_has_pcplist(void)
+{
+	return static_key_enabled(&restrict_cma_redirect);
+}
+
 #ifdef CONFIG_HAVE_MEMORYLESS_NODES
 /*
  * N.B., Do NOT reference the '_numa_mem_' per cpu variable directly.
@@ -266,10 +304,10 @@ const char * const migratetype_names[MIGRATE_TYPES] = {
 	"Unmovable",
 	"Movable",
 	"Reclaimable",
-	"HighAtomic",
 #ifdef CONFIG_CMA
 	"CMA",
 #endif
+	"HighAtomic",
 #ifdef CONFIG_MEMORY_ISOLATION
 	"Isolate",
 #endif
@@ -424,7 +462,7 @@ void set_pfnblock_flags_mask(struct page *page, unsigned long flags,
 void set_pageblock_migratetype(struct page *page, int migratetype)
 {
 	if (unlikely(page_group_by_mobility_disabled &&
-		     migratetype < MIGRATE_PCPTYPES))
+		     migratetype < MIGRATE_FALLBACKS))
 		migratetype = MIGRATE_UNMOVABLE;
 
 	set_pfnblock_flags_mask(page, (unsigned long)migratetype,
@@ -515,6 +553,15 @@ out:
 static inline unsigned int order_to_pindex(int migratetype, int order)
 {
 	bool __maybe_unused movable;
+
+#ifdef CONFIG_CMA
+	/*
+	 * We shouldn't get here for MIGRATE_CMA if those pages don't
+	 * have their own pcp list. For instance, free_unref_page() sets
+	 * pcpmigratetype to MIGRATE_MOVABLE.
+	 */
+	VM_BUG_ON(!cma_has_pcplist() && migratetype == MIGRATE_CMA);
+#endif
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	if (order > PAGE_ALLOC_COSTLY_ORDER) {
@@ -784,6 +831,13 @@ static inline void __free_one_page(struct page *page,
 	unsigned long combined_pfn;
 	struct page *buddy;
 	bool to_tail;
+	bool bypass = false;
+
+	trace_android_vh_free_one_page_bypass(page, zone, order,
+		migratetype, (int)fpi_flags, &bypass);
+
+	if (bypass)
+		return;
 
 	VM_BUG_ON(!zone_is_initialized(zone));
 	VM_BUG_ON_PAGE(page->flags & PAGE_FLAGS_CHECK_AT_PREP, page);
@@ -1624,7 +1678,7 @@ struct page *__rmqueue_smallest(struct zone *zone, unsigned int order,
  *
  * The other migratetypes do not have fallbacks.
  */
-static int fallbacks[MIGRATE_PCPTYPES][MIGRATE_PCPTYPES - 1] = {
+static int fallbacks[MIGRATE_PCPTYPES][MIGRATE_FALLBACKS - 1] = {
 	[MIGRATE_UNMOVABLE]   = { MIGRATE_RECLAIMABLE, MIGRATE_MOVABLE   },
 	[MIGRATE_MOVABLE]     = { MIGRATE_RECLAIMABLE, MIGRATE_UNMOVABLE },
 	[MIGRATE_RECLAIMABLE] = { MIGRATE_UNMOVABLE,   MIGRATE_MOVABLE   },
@@ -2015,7 +2069,7 @@ int find_suitable_fallback(struct free_area *area, unsigned int order,
 		return -1;
 
 	*can_steal = false;
-	for (i = 0; i < MIGRATE_PCPTYPES - 1 ; i++) {
+	for (i = 0; i < MIGRATE_FALLBACKS - 1 ; i++) {
 		fallback_mt = fallbacks[migratetype][i];
 		if (free_area_empty(area, fallback_mt))
 			continue;
@@ -2043,6 +2097,7 @@ static void reserve_highatomic_pageblock(struct page *page, int order,
 {
 	int mt;
 	unsigned long max_managed, flags;
+	bool bypass = false;
 
 	/*
 	 * The number reserved as: minimum is 1 pageblock, maximum is
@@ -2054,6 +2109,9 @@ static void reserve_highatomic_pageblock(struct page *page, int order,
 		return;
 	max_managed = ALIGN((zone_managed_pages(zone) / 100), pageblock_nr_pages);
 	if (zone->nr_reserved_highatomic >= max_managed)
+		return;
+	trace_android_vh_reserve_highatomic_bypass(page, &bypass);
+	if (bypass)
 		return;
 
 	spin_lock_irqsave(&zone->lock, flags);
@@ -2272,7 +2330,11 @@ static __always_inline struct page *
 __rmqueue(struct zone *zone, unsigned int order, int migratetype,
 						unsigned int alloc_flags)
 {
-	struct page *page;
+	struct page *page = NULL;
+
+	trace_android_vh_rmqueue_smallest_bypass(&page, zone, order, migratetype);
+	if (page)
+		return page;
 
 	if (IS_ENABLED(CONFIG_CMA)) {
 		/*
@@ -2280,7 +2342,7 @@ __rmqueue(struct zone *zone, unsigned int order, int migratetype,
 		 * allocating from CMA when over half of the zone's free memory
 		 * is in the CMA area.
 		 */
-		if (alloc_flags & ALLOC_CMA &&
+		if (!cma_redirect_restricted() && alloc_flags & ALLOC_CMA &&
 		    zone_page_state(zone, NR_FREE_CMA_PAGES) >
 		    zone_page_state(zone, NR_FREE_PAGES) / 2) {
 			page = __rmqueue_cma_fallback(zone, order);
@@ -2291,7 +2353,7 @@ __rmqueue(struct zone *zone, unsigned int order, int migratetype,
 
 	page = __rmqueue_smallest(zone, order, migratetype);
 	if (unlikely(!page)) {
-		if (alloc_flags & ALLOC_CMA)
+		if (!cma_redirect_restricted() && alloc_flags & ALLOC_CMA)
 			page = __rmqueue_cma_fallback(zone, order);
 
 		if (!page)
@@ -2315,8 +2377,18 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
 
 	spin_lock_irqsave(&zone->lock, flags);
 	for (i = 0; i < count; ++i) {
-		struct page *page = __rmqueue(zone, order, migratetype,
-								alloc_flags);
+		struct page *page;
+
+		/*
+		 * If CMA redirect is restricted, use CMA region only for
+		 * MIGRATE_CMA pages. cma_rediret_restricted() is false
+		 * if CONFIG_CMA is not set.
+		 */
+		if (cma_redirect_restricted() && is_migrate_cma(migratetype))
+			page = __rmqueue_cma_fallback(zone, order);
+		else
+			page = __rmqueue(zone, order, migratetype, alloc_flags);
+
 		if (unlikely(page == NULL))
 			break;
 
@@ -2667,19 +2739,23 @@ void free_unref_page(struct page *page, unsigned int order)
 		return;
 
 	/*
-	 * We only track unmovable, reclaimable and movable on pcp lists.
+	 * We only track unmovable, reclaimable, movable and if restrict cma
+	 * fallback flag is set, CMA on pcp lists.
 	 * Place ISOLATE pages on the isolated list because they are being
 	 * offlined but treat HIGHATOMIC and CMA as movable pages so we can
 	 * get those areas back if necessary. Otherwise, we may have to free
 	 * excessively into the page allocator
 	 */
 	migratetype = get_pfnblock_migratetype(page, pfn);
-	if (unlikely(migratetype >= MIGRATE_PCPTYPES)) {
+	if (unlikely(migratetype > MIGRATE_RECLAIMABLE)) {
 		if (unlikely(is_migrate_isolate(migratetype))) {
 			free_one_page(page_zone(page), page, pfn, order, FPI_NONE);
 			return;
 		}
-		migratetype = MIGRATE_MOVABLE;
+#ifdef CONFIG_CMA
+		if (!cma_has_pcplist() || migratetype != MIGRATE_CMA)
+#endif
+			migratetype = MIGRATE_MOVABLE;
 	}
 
 	zone = page_zone(page);
@@ -2782,8 +2858,12 @@ void free_unref_folios(struct folio_batch *folios)
 		 * Non-isolated types over MIGRATE_PCPTYPES get added
 		 * to the MIGRATE_MOVABLE pcp list.
 		 */
-		if (unlikely(migratetype >= MIGRATE_PCPTYPES))
-			migratetype = MIGRATE_MOVABLE;
+		if (unlikely(migratetype > MIGRATE_RECLAIMABLE)) {
+#ifdef CONFIG_CMA
+			if (!cma_has_pcplist() || migratetype != MIGRATE_CMA)
+#endif
+				migratetype = MIGRATE_MOVABLE;
+		}
 
 		trace_mm_page_free_batched(&folio->page);
 		free_unref_page_commit(zone, pcp, &folio->page, migratetype,
@@ -2923,8 +3003,13 @@ struct page *rmqueue_buddy(struct zone *preferred_zone, struct zone *zone,
 		if (alloc_flags & ALLOC_HIGHATOMIC)
 			page = __rmqueue_smallest(zone, order, MIGRATE_HIGHATOMIC);
 		if (!page) {
-			page = __rmqueue(zone, order, migratetype, alloc_flags);
+			if (cma_redirect_restricted() &&
+			    alloc_flags & ALLOC_CMA)
+				page = __rmqueue_cma_fallback(zone, order);
 
+			if (!page)
+				page = __rmqueue(zone, order, migratetype,
+						 alloc_flags);
 			/*
 			 * If the allocation fails, allow OOM handling and
 			 * order-0 (atomic) allocs access to HIGHATOMIC
@@ -3000,7 +3085,7 @@ static int nr_pcp_alloc(struct per_cpu_pages *pcp, struct zone *zone, int order)
 
 /* Remove page from the per-cpu list, caller must protect the list */
 static inline
-struct page *__rmqueue_pcplist(struct zone *zone, unsigned int order,
+struct page *___rmqueue_pcplist(struct zone *zone, unsigned int order,
 			int migratetype,
 			unsigned int alloc_flags,
 			struct per_cpu_pages *pcp,
@@ -3028,6 +3113,31 @@ struct page *__rmqueue_pcplist(struct zone *zone, unsigned int order,
 	} while (check_new_pages(page, order));
 
 	return page;
+}
+
+static inline
+struct page *__rmqueue_pcplist(struct zone *zone, unsigned int order,
+			int migratetype,
+			unsigned int alloc_flags,
+			struct per_cpu_pages *pcp,
+			struct list_head *list)
+{
+
+	if (cma_redirect_restricted() && alloc_flags & ALLOC_CMA) {
+		struct page *page;
+		int cma_migratetype;
+
+		/* Use CMA pcp list */
+		cma_migratetype = get_cma_migrate_type();
+		list = &pcp->lists[order_to_pindex(cma_migratetype, order)];
+		page = ___rmqueue_pcplist(zone, order, cma_migratetype,
+					  alloc_flags, pcp, list);
+		if (page)
+			return page;
+	}
+
+	return ___rmqueue_pcplist(zone, order, migratetype, alloc_flags, pcp,
+				  list);
 }
 
 /* Lock and remove page from the per-cpu list */
@@ -3194,6 +3304,14 @@ bool __zone_watermark_ok(struct zone *z, unsigned int order, unsigned long mark,
 			continue;
 
 		for (mt = 0; mt < MIGRATE_PCPTYPES; mt++) {
+#ifdef CONFIG_CMA
+			/*
+			 * Note that this check is needed only
+			 * when MIGRATE_CMA < MIGRATE_PCPTYPES.
+			 */
+			if (mt == MIGRATE_CMA)
+				continue;
+#endif
 			if (!free_area_empty(area, mt))
 				return true;
 		}
@@ -3224,6 +3342,7 @@ static inline bool zone_watermark_fast(struct zone *z, unsigned int order,
 				unsigned int alloc_flags, gfp_t gfp_mask)
 {
 	long free_pages;
+	bool is_watermark_ok = false;
 
 	free_pages = zone_page_state(z, NR_FREE_PAGES);
 
@@ -3243,6 +3362,10 @@ static inline bool zone_watermark_fast(struct zone *z, unsigned int order,
 		if (usable_free > mark + z->lowmem_reserve[highest_zoneidx])
 			return true;
 	}
+
+	trace_android_vh_watermark_fast_ok(order, gfp_mask, &is_watermark_ok);
+	if (is_watermark_ok)
+		return true;
 
 	if (__zone_watermark_ok(z, order, mark, highest_zoneidx, alloc_flags,
 					free_pages))
@@ -3342,7 +3465,12 @@ static inline unsigned int gfp_to_alloc_flags_cma(gfp_t gfp_mask,
 	if (bypass)
 		return alloc_flags;
 
-	if (gfp_migratetype(gfp_mask) == MIGRATE_MOVABLE)
+	/*
+	 * If cma_redirect_restricted is true, set ALLOC_CMA only for
+	 * movable allocations that have __GFP_CMA.
+	 */
+	if ((!cma_redirect_restricted() || gfp_mask & __GFP_CMA) &&
+	    gfp_migratetype(gfp_mask) == MIGRATE_MOVABLE)
 		alloc_flags |= ALLOC_CMA;
 #endif
 	return alloc_flags;
@@ -3529,7 +3657,11 @@ try_this_zone:
 static void warn_alloc_show_mem(gfp_t gfp_mask, nodemask_t *nodemask)
 {
 	unsigned int filter = SHOW_MEM_FILTER_NODES;
+	bool bypass = false;
 
+	trace_android_vh_warn_alloc_show_mem_bypass(&bypass);
+	if (bypass)
+		return;
 	/*
 	 * This documents exceptions given to allocations in certain
 	 * contexts that are allowed to allocate outside current's set
@@ -3551,6 +3683,7 @@ void warn_alloc(gfp_t gfp_mask, nodemask_t *nodemask, const char *fmt, ...)
 	va_list args;
 	static DEFINE_RATELIMIT_STATE(nopage_rs, 10*HZ, 1);
 
+	trace_android_vh_warn_alloc_tune_ratelimit(&nopage_rs);
 	if ((gfp_mask & __GFP_NOWARN) ||
 	     !__ratelimit(&nopage_rs) ||
 	     ((gfp_mask & __GFP_DMA) && !has_managed_dma()))
@@ -4231,7 +4364,7 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	const bool costly_order = order > PAGE_ALLOC_COSTLY_ORDER;
 	struct page *page = NULL;
 	unsigned int alloc_flags;
-	unsigned long did_some_progress;
+	unsigned long did_some_progress = 0;
 	enum compact_priority compact_priority;
 	enum compact_result compact_result;
 	int compaction_retries;
@@ -4239,6 +4372,10 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	unsigned int cpuset_mems_cookie;
 	unsigned int zonelist_iter_cookie;
 	int reserve_flags;
+	unsigned long alloc_start = jiffies;
+	unsigned long pages_reclaimed = 0;
+	int retry_loop_count = 0;
+	u64 stime = 0;
 
 	if (unlikely(nofail)) {
 		/*
@@ -4258,6 +4395,7 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 		 */
 		WARN_ON_ONCE(current->flags & PF_MEMALLOC);
 	}
+	trace_android_vh_alloc_pages_slowpath_start(&stime);
 
 restart:
 	compaction_retries = 0;
@@ -4364,6 +4502,7 @@ restart:
 	}
 
 retry:
+	retry_loop_count++;
 	/* Ensure kswapd doesn't accidentally go to sleep as long as we loop */
 	if (alloc_flags & ALLOC_KSWAPD)
 		wake_all_kswapds(order, gfp_mask, ac);
@@ -4400,6 +4539,7 @@ retry:
 	/* Try direct reclaim and then allocating */
 	page = __alloc_pages_direct_reclaim(gfp_mask, order, alloc_flags, ac,
 							&did_some_progress);
+	pages_reclaimed += did_some_progress;
 	if (page)
 		goto got_pg;
 
@@ -4503,6 +4643,8 @@ fail:
 	warn_alloc(gfp_mask, ac->nodemask,
 			"page allocation failure: order:%u", order);
 got_pg:
+	trace_android_vh_alloc_pages_slowpath_end(&gfp_mask, order, alloc_start,
+			stime, did_some_progress, pages_reclaimed, retry_loop_count);
 	return page;
 }
 
@@ -6638,6 +6780,8 @@ int alloc_contig_range_noprof(unsigned long start, unsigned long end,
 
 	/* Make sure the range is really isolated. */
 	if (test_pages_isolated(outer_start, end, 0)) {
+		trace_android_vh_alloc_contig_range_not_isolated(outer_start,
+								end);
 		ret = -EBUSY;
 		goto done;
 	}

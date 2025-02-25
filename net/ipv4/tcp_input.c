@@ -3222,6 +3222,8 @@ static bool tcp_ack_update_rtt(struct sock *sk, const int flag,
 	if (seq_rtt_us < 0)
 		return false;
 
+	trace_android_vh_tcp_update_rtt(sk, seq_rtt_us);
+
 	/* ca_rtt_us >= 0 is counting on the invariant that ca_rtt_us is
 	 * always taken together with ACK, SACK, or TS-opts. Any negative
 	 * values will be skipped with the seq_rtt_us < 0 check above.
@@ -4622,6 +4624,8 @@ void tcp_fin(struct sock *sk)
 		tcp_sack_reset(&tp->rx_opt);
 
 	if (!sock_flag(sk, SOCK_DEAD)) {
+		trace_android_vh_tcp_sock_error(sk);
+
 		sk->sk_state_change(sk);
 
 		/* Do not send POLL_HUP for half duplex close. */
@@ -6228,6 +6232,7 @@ void tcp_rcv_established(struct sock *sk, struct sk_buff *skb)
 
 			__tcp_ack_snd_check(sk, 0);
 no_ack:
+			trace_android_vh_tcp_rcv_established_fast_path(sk);
 			if (eaten)
 				kfree_skb_partial(skb, fragstolen);
 			tcp_data_ready(sk);
@@ -6267,6 +6272,8 @@ step5:
 
 	tcp_data_snd_check(sk);
 	tcp_ack_snd_check(sk);
+
+	trace_android_vh_tcp_rcv_established_slow_path(sk);
 	return;
 
 csum_error:
@@ -6480,6 +6487,8 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
 
 		if (th->rst) {
 			tcp_reset(sk, skb);
+
+			trace_android_vh_tcp_state_change(sk, TCP_STATE_CHANGE_REASON_SYN_RST, 0);
 consume:
 			__kfree_skb(skb);
 			return 0;

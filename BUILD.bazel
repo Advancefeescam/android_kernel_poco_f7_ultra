@@ -1738,7 +1738,6 @@ ddk_headers(
     name = "all_headers_unsafe",
     hdrs = [
         "drivers/devfreq/governor.h",
-        "drivers/ufs/core/ufshcd-priv.h",
         "drivers/usb/dwc3/core.h",
         "drivers/usb/dwc3/debug.h",
         "drivers/usb/dwc3/gadget.h",

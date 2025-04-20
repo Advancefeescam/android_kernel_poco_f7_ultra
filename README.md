@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 | Branch | Device | Android version | Base tag | Link |
 | :-: | :-: | :-: | :-: | :-: |
 | air-t-oss | Redmi 13R 5G, Redmi 13C 5G | Android T | alps-mp-t0.mp1.tc8sp2-V1.32 | [air-t-oss](https://github.com/MiCode/MTK_kernel_modules/tree/air-t-oss) |
@@ -222,3 +223,24 @@
 | bsp-miro-v-oss | REDMI K80 PRO | Android V | qcom-LA.VENDOR.14.3.0.r1-14500-r1.0.r1_00042.0 |[bsp-miro-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-miro-v-oss) |
 | dada-v-oss | Xiaomi 15 / Xiaomi 15 Pro | Android V | qcom-LA.VENDOR.15.4.0.r1-08900-r1.0.r1_00022.1 | [dada-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dada-v-oss) |
 | emerald_r-u-oss | Redmi Note 14S | Android U | alps-mp-s0.mp1.tc8sp2-cs1-xm.V1.104_xiaomi.s0mp1.k6789v1.64_P50 |[emerald_r-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/emerald_r-u-oss) |
+=======
+# KernelSU-Next for Redmi K40 Gaming / POCO F3 GT
+
+This repository contains the KernelSU-Next kernel build for the **Redmi K40 Gaming** and **POCO F3 GT** smartphones. 
+
+## Make
+
+First, clone KernelSU-NEXT_Mi-ares repository,
+
+then run ``build.sh``. It will create a clang folder in the same directory and download it (thanks to Neutron-Toolchains). Once completed, the kernel build process will begin.
+
+## Some problems
+If you encounter the following issue:
+
+```
+clang: /lib/x86_64-linux-gnu/libc.so.6: version GLIBC_2.36 not found (required by clang)
+ld.lld: /lib/x86_64-linux-gnu/libstdc++.so.6: version GLIBCXX_3.4.32 not found (required by ld.lld)
+```
+
+You can refer to [Neutron Documentation](https://github.com/Neutron-Toolchains/clang-build-catalogue#clang-libx86_64-linux-gnulibcso6-version-glibc_236-not-found-required-by-clang) to fix the issue.
+>>>>>>> ksu/main

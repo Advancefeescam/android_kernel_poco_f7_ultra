@@ -2721,7 +2721,7 @@ static void ISP_EnableClock(enum ISP_DEV_NODE_ENUM module, bool En)
 			}
 		}
 
-		 G_u4EnableClockCount[module]++;
+		G_u4EnableClockCount[module]++;
 		spin_unlock(&(IspInfo.SpinLockClock));
 		LOG_INF("camsyscg org:0x%x,%x,%x,%x new:0x%x,%x,%x,%x cnt:%d\n",
 			cg_con1,
@@ -2734,6 +2734,11 @@ static void ISP_EnableClock(enum ISP_DEV_NODE_ENUM module, bool En)
 		G_u4EnableClockCount[module]++;
 		spin_unlock(&(IspInfo.SpinLockClock));
 		Prepare_Enable_ccf_clock(module); /* !!cannot be used in spinlock!! */
+		if (G_u4EnableClockCount[module] == 1) {
+			enable_irq(isp_devs[module].irq);
+			LOG_INF(
+				"enable_irq cam %d\n", module);
+		}
 #endif
 	} else { /* Disable clock. */
 #if defined(EP_NO_CLKMGR)
@@ -2769,6 +2774,11 @@ static void ISP_EnableClock(enum ISP_DEV_NODE_ENUM module, bool En)
 		G_u4EnableClockCount[module]--;
 		spin_unlock(&(IspInfo.SpinLockClock));
 		/* !!cannot be used in spinlock!! */
+		if (G_u4EnableClockCount[module] == 0) {
+			disable_irq(isp_devs[module].irq);
+			LOG_INF(
+				"disable_irq cam %d\n", module);
+		}
 		Disable_Unprepare_ccf_clock(module);
 #endif
 	}
@@ -6195,7 +6205,6 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 
 	mutex_lock(&open_isp_mutex);
 	LOG_DBG("- E. UserCount: %d.\n", IspInfo.UserCount);
-
 	/*  */
 	/* LOG_DBG("UserCount(%d)",IspInfo.UserCount); */
 	/*  */
@@ -6709,6 +6718,9 @@ static int ISP_probe(struct platform_device *pDev)
 
 					return Ret;
 				}
+
+				/* Reset irq ref cnt after request_irq by disable_irq. */
+				disable_irq(isp_devs[dev_idx].irq);
 
 				LOG_INF(
 				"G_u4DevNodeCt=%d, devnode(%s), irq=%d, ISR: %s\n",

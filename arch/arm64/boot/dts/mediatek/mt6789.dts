@@ -3841,13 +3841,12 @@
 				   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_TICK>,
 				   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_SYSCLK>,
 				   <&infracfg_ao_clk CLK_IFRAO_UFS_AES>,
-				   <&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
 				   <&topckgen_clk CLK_TOP_UFS_SEL>;
 			clock-names = "ufs", "ufs_mp", "unipro_tick",
 					"unipro_sys", "ufs_aes",
-					"ufsfde_ck", "ufs_ck";
+					"ufs_ck";
 
-			freq-table-hz = <0 0>, <0 0>, <0 0>, <0 0>, <0 0>,
+			freq-table-hz = <0 0>, <0 0>, <0 0>, <0 0>,
 					<0 0>, <0 0>;
 
 			/* vccq2 is ext ldo */

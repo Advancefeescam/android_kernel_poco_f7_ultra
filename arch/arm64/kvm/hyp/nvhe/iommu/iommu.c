@@ -178,7 +178,7 @@ void *kvm_iommu_donate_pages_atomic(u8 order)
 
 void kvm_iommu_reclaim_pages_atomic(void *p, u8 order)
 {
-	__kvm_iommu_reclaim_pages(&iommu_atomic_pool, p, order);
+	hyp_put_page(&iommu_atomic_pool, p);
 }
 
 static struct kvm_hyp_iommu_domain *
@@ -274,7 +274,7 @@ int kvm_iommu_init(struct kvm_iommu_ops *ops,
 	    !ops->alloc_domain ||
 	    !ops->free_domain ||
 	    !ops->get_iommu_by_id)
-		return 0;
+		return -ENODEV;
 
 	ret = hyp_pool_init_empty(&iommu_host_pool, 64);
 	if (ret)
@@ -387,7 +387,8 @@ int kvm_iommu_force_free_domain(pkvm_handle_t domain_id, struct pkvm_hyp_vm *vm)
 }
 
 int kvm_iommu_attach_dev(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
-			 u32 endpoint_id, u32 pasid, u32 pasid_bits)
+			 u32 endpoint_id, u32 pasid, u32 pasid_bits,
+			 unsigned long flags)
 {
 	int ret;
 	struct kvm_hyp_iommu *iommu;
@@ -417,7 +418,7 @@ int kvm_iommu_attach_dev(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
 		goto out_unlock;
 	}
 
-	ret = kvm_iommu_ops->attach_dev(iommu, domain, endpoint_id, pasid, pasid_bits);
+	ret = kvm_iommu_ops->attach_dev(iommu, domain, endpoint_id, pasid, pasid_bits, flags);
 	if (ret)
 		domain_put(domain);
 

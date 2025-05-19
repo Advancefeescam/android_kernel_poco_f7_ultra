@@ -33,6 +33,7 @@
 	#define DSC_IN_SRC_SEL BIT(3)
 	#define DSC_BYPASS BIT(4)
 	#define DSC_RELAY BIT(5)
+	#define DSC_SW_RST BIT(8)
 	#define DSC_EMPTY_FLAG_SEL REG_FLD_MSB_LSB(15, 14)
 	#define DSC_UFOE_SEL BIT(16)
 	#define CON_FLD_DSC_EN		REG_FLD_MSB_LSB(0, 0)
@@ -296,6 +297,29 @@ u8 PPS[128] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
+
+void mtk_dsc_sw_rst(struct mtk_ddp_comp *comp,
+				 struct cmdq_pkt *handle)
+{
+	struct mtk_disp_dsc *dsc = comp_to_dsc(comp);
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+
+	DDPINFO("%s+\n", __func__);
+	if (!mtk_crtc) {
+		DDPMSG("E: %s not attach CRTC yet\n", __func__);
+		return;
+	}
+	if (!dsc->data->need_dsc_reset)
+		return;
+
+	mtk_ddp_write_mask(comp, DSC_SW_RST,
+				DISP_REG_DSC_CON, DSC_SW_RST,
+				handle);
+
+	mtk_ddp_write_mask(comp, 0,
+				DISP_REG_DSC_CON, DSC_SW_RST,
+				handle);
+}
 
 static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 				 struct mtk_ddp_config *cfg,
@@ -775,6 +799,7 @@ static const struct mtk_disp_dsc_data mt6885_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = false,
 	.dsi_buffer = false,
+	.need_dsc_reset = false,
 };
 
 static const struct mtk_disp_dsc_data mt6983_dsc_driver_data = {
@@ -782,6 +807,7 @@ static const struct mtk_disp_dsc_data mt6983_dsc_driver_data = {
 	.need_bypass_shadow = false,
 	.need_obuf_sw = true,
 	.dsi_buffer = true,
+	.need_dsc_reset = false,
 };
 
 static const struct mtk_disp_dsc_data mt6895_dsc_driver_data = {
@@ -789,30 +815,35 @@ static const struct mtk_disp_dsc_data mt6895_dsc_driver_data = {
 	.need_bypass_shadow = false,
 	.need_obuf_sw = false,
 	.dsi_buffer = true,
+	.need_dsc_reset = false,
 };
 
 static const struct mtk_disp_dsc_data mt6873_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
 	.dsi_buffer = false,
+	.need_dsc_reset = false,
 };
 
 static const struct mtk_disp_dsc_data mt6853_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
 	.dsi_buffer = false,
+	.need_dsc_reset = false,
 };
 
 static const struct mtk_disp_dsc_data mt6879_dsc_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.dsi_buffer = true,
+	.need_dsc_reset = false,
 };
 
 static const struct mtk_disp_dsc_data mt6855_dsc_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.dsi_buffer = false,
+	.need_dsc_reset = false,
 };
 
 static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {

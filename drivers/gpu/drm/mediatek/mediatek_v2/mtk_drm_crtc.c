@@ -7195,6 +7195,7 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_panel_params *params =
 			mtk_drm_get_lcm_ext_params(crtc);
+	struct mtk_ddp_comp *dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
 
 	if (mtk_crtc->sec_on && !is_tzmp2_enable()) {
 		mtk_crtc_pkt_create(&cmdq_handle, crtc,
@@ -7231,6 +7232,8 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 				mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_VFP_PERIOD]);
 	} else {
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
+		/*Owing to rare corruption case observed, apply DSC reset*/
+		mtk_dsc_sw_rst(dsc_comp, cmdq_handle);
 	}
 
 	if (mtk_crtc->sec_on) {

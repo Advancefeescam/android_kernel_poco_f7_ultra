@@ -11,6 +11,9 @@ struct mtk_disp_dsc_data {
 	bool need_bypass_shadow;
 	bool need_obuf_sw;
 	bool dsi_buffer;
+	bool need_dsc_reset;
 };
+
+void mtk_dsc_sw_rst(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle);
 
 #endif

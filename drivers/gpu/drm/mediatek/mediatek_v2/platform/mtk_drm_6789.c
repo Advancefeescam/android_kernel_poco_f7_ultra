@@ -95,6 +95,7 @@ const struct mtk_disp_dsc_data mt6789_dsc_driver_data = {
 	.need_bypass_shadow = false,
 	.need_obuf_sw = true,
 	.dsi_buffer = false,
+	.need_dsc_reset = true,
 };
 
 // rsz

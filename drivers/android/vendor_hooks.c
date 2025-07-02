@@ -550,4 +550,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_gfp_zone_flags);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_readahead_gfp_mask);
 #if IS_ENABLED(CONFIG_MTK_GZVM_DEBUG)
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gzvm_vcpu_exit_reason);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gzvm_handle_demand_page_pre);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gzvm_handle_demand_page_post);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gzvm_destroy_vm_post_process);
 #endif

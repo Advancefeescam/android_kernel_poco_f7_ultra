@@ -2,7 +2,6 @@
 //
 // Copyright 2024 Advanced Micro Devices, Inc.
 
-#include <linux/vmalloc.h>
 
 #include "dml2_internal_types.h"
 #include "dml_top.h"
@@ -14,11 +13,11 @@
 
 static bool dml21_allocate_memory(struct dml2_context **dml_ctx)
 {
-	*dml_ctx = vzalloc(sizeof(struct dml2_context));
+	*dml_ctx = (struct dml2_context *)kzalloc(sizeof(struct dml2_context), GFP_KERNEL);
 	if (!(*dml_ctx))
 		return false;
 
-	(*dml_ctx)->v21.dml_init.dml2_instance = vzalloc(sizeof(struct dml2_instance));
+	(*dml_ctx)->v21.dml_init.dml2_instance = (struct dml2_instance *)kzalloc(sizeof(struct dml2_instance), GFP_KERNEL);
 	if (!((*dml_ctx)->v21.dml_init.dml2_instance))
 		return false;
 
@@ -28,7 +27,7 @@ static bool dml21_allocate_memory(struct dml2_context **dml_ctx)
 	(*dml_ctx)->v21.mode_support.display_config = &(*dml_ctx)->v21.display_config;
 	(*dml_ctx)->v21.mode_programming.display_config = (*dml_ctx)->v21.mode_support.display_config;
 
-	(*dml_ctx)->v21.mode_programming.programming = vzalloc(sizeof(struct dml2_display_cfg_programming));
+	(*dml_ctx)->v21.mode_programming.programming = (struct dml2_display_cfg_programming *)kzalloc(sizeof(struct dml2_display_cfg_programming), GFP_KERNEL);
 	if (!((*dml_ctx)->v21.mode_programming.programming))
 		return false;
 
@@ -88,8 +87,6 @@ static void dml21_init(const struct dc *in_dc, struct dml2_context **dml_ctx, co
 	/* Store configuration options */
 	(*dml_ctx)->config = *config;
 
-	DC_FP_START();
-
 	/*Initialize SOCBB and DCNIP params */
 	dml21_initialize_soc_bb_params(&(*dml_ctx)->v21.dml_init, config, in_dc);
 	dml21_initialize_ip_params(&(*dml_ctx)->v21.dml_init, config, in_dc);
@@ -100,8 +97,6 @@ static void dml21_init(const struct dc *in_dc, struct dml2_context **dml_ctx, co
 
 	/*Initialize DML21 instance */
 	dml2_initialize_instance(&(*dml_ctx)->v21.dml_init);
-
-	DC_FP_END();
 }
 
 bool dml21_create(const struct dc *in_dc, struct dml2_context **dml_ctx, const struct dml2_configuration_options *config)
@@ -117,8 +112,8 @@ bool dml21_create(const struct dc *in_dc, struct dml2_context **dml_ctx, const s
 
 void dml21_destroy(struct dml2_context *dml2)
 {
-	vfree(dml2->v21.dml_init.dml2_instance);
-	vfree(dml2->v21.mode_programming.programming);
+	kfree(dml2->v21.dml_init.dml2_instance);
+	kfree(dml2->v21.mode_programming.programming);
 }
 
 static void dml21_calculate_rq_and_dlg_params(const struct dc *dc, struct dc_state *context, struct resource_context *out_new_hw_state,
@@ -282,16 +277,11 @@ bool dml21_validate(const struct dc *in_dc, struct dc_state *context, struct dml
 {
 	bool out = false;
 
-	DC_FP_START();
-
 	/* Use dml_validate_only for fast_validate path */
-	if (fast_validate)
+	if (fast_validate) {
 		out = dml21_check_mode_support(in_dc, context, dml_ctx);
-	else
+	} else
 		out = dml21_mode_check_and_programming(in_dc, context, dml_ctx);
-
-	DC_FP_END();
-
 	return out;
 }
 
@@ -430,12 +420,8 @@ void dml21_copy(struct dml2_context *dst_dml_ctx,
 
 	dst_dml_ctx->v21.mode_programming.programming = dst_dml2_programming;
 
-	DC_FP_START();
-
 	/* need to initialize copied instance for internal references to be correct */
 	dml2_initialize_instance(&dst_dml_ctx->v21.dml_init);
-
-	DC_FP_END();
 }
 
 bool dml21_create_copy(struct dml2_context **dst_dml_ctx,

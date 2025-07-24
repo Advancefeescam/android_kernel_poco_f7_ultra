@@ -758,7 +758,7 @@ static void jr3_pci_detach(struct comedi_device *dev)
 	struct jr3_pci_dev_private *devpriv = dev->private;
 
 	if (devpriv)
-		timer_shutdown_sync(&devpriv->timer);
+		del_timer_sync(&devpriv->timer);
 
 	comedi_pci_detach(dev);
 }

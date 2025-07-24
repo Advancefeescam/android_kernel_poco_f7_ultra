@@ -16,7 +16,6 @@
 #include <asm/stackframe.h>
 #include <asm/thread_info.h>
 
-	.section .cpuidle.text, "ax"
 	.align	5
 SYM_FUNC_START(__arch_cpu_idle)
 	/* start of idle interrupt region */
@@ -32,16 +31,14 @@ SYM_FUNC_START(__arch_cpu_idle)
 	 */
 	idle	0
 	/* end of idle interrupt region */
-idle_exit:
-	jr	ra
+1:	jr	ra
 SYM_FUNC_END(__arch_cpu_idle)
-	.previous
 
 SYM_CODE_START(handle_vint)
 	UNWIND_HINT_UNDEFINED
 	BACKUP_T0T1
 	SAVE_ALL
-	la_abs	t1, idle_exit
+	la_abs	t1, 1b
 	LONG_L	t0, sp, PT_ERA
 	/* 3 instructions idle interrupt region */
 	ori	t0, t0, 0b1100

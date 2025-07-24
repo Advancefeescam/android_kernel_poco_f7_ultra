@@ -234,8 +234,10 @@ fi
 
 # suppress some warnings in recent ld versions
 nowarn="-z noexecstack"
-if "${CROSS}ld" -v --no-warn-rwx-segments >/dev/null 2>&1; then
-	nowarn="$nowarn --no-warn-rwx-segments"
+if ! ld_is_lld; then
+	if [ "$LD_VERSION" -ge "$(echo 2.39 | ld_version)" ]; then
+		nowarn="$nowarn --no-warn-rwx-segments"
+	fi
 fi
 
 platformo=$object/"$platform".o

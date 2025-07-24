@@ -550,7 +550,7 @@ static void device_unbind_cleanup(struct device *dev)
 	arch_teardown_dma_ops(dev);
 	kfree(dev->dma_range_map);
 	dev->dma_range_map = NULL;
-	device_set_driver(dev, NULL);
+	dev->driver = NULL;
 	dev_set_drvdata(dev, NULL);
 	if (dev->pm_domain && dev->pm_domain->dismiss)
 		dev->pm_domain->dismiss(dev);
@@ -629,7 +629,8 @@ static int really_probe(struct device *dev, const struct device_driver *drv)
 	}
 
 re_probe:
-	device_set_driver(dev, drv);
+	// FIXME - this cast should not be needed "soon"
+	dev->driver = (struct device_driver *)drv;
 
 	/* If using pinctrl, bind pins now before probing */
 	ret = pinctrl_bind_pins(dev);
@@ -1013,7 +1014,7 @@ static int __device_attach(struct device *dev, bool allow_async)
 		if (ret == 0)
 			ret = 1;
 		else {
-			device_set_driver(dev, NULL);
+			dev->driver = NULL;
 			ret = 0;
 		}
 	} else {

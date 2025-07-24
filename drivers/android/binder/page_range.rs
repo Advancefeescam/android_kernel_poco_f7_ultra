@@ -93,7 +93,6 @@ impl Shrinker {
         unsafe {
             ptr::addr_of_mut!((*shrinker).count_objects).write(Some(rust_shrink_count));
             ptr::addr_of_mut!((*shrinker).scan_objects).write(Some(rust_shrink_scan));
-            ptr::addr_of_mut!((*shrinker).private_data).write(self.list_lru.get().cast());
         }
 
         // SAFETY: The new shrinker has been fully initialized, so we can register it.
@@ -656,10 +655,11 @@ unsafe extern "C" fn rust_shrink_count(
     shrink: *mut bindings::shrinker,
     _sc: *mut bindings::shrink_control,
 ) -> c_ulong {
-    // SAFETY: We can access our own private data.
-    let list_lru = unsafe { (*shrink).private_data.cast::<bindings::list_lru>() };
+    // SAFETY: This method is only used with the `Shrinker` type, and the cast is valid since
+    // `shrinker` is the first field of a #[repr(C)] struct.
+    let shrinker = unsafe { &*shrink.cast::<Shrinker>() };
     // SAFETY: Accessing the lru list is okay. Just an FFI call.
-    unsafe { bindings::list_lru_count(list_lru) }
+    unsafe { bindings::list_lru_count(shrinker.list_lru.get()) }
 }
 
 #[no_mangle]
@@ -667,8 +667,9 @@ unsafe extern "C" fn rust_shrink_scan(
     shrink: *mut bindings::shrinker,
     sc: *mut bindings::shrink_control,
 ) -> c_ulong {
-    // SAFETY: We can access our own private data.
-    let list_lru = unsafe { (*shrink).private_data.cast::<bindings::list_lru>() };
+    // SAFETY: This method is only used with the `Shrinker` type, and the cast is valid since
+    // `shrinker` is the first field of a #[repr(C)] struct.
+    let shrinker = unsafe { &*shrink.cast::<Shrinker>() };
     // SAFETY: Caller guarantees that it is safe to read this field.
     let nr_to_scan = unsafe { (*sc).nr_to_scan };
     // SAFETY: Accessing the lru list is okay. Just an FFI call.
@@ -683,7 +684,7 @@ unsafe extern "C" fn rust_shrink_scan(
         }
 
         bindings::list_lru_walk(
-            list_lru,
+            shrinker.list_lru.get(),
             Some(rust_shrink_free_page_wrap),
             ptr::null_mut(),
             nr_to_scan,

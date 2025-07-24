@@ -21,7 +21,6 @@
 #include "mman.c"
 #include "mutex.c"
 #include "page.c"
-#include "poll.c"
 #include "rbtree.c"
 #include "refcount.c"
 #include "security.c"

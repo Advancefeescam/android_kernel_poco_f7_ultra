@@ -48,7 +48,7 @@ impl<'a> ModInfoBuilder<'a> {
             )
         } else {
             // Loadable modules' modinfo strings go as-is.
-            format!("{field}={content}\0")
+            format!("{field}={content}\0", field = field, content = content)
         };
 
         write!(
@@ -124,7 +124,10 @@ impl ModuleInfo {
             };
 
             if seen_keys.contains(&key) {
-                panic!("Duplicated key \"{key}\". Keys can only be specified once.");
+                panic!(
+                    "Duplicated key \"{}\". Keys can only be specified once.",
+                    key
+                );
             }
 
             assert_eq!(expect_punct(it), ':');
@@ -137,7 +140,10 @@ impl ModuleInfo {
                 "license" => info.license = expect_string_ascii(it),
                 "alias" => info.alias = Some(expect_string_array(it)),
                 "firmware" => info.firmware = Some(expect_string_array(it)),
-                _ => panic!("Unknown key \"{key}\". Valid keys are: {EXPECTED_KEYS:?}."),
+                _ => panic!(
+                    "Unknown key \"{}\". Valid keys are: {:?}.",
+                    key, EXPECTED_KEYS
+                ),
             }
 
             assert_eq!(expect_punct(it), ',');
@@ -149,7 +155,7 @@ impl ModuleInfo {
 
         for key in REQUIRED_KEYS {
             if !seen_keys.iter().any(|e| e == key) {
-                panic!("Missing required key \"{key}\".");
+                panic!("Missing required key \"{}\".", key);
             }
         }
 
@@ -161,7 +167,10 @@ impl ModuleInfo {
         }
 
         if seen_keys != ordered_keys {
-            panic!("Keys are not ordered as expected. Order them like: {ordered_keys:?}.");
+            panic!(
+                "Keys are not ordered as expected. Order them like: {:?}.",
+                ordered_keys
+            );
         }
 
         info

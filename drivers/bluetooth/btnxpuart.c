@@ -612,10 +612,8 @@ static int nxp_download_firmware(struct hci_dev *hdev)
 							 &nxpdev->tx_state),
 					       msecs_to_jiffies(60000));
 
-	if (nxpdev->fw && strlen(nxpdev->fw_name)) {
-		release_firmware(nxpdev->fw);
-		memset(nxpdev->fw_name, 0, sizeof(nxpdev->fw_name));
-	}
+	release_firmware(nxpdev->fw);
+	memset(nxpdev->fw_name, 0, sizeof(nxpdev->fw_name));
 
 	if (err == 0) {
 		bt_dev_err(hdev, "FW Download Timeout. offset: %d",

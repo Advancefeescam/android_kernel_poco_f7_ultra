@@ -12,13 +12,9 @@
 #include <asm/loongarch.h>
 #include <asm/processor.h>
 
-asmlinkage void _init_lbt(void);
-asmlinkage void _save_lbt(struct loongarch_lbt *);
-asmlinkage void _restore_lbt(struct loongarch_lbt *);
-asmlinkage int _save_lbt_context(void __user *regs, void __user *eflags);
-asmlinkage int _restore_lbt_context(void __user *regs, void __user *eflags);
-asmlinkage int _save_ftop_context(void __user *ftop);
-asmlinkage int _restore_ftop_context(void __user *ftop);
+extern void _init_lbt(void);
+extern void _save_lbt(struct loongarch_lbt *);
+extern void _restore_lbt(struct loongarch_lbt *);
 
 static inline int is_lbt_enabled(void)
 {

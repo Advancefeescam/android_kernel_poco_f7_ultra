@@ -191,13 +191,12 @@ static void p9_conn_cancel(struct p9_conn *m, int err)
 
 	spin_lock(&m->req_lock);
 
-	if (READ_ONCE(m->err)) {
+	if (m->err) {
 		spin_unlock(&m->req_lock);
 		return;
 	}
 
-	WRITE_ONCE(m->err, err);
-	ASSERT_EXCLUSIVE_WRITER(m->err);
+	m->err = err;
 
 	list_for_each_entry_safe(req, rtmp, &m->req_list, req_list) {
 		list_move(&req->req_list, &cancel_list);
@@ -284,7 +283,7 @@ static void p9_read_work(struct work_struct *work)
 
 	m = container_of(work, struct p9_conn, rq);
 
-	if (READ_ONCE(m->err) < 0)
+	if (m->err < 0)
 		return;
 
 	p9_debug(P9_DEBUG_TRANS, "start mux %p pos %zd\n", m, m->rc.offset);
@@ -451,7 +450,7 @@ static void p9_write_work(struct work_struct *work)
 
 	m = container_of(work, struct p9_conn, wq);
 
-	if (READ_ONCE(m->err) < 0) {
+	if (m->err < 0) {
 		clear_bit(Wworksched, &m->wsched);
 		return;
 	}
@@ -623,7 +622,7 @@ static void p9_poll_mux(struct p9_conn *m)
 	__poll_t n;
 	int err = -ECONNRESET;
 
-	if (READ_ONCE(m->err) < 0)
+	if (m->err < 0)
 		return;
 
 	n = p9_fd_poll(m->client, NULL, &err);
@@ -666,7 +665,6 @@ static void p9_poll_mux(struct p9_conn *m)
 static int p9_fd_request(struct p9_client *client, struct p9_req_t *req)
 {
 	__poll_t n;
-	int err;
 	struct p9_trans_fd *ts = client->trans;
 	struct p9_conn *m = &ts->conn;
 
@@ -675,10 +673,9 @@ static int p9_fd_request(struct p9_client *client, struct p9_req_t *req)
 
 	spin_lock(&m->req_lock);
 
-	err = READ_ONCE(m->err);
-	if (err < 0) {
+	if (m->err < 0) {
 		spin_unlock(&m->req_lock);
-		return err;
+		return m->err;
 	}
 
 	WRITE_ONCE(req->status, REQ_STATUS_UNSENT);

@@ -36,16 +36,16 @@ struct ksmbd_user *ksmbd_alloc_user(struct ksmbd_login_response *resp,
 {
 	struct ksmbd_user *user;
 
-	user = kmalloc(sizeof(struct ksmbd_user), KSMBD_DEFAULT_GFP);
+	user = kmalloc(sizeof(struct ksmbd_user), GFP_KERNEL);
 	if (!user)
 		return NULL;
 
-	user->name = kstrdup(resp->account, KSMBD_DEFAULT_GFP);
+	user->name = kstrdup(resp->account, GFP_KERNEL);
 	user->flags = resp->status;
 	user->gid = resp->gid;
 	user->uid = resp->uid;
 	user->passkey_sz = resp->hash_sz;
-	user->passkey = kmalloc(resp->hash_sz, KSMBD_DEFAULT_GFP);
+	user->passkey = kmalloc(resp->hash_sz, GFP_KERNEL);
 	if (user->passkey)
 		memcpy(user->passkey, resp->hash, resp->hash_sz);
 
@@ -64,7 +64,7 @@ struct ksmbd_user *ksmbd_alloc_user(struct ksmbd_login_response *resp,
 
 		user->sgid = kmemdup(resp_ext->____payload,
 				     resp_ext->ngroups * sizeof(gid_t),
-				     KSMBD_DEFAULT_GFP);
+				     GFP_KERNEL);
 		if (!user->sgid)
 			goto err_free;
 

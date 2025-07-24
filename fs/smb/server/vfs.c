@@ -443,15 +443,8 @@ static int ksmbd_vfs_stream_write(struct ksmbd_file *fp, char *buf, loff_t *pos,
 		goto out;
 	}
 
-	if (v_len <= *pos) {
-		pr_err("stream write position %lld is out of bounds (stream length: %zd)\n",
-				*pos, v_len);
-		err = -EINVAL;
-		goto out;
-	}
-
 	if (v_len < size) {
-		wbuf = kvzalloc(size, KSMBD_DEFAULT_GFP);
+		wbuf = kvzalloc(size, GFP_KERNEL);
 		if (!wbuf) {
 			err = -ENOMEM;
 			goto out;
@@ -503,8 +496,7 @@ int ksmbd_vfs_write(struct ksmbd_work *work, struct ksmbd_file *fp,
 	int err = 0;
 
 	if (work->conn->connection_type) {
-		if (!(fp->daccess & (FILE_WRITE_DATA_LE | FILE_APPEND_DATA_LE)) ||
-		    S_ISDIR(file_inode(fp->filp)->i_mode)) {
+		if (!(fp->daccess & (FILE_WRITE_DATA_LE | FILE_APPEND_DATA_LE))) {
 			pr_err("no right to write(%pD)\n", fp->filp);
 			err = -EACCES;
 			goto out;
@@ -873,7 +865,7 @@ ssize_t ksmbd_vfs_listxattr(struct dentry *dentry, char **list)
 	if (size <= 0)
 		return size;
 
-	vlist = kvzalloc(size, KSMBD_DEFAULT_GFP);
+	vlist = kvzalloc(size, GFP_KERNEL);
 	if (!vlist)
 		return -ENOMEM;
 
@@ -915,7 +907,7 @@ ssize_t ksmbd_vfs_getxattr(struct mnt_idmap *idmap,
 	if (xattr_len < 0)
 		return xattr_len;
 
-	buf = kmalloc(xattr_len + 1, KSMBD_DEFAULT_GFP);
+	buf = kmalloc(xattr_len + 1, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
@@ -1420,7 +1412,7 @@ static struct xattr_smb_acl *ksmbd_vfs_make_xattr_posix_acl(struct mnt_idmap *id
 
 	smb_acl = kzalloc(sizeof(struct xattr_smb_acl) +
 			  sizeof(struct xattr_acl_entry) * posix_acls->a_count,
-			  KSMBD_DEFAULT_GFP);
+			  GFP_KERNEL);
 	if (!smb_acl)
 		goto out;
 
@@ -1776,7 +1768,7 @@ int ksmbd_vfs_xattr_stream_name(char *stream_name, char **xattr_stream_name,
 	else
 		type = ":$DATA";
 
-	buf = kasprintf(KSMBD_DEFAULT_GFP, "%s%s%s",
+	buf = kasprintf(GFP_KERNEL, "%s%s%s",
 			XATTR_NAME_STREAM, stream_name,	type);
 	if (!buf)
 		return -ENOMEM;
@@ -1905,7 +1897,7 @@ int ksmbd_vfs_set_init_posix_acl(struct mnt_idmap *idmap,
 		acl_state.group.allow;
 	acl_state.mask.allow = 0x07;
 
-	acls = posix_acl_alloc(6, KSMBD_DEFAULT_GFP);
+	acls = posix_acl_alloc(6, GFP_KERNEL);
 	if (!acls) {
 		free_acl_state(&acl_state);
 		return -ENOMEM;

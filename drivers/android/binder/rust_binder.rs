@@ -283,9 +283,9 @@ impl DeliverToRead for DeliverCode {
     }
 }
 
-fn ptr_align(value: usize) -> Option<usize> {
+const fn ptr_align(value: usize) -> usize {
     let size = core::mem::size_of::<usize>() - 1;
-    Some(value.checked_add(size)? & !size)
+    (value + size) & !size
 }
 
 // SAFETY: We call register in `init`.
@@ -472,7 +472,7 @@ unsafe extern "C" fn rust_binder_poll(
     // SAFETY: The caller ensures that the file is valid.
     let fileref = unsafe { File::from_raw_file(file) };
     // SAFETY: The caller ensures that the `PollTable` is valid.
-    match Process::poll(f, fileref, unsafe { PollTable::from_raw(wait) }) {
+    match Process::poll(f, fileref, unsafe { PollTable::from_ptr(wait) }) {
         Ok(v) => v,
         Err(_) => bindings::POLLERR,
     }

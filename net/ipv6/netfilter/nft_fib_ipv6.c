@@ -170,11 +170,6 @@ void nft_fib6_eval(const struct nft_expr *expr, struct nft_regs *regs,
 	struct rt6_info *rt;
 	int lookup_flags;
 
-	if (nft_fib_can_skip(pkt)) {
-		nft_fib_store_result(dest, priv, nft_in(pkt));
-		return;
-	}
-
 	if (priv->flags & NFTA_FIB_F_IIF)
 		oif = nft_in(pkt);
 	else if (priv->flags & NFTA_FIB_F_OIF)
@@ -186,12 +181,16 @@ void nft_fib6_eval(const struct nft_expr *expr, struct nft_regs *regs,
 		return;
 	}
 
-	if (nft_fib_v6_skip_icmpv6(pkt->skb, pkt->tprot, iph)) {
-		nft_fib_store_result(dest, priv, nft_in(pkt));
-		return;
-	}
-
 	lookup_flags = nft_fib6_flowi_init(&fl6, priv, pkt, oif, iph);
+
+	if (nft_hook(pkt) == NF_INET_PRE_ROUTING ||
+	    nft_hook(pkt) == NF_INET_INGRESS) {
+		if (nft_fib_is_loopback(pkt->skb, nft_in(pkt)) ||
+		    nft_fib_v6_skip_icmpv6(pkt->skb, pkt->tprot, iph)) {
+			nft_fib_store_result(dest, priv, nft_in(pkt));
+			return;
+		}
+	}
 
 	*dest = 0;
 	rt = (void *)ip6_route_lookup(nft_net(pkt), &fl6, pkt->skb,

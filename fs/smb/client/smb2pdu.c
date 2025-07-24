@@ -1269,8 +1269,15 @@ SMB2_negotiate(const unsigned int xid,
 			cifs_server_dbg(VFS, "Missing expected negotiate contexts\n");
 	}
 
-	if (server->cipher_type && !rc)
-		rc = smb3_crypto_aead_allocate(server);
+	if (server->cipher_type && !rc) {
+		if (!SERVER_IS_CHAN(server)) {
+			rc = smb3_crypto_aead_allocate(server);
+		} else {
+			/* For channels, just reuse the primary server crypto secmech. */
+			server->secmech.enc = server->primary_server->secmech.enc;
+			server->secmech.dec = server->primary_server->secmech.dec;
+		}
+	}
 neg_exit:
 	free_rsp_buf(resp_buftype, rsp);
 	return rc;
@@ -2938,7 +2945,6 @@ replay_again:
 		req->CreateContextsOffset = cpu_to_le32(
 			sizeof(struct smb2_create_req) +
 			iov[1].iov_len);
-		le32_add_cpu(&req->CreateContextsLength, iov[n_iov-1].iov_len);
 		pc_buf = iov[n_iov-1].iov_base;
 	}
 
@@ -2985,7 +2991,7 @@ replay_again:
 	/* Eventually save off posix specific response info and timestamps */
 
 err_free_rsp_buf:
-	free_rsp_buf(resp_buftype, rsp_iov.iov_base);
+	free_rsp_buf(resp_buftype, rsp);
 	kfree(pc_buf);
 err_free_req:
 	cifs_small_buf_release(req);

@@ -116,20 +116,12 @@ static void tracing_mod_hyp_printk(u8 fmt_id, u64 a, u64 b, u64 c, u64 d)
 
 static int host_stage2_enable_lazy_pte(u64 pfn, u64 nr_pages)
 {
-	/*
-	 * Deprecating the lazy PTE functionality as now the
-	 * host can unmap on FF-A lend.
-	 */
-	WARN_ON(1);
-
-	return -EPERM;
+	return __pkvm_host_lazy_pte(pfn, nr_pages, true);
 }
 
 static int host_stage2_disable_lazy_pte(u64 pfn, u64 nr_pages)
 {
-	WARN_ON(1);
-
-	return -EPERM;
+	return __pkvm_host_lazy_pte(pfn, nr_pages, false);
 }
 
 static int __hyp_smp_processor_id(void)

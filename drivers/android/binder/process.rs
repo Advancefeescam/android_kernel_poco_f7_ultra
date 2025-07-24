@@ -27,8 +27,7 @@ use kernel::{
     seq_print,
     sync::poll::PollTable,
     sync::{
-        lock::{spinlock::SpinLockBackend, Guard},
-        Arc, ArcBorrow, CondVar, CondVarTimeoutResult, Mutex, SpinLock, UniqueArc,
+        lock::Guard, Arc, ArcBorrow, CondVar, CondVarTimeoutResult, Mutex, SpinLock, UniqueArc,
     },
     task::Task,
     types::{ARef, Either},
@@ -50,10 +49,6 @@ use crate::{
     thread::{PushWorkRes, Thread},
     BinderfsProcFile, DArc, DLArc, DTRWrap, DeliverToRead,
 };
-
-#[path = "freeze.rs"]
-mod freeze;
-use self::freeze::{FreezeCookie, FreezeListener};
 
 struct Mapping {
     address: usize,
@@ -320,8 +315,6 @@ pub(crate) struct NodeRefInfo {
     /// The refcount that this process owns to the node.
     node_ref: ListArcField<NodeRef, { Self::LIST_PROC }>,
     death: ListArcField<Option<DArc<NodeDeath>>, { Self::LIST_PROC }>,
-    /// Cookie of the active freeze listener for this node.
-    freeze: ListArcField<Option<FreezeCookie>, { Self::LIST_PROC }>,
     /// Used to store this `NodeRefInfo` in the node's `refs` list.
     #[pin]
     links: ListLinks<{ Self::LIST_NODE }>,
@@ -342,7 +335,6 @@ impl NodeRefInfo {
             debug_id: super::next_debug_id(),
             node_ref: ListArcField::new(node_ref),
             death: ListArcField::new(None),
-            freeze: ListArcField::new(None),
             links <- ListLinks::new(),
             handle,
             process,
@@ -351,7 +343,6 @@ impl NodeRefInfo {
 
     kernel::list::define_list_arc_field_getter! {
         pub(crate) fn death(&mut self<{Self::LIST_PROC}>) -> &mut Option<DArc<NodeDeath>> { death }
-        pub(crate) fn freeze(&mut self<{Self::LIST_PROC}>) -> &mut Option<FreezeCookie> { freeze }
         pub(crate) fn node_ref(&mut self<{Self::LIST_PROC}>) -> &mut NodeRef { node_ref }
         pub(crate) fn node_ref2(&self<{Self::LIST_PROC}>) -> &NodeRef { node_ref }
     }
@@ -381,11 +372,6 @@ struct ProcessNodeRefs {
     /// Used to look up nodes without knowing their local 32-bit id. The usize is the address of
     /// the underlying `Node` struct as returned by `Node::global_id`.
     by_node: RBTree<usize, u32>,
-    /// Used to look up a `FreezeListener` by cookie.
-    ///
-    /// There might be multiple freeze listeners for the same node, but at most one of them is
-    /// active.
-    freeze_listeners: RBTree<FreezeCookie, FreezeListener>,
 }
 
 impl ProcessNodeRefs {
@@ -393,7 +379,6 @@ impl ProcessNodeRefs {
         Self {
             by_handle: RBTree::new(),
             by_node: RBTree::new(),
-            freeze_listeners: RBTree::new(),
         }
     }
 }
@@ -926,8 +911,6 @@ impl Process {
                 refs.by_handle.remove(&handle);
                 refs.by_node.remove(&id);
             }
-        } else {
-            pr_warn!("{}: no such ref {handle}\n", kernel::current!().pid());
         }
         Ok(())
     }
@@ -1143,10 +1126,11 @@ impl Process {
             return Err(EPERM);
         }
 
+        let node_ref = self
+            .get_node_from_handle(out.handle, true)
+            .or(Err(EINVAL))?;
+        // Get the counts from the node.
         {
-            let mut node_refs = self.node_refs.lock();
-            let node_info = node_refs.by_handle.get_mut(&out.handle).ok_or(ENOENT)?;
-            let node_ref = node_info.node_ref();
             let owner_inner = node_ref.node.owner.inner.lock();
             node_ref.node.populate_counts(&mut out, &owner_inner);
         }
@@ -1248,18 +1232,6 @@ impl Process {
         }
     }
 
-    /// Locks the spinlock and move the `nodes` rbtree out.
-    ///
-    /// This allows you to iterate through `nodes` while also allowing you to give other parts of
-    /// the codebase exclusive access to `ProcessInner`.
-    pub(crate) fn lock_with_nodes(&self) -> WithNodes<'_> {
-        let mut inner = self.inner.lock();
-        WithNodes {
-            nodes: take(&mut inner.nodes),
-            inner,
-        }
-    }
-
     fn deferred_flush(&self) {
         let inner = self.inner.lock();
         for thread in inner.threads.values() {
@@ -1288,10 +1260,12 @@ impl Process {
 
         // Move oneway_todo into the process todolist.
         {
-            let mut inner = self.lock_with_nodes();
-            for node in inner.nodes.values() {
-                node.release(&mut inner.inner);
+            let mut inner = self.inner.lock();
+            let nodes = take(&mut inner.nodes);
+            for node in nodes.values() {
+                node.release(&mut inner);
             }
+            inner.nodes = nodes;
         }
 
         // Cancel all pending work items.
@@ -1320,7 +1294,6 @@ impl Process {
         // while holding the lock.
         let mut refs = self.node_refs.lock();
         let mut node_refs = take(&mut refs.by_handle);
-        let freeze_listeners = take(&mut refs.freeze_listeners);
         drop(refs);
         for info in node_refs.values_mut() {
             // SAFETY: We are removing the `NodeRefInfo` from the right node.
@@ -1335,10 +1308,6 @@ impl Process {
             death.set_cleared(false);
         }
         drop(node_refs);
-        for listener in freeze_listeners.values() {
-            listener.on_process_exit(&self);
-        }
-        drop(freeze_listeners);
 
         // Do similar dance for the state lock.
         let mut inner = self.inner.lock();
@@ -1385,13 +1354,10 @@ impl Process {
 
     pub(crate) fn ioctl_freeze(&self, info: &BinderFreezeInfo) -> Result {
         if info.enable == 0 {
-            let msgs = self.prepare_freeze_messages()?;
             let mut inner = self.inner.lock();
             inner.sync_recv = false;
             inner.async_recv = false;
             inner.is_frozen = false;
-            drop(inner);
-            msgs.send_messages();
             return Ok(());
         }
 
@@ -1429,17 +1395,7 @@ impl Process {
             inner.is_frozen = false;
             Err(EAGAIN)
         } else {
-            drop(inner);
-            match self.prepare_freeze_messages() {
-                Ok(batch) => {
-                    batch.send_messages();
-                    Ok(())
-                }
-                Err(kernel::alloc::AllocError) => {
-                    self.inner.lock().is_frozen = false;
-                    Err(ENOMEM)
-                }
-            }
+            Ok(())
         }
     }
 }
@@ -1635,7 +1591,7 @@ impl Process {
     pub(crate) fn poll(
         this: ArcBorrow<'_, Process>,
         file: &File,
-        table: PollTable<'_>,
+        table: &mut PollTable,
     ) -> Result<u32> {
         let thread = this.get_current_thread()?;
         let (from_proc, mut mask) = thread.poll(file, table);
@@ -1654,7 +1610,10 @@ pub(crate) struct Registration<'a> {
 }
 
 impl<'a> Registration<'a> {
-    fn new(thread: &'a Arc<Thread>, guard: &mut Guard<'_, ProcessInner, SpinLockBackend>) -> Self {
+    fn new(
+        thread: &'a Arc<Thread>,
+        guard: &mut Guard<'_, ProcessInner, kernel::sync::lock::spinlock::SpinLockBackend>,
+    ) -> Self {
         assert!(core::ptr::eq(&thread.process.inner, guard.lock_ref()));
         // INVARIANT: We are pushing this thread to the right `ready_threads` list.
         if let Ok(list_arc) = ListArc::try_from_arc(thread.clone()) {
@@ -1676,19 +1635,5 @@ impl Drop for Registration<'_> {
         // the `ready_threads` list of its parent process. Therefore, the thread is either in that
         // list, or in no list.
         unsafe { inner.ready_threads.remove(self.thread) };
-    }
-}
-
-pub(crate) struct WithNodes<'a> {
-    pub(crate) inner: Guard<'a, ProcessInner, SpinLockBackend>,
-    pub(crate) nodes: RBTree<u64, DArc<Node>>,
-}
-
-impl Drop for WithNodes<'_> {
-    fn drop(&mut self) {
-        core::mem::swap(&mut self.nodes, &mut self.inner.nodes);
-        if self.nodes.iter().next().is_some() {
-            pr_err!("nodes array was modified while using lock_with_nodes\n");
-        }
     }
 }

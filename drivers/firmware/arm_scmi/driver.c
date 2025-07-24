@@ -1219,8 +1219,7 @@ static void xfer_put(const struct scmi_protocol_handle *ph,
 }
 
 static bool scmi_xfer_done_no_timeout(struct scmi_chan_info *cinfo,
-				      struct scmi_xfer *xfer, ktime_t stop,
-				      bool *ooo)
+				      struct scmi_xfer *xfer, ktime_t stop)
 {
 	struct scmi_info *info = handle_to_scmi_info(cinfo->handle);
 
@@ -1229,7 +1228,7 @@ static bool scmi_xfer_done_no_timeout(struct scmi_chan_info *cinfo,
 	 * in case of out-of-order receptions of delayed responses
 	 */
 	return info->desc->ops->poll_done(cinfo, xfer) ||
-	       (*ooo = try_wait_for_completion(&xfer->done)) ||
+	       try_wait_for_completion(&xfer->done) ||
 	       ktime_after(ktime_get(), stop);
 }
 
@@ -1246,17 +1245,15 @@ static int scmi_wait_for_reply(struct device *dev, const struct scmi_desc *desc,
 		 * itself to support synchronous commands replies.
 		 */
 		if (!desc->sync_cmds_completed_on_ret) {
-			bool ooo = false;
-
 			/*
 			 * Poll on xfer using transport provided .poll_done();
 			 * assumes no completion interrupt was available.
 			 */
 			ktime_t stop = ktime_add_ms(ktime_get(), timeout_ms);
 
-			spin_until_cond(scmi_xfer_done_no_timeout(cinfo, xfer,
-								  stop, &ooo));
-			if (!ooo && !info->desc->ops->poll_done(cinfo, xfer)) {
+			spin_until_cond(scmi_xfer_done_no_timeout(cinfo,
+								  xfer, stop));
+			if (ktime_after(ktime_get(), stop)) {
 				dev_err(dev,
 					"timed out in resp(caller: %pS) - polling\n",
 					(void *)_RET_IP_);

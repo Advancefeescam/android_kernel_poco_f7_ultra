@@ -151,7 +151,7 @@ static int calc_ntlmv2_hash(struct ksmbd_conn *conn, struct ksmbd_session *sess,
 
 	/* convert user_name to unicode */
 	len = strlen(user_name(sess->user));
-	uniname = kzalloc(2 + UNICODE_LEN(len), KSMBD_DEFAULT_GFP);
+	uniname = kzalloc(2 + UNICODE_LEN(len), GFP_KERNEL);
 	if (!uniname) {
 		ret = -ENOMEM;
 		goto out;
@@ -175,7 +175,7 @@ static int calc_ntlmv2_hash(struct ksmbd_conn *conn, struct ksmbd_session *sess,
 
 	/* Convert domain name or conn name to unicode and uppercase */
 	len = strlen(dname);
-	domain = kzalloc(2 + UNICODE_LEN(len), KSMBD_DEFAULT_GFP);
+	domain = kzalloc(2 + UNICODE_LEN(len), GFP_KERNEL);
 	if (!domain) {
 		ret = -ENOMEM;
 		goto out;
@@ -254,7 +254,7 @@ int ksmbd_auth_ntlmv2(struct ksmbd_conn *conn, struct ksmbd_session *sess,
 	}
 
 	len = CIFS_CRYPTO_KEY_SIZE + blen;
-	construct = kzalloc(len, KSMBD_DEFAULT_GFP);
+	construct = kzalloc(len, GFP_KERNEL);
 	if (!construct) {
 		rc = -ENOMEM;
 		goto out;
@@ -361,7 +361,7 @@ int ksmbd_decode_ntlmssp_auth_blob(struct authenticate_message *authblob,
 		if (sess_key_len > CIFS_KEY_SIZE)
 			return -EINVAL;
 
-		ctx_arc4 = kmalloc(sizeof(*ctx_arc4), KSMBD_DEFAULT_GFP);
+		ctx_arc4 = kmalloc(sizeof(*ctx_arc4), GFP_KERNEL);
 		if (!ctx_arc4)
 			return -ENOMEM;
 
@@ -451,7 +451,7 @@ ksmbd_build_ntlmssp_challenge_blob(struct challenge_message *chgblob,
 
 	chgblob->NegotiateFlags = cpu_to_le32(flags);
 	len = strlen(ksmbd_netbios_name());
-	name = kmalloc(2 + UNICODE_LEN(len), KSMBD_DEFAULT_GFP);
+	name = kmalloc(2 + UNICODE_LEN(len), GFP_KERNEL);
 	if (!name)
 		return -ENOMEM;
 
@@ -550,19 +550,7 @@ int ksmbd_krb5_authenticate(struct ksmbd_session *sess, char *in_blob,
 		retval = -ENOMEM;
 		goto out;
 	}
-
-	if (!sess->user) {
-		/* First successful authentication */
-		sess->user = user;
-	} else {
-		if (!ksmbd_compare_user(sess->user, user)) {
-			ksmbd_debug(AUTH, "different user tried to reuse session\n");
-			retval = -EPERM;
-			ksmbd_free_user(user);
-			goto out;
-		}
-		ksmbd_free_user(user);
-	}
+	sess->user = user;
 
 	memcpy(sess->sess_key, resp->payload, resp->session_key_len);
 	memcpy(out_blob, resp->payload + resp->session_key_len,
@@ -1057,7 +1045,7 @@ static struct scatterlist *ksmbd_init_sg(struct kvec *iov, unsigned int nvec,
 	if (!nvec)
 		return NULL;
 
-	nr_entries = kcalloc(nvec, sizeof(int), KSMBD_DEFAULT_GFP);
+	nr_entries = kcalloc(nvec, sizeof(int), GFP_KERNEL);
 	if (!nr_entries)
 		return NULL;
 
@@ -1077,8 +1065,7 @@ static struct scatterlist *ksmbd_init_sg(struct kvec *iov, unsigned int nvec,
 	/* Add two entries for transform header and signature */
 	total_entries += 2;
 
-	sg = kmalloc_array(total_entries, sizeof(struct scatterlist),
-			   KSMBD_DEFAULT_GFP);
+	sg = kmalloc_array(total_entries, sizeof(struct scatterlist), GFP_KERNEL);
 	if (!sg) {
 		kfree(nr_entries);
 		return NULL;
@@ -1178,7 +1165,7 @@ int ksmbd_crypt_message(struct ksmbd_work *work, struct kvec *iov,
 		goto free_ctx;
 	}
 
-	req = aead_request_alloc(tfm, KSMBD_DEFAULT_GFP);
+	req = aead_request_alloc(tfm, GFP_KERNEL);
 	if (!req) {
 		rc = -ENOMEM;
 		goto free_ctx;
@@ -1197,7 +1184,7 @@ int ksmbd_crypt_message(struct ksmbd_work *work, struct kvec *iov,
 	}
 
 	iv_len = crypto_aead_ivsize(tfm);
-	iv = kzalloc(iv_len, KSMBD_DEFAULT_GFP);
+	iv = kzalloc(iv_len, GFP_KERNEL);
 	if (!iv) {
 		rc = -ENOMEM;
 		goto free_sg;

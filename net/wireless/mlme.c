@@ -1325,8 +1325,7 @@ void cfg80211_mlo_reconf_add_done(struct net_device *dev,
 	lockdep_assert_wiphy(wiphy);
 
 	trace_cfg80211_mlo_reconf_add_done(dev, data->added_links,
-					   data->buf, data->len,
-					   data->driver_initiated);
+					   data->buf, data->len);
 
 	if (WARN_ON(!wdev->valid_links))
 		return;
@@ -1356,16 +1355,11 @@ void cfg80211_mlo_reconf_add_done(struct net_device *dev,
 			wdev->links[link_id].client.current_bss =
 				bss_from_pub(bss);
 
-			if (data->driver_initiated)
-				cfg80211_hold_bss(bss_from_pub(bss));
-
 			memcpy(wdev->links[link_id].addr,
 			       data->links[link_id].addr,
 			       ETH_ALEN);
 		} else {
-			if (!data->driver_initiated)
-				cfg80211_unhold_bss(bss_from_pub(bss));
-
+			cfg80211_unhold_bss(bss_from_pub(bss));
 			cfg80211_put_bss(wiphy, bss);
 		}
 	}

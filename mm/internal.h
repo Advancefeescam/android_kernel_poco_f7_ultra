@@ -205,9 +205,11 @@ static inline int folio_pte_batch(struct folio *folio, unsigned long addr,
 		pte_t *start_ptep, pte_t pte, int max_nr, fpb_t flags,
 		bool *any_writable, bool *any_young, bool *any_dirty)
 {
+	unsigned long folio_end_pfn = folio_pfn(folio) + folio_nr_pages(folio);
+	const pte_t *end_ptep = start_ptep + max_nr;
 	pte_t expected_pte, *ptep;
 	bool writable, young, dirty;
-	int nr, cur_nr;
+	int nr;
 
 	if (any_writable)
 		*any_writable = false;
@@ -220,15 +222,11 @@ static inline int folio_pte_batch(struct folio *folio, unsigned long addr,
 	VM_WARN_ON_FOLIO(!folio_test_large(folio) || max_nr < 1, folio);
 	VM_WARN_ON_FOLIO(page_folio(pfn_to_page(pte_pfn(pte))) != folio, folio);
 
-	/* Limit max_nr to the actual remaining PFNs in the folio we could batch. */
-	max_nr = min_t(unsigned long, max_nr,
-		       folio_pfn(folio) + folio_nr_pages(folio) - pte_pfn(pte));
-
 	nr = pte_batch_hint(start_ptep, pte);
 	expected_pte = __pte_batch_clear_ignored(pte_advance_pfn(pte, nr), flags);
 	ptep = start_ptep + nr;
 
-	while (nr < max_nr) {
+	while (ptep < end_ptep) {
 		pte = ptep_get(ptep);
 		if (any_writable)
 			writable = !!pte_write(pte);
@@ -241,6 +239,14 @@ static inline int folio_pte_batch(struct folio *folio, unsigned long addr,
 		if (!pte_same(pte, expected_pte))
 			break;
 
+		/*
+		 * Stop immediately once we reached the end of the folio. In
+		 * corner cases the next PFN might fall into a different
+		 * folio.
+		 */
+		if (pte_pfn(pte) >= folio_end_pfn)
+			break;
+
 		if (any_writable)
 			*any_writable |= writable;
 		if (any_young)
@@ -248,13 +254,12 @@ static inline int folio_pte_batch(struct folio *folio, unsigned long addr,
 		if (any_dirty)
 			*any_dirty |= dirty;
 
-		cur_nr = pte_batch_hint(ptep, pte);
-		expected_pte = pte_advance_pfn(expected_pte, cur_nr);
-		ptep += cur_nr;
-		nr += cur_nr;
+		nr = pte_batch_hint(ptep, pte);
+		expected_pte = pte_advance_pfn(expected_pte, nr);
+		ptep += nr;
 	}
 
-	return min(nr, max_nr);
+	return min(ptep - start_ptep, max_nr);
 }
 
 /**
@@ -829,7 +834,7 @@ void init_cma_reserved_pageblock(struct page *page);
 #endif /* CONFIG_COMPACTION || CONFIG_CMA */
 
 int find_suitable_fallback(struct free_area *area, unsigned int order,
-			   int migratetype, bool claimable);
+			int migratetype, bool only_stealable, bool *can_steal);
 
 static inline bool free_area_empty(struct free_area *area, int migratetype)
 {

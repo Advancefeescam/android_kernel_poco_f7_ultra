@@ -111,7 +111,7 @@ static unsigned long __init get_loops_per_jiffy(void)
 	return lpj;
 }
 
-static long init_offset;
+static long init_offset __nosavedata;
 
 void save_counter(void)
 {

@@ -73,17 +73,16 @@ static bool duplicate_rela(const Elf_Rela *rela, int idx)
 static void count_max_entries(Elf_Rela *relas, int num,
 			      unsigned int *plts, unsigned int *gots)
 {
-	for (int i = 0; i < num; i++) {
-		switch (ELF_R_TYPE(relas[i].r_info)) {
-		case R_RISCV_CALL_PLT:
-		case R_RISCV_PLT32:
+	unsigned int type, i;
+
+	for (i = 0; i < num; i++) {
+		type = ELF_RISCV_R_TYPE(relas[i].r_info);
+		if (type == R_RISCV_CALL_PLT) {
 			if (!duplicate_rela(relas, i))
 				(*plts)++;
-			break;
-		case R_RISCV_GOT_HI20:
+		} else if (type == R_RISCV_GOT_HI20) {
 			if (!duplicate_rela(relas, i))
 				(*gots)++;
-			break;
 		}
 	}
 }

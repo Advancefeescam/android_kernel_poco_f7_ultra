@@ -34,7 +34,7 @@ static struct oplock_info *alloc_opinfo(struct ksmbd_work *work,
 	struct ksmbd_session *sess = work->sess;
 	struct oplock_info *opinfo;
 
-	opinfo = kzalloc(sizeof(struct oplock_info), KSMBD_DEFAULT_GFP);
+	opinfo = kzalloc(sizeof(struct oplock_info), GFP_KERNEL);
 	if (!opinfo)
 		return NULL;
 
@@ -93,7 +93,7 @@ static int alloc_lease(struct oplock_info *opinfo, struct lease_ctx_info *lctx)
 {
 	struct lease *lease;
 
-	lease = kmalloc(sizeof(struct lease), KSMBD_DEFAULT_GFP);
+	lease = kmalloc(sizeof(struct lease), GFP_KERNEL);
 	if (!lease)
 		return -ENOMEM;
 
@@ -129,6 +129,14 @@ static void free_opinfo(struct oplock_info *opinfo)
 	kfree(opinfo);
 }
 
+static inline void opinfo_free_rcu(struct rcu_head *rcu_head)
+{
+	struct oplock_info *opinfo;
+
+	opinfo = container_of(rcu_head, struct oplock_info, rcu_head);
+	free_opinfo(opinfo);
+}
+
 struct oplock_info *opinfo_get(struct ksmbd_file *fp)
 {
 	struct oplock_info *opinfo;
@@ -149,8 +157,8 @@ static struct oplock_info *opinfo_get_list(struct ksmbd_inode *ci)
 	if (list_empty(&ci->m_op_list))
 		return NULL;
 
-	down_read(&ci->m_lock);
-	opinfo = list_first_entry(&ci->m_op_list, struct oplock_info,
+	rcu_read_lock();
+	opinfo = list_first_or_null_rcu(&ci->m_op_list, struct oplock_info,
 					op_entry);
 	if (opinfo) {
 		if (opinfo->conn == NULL ||
@@ -163,7 +171,8 @@ static struct oplock_info *opinfo_get_list(struct ksmbd_inode *ci)
 			}
 		}
 	}
-	up_read(&ci->m_lock);
+
+	rcu_read_unlock();
 
 	return opinfo;
 }
@@ -176,7 +185,7 @@ void opinfo_put(struct oplock_info *opinfo)
 	if (!atomic_dec_and_test(&opinfo->refcount))
 		return;
 
-	free_opinfo(opinfo);
+	call_rcu(&opinfo->rcu_head, opinfo_free_rcu);
 }
 
 static void opinfo_add(struct oplock_info *opinfo)
@@ -184,7 +193,7 @@ static void opinfo_add(struct oplock_info *opinfo)
 	struct ksmbd_inode *ci = opinfo->o_fp->f_ci;
 
 	down_write(&ci->m_lock);
-	list_add(&opinfo->op_entry, &ci->m_op_list);
+	list_add_rcu(&opinfo->op_entry, &ci->m_op_list);
 	up_write(&ci->m_lock);
 }
 
@@ -198,7 +207,7 @@ static void opinfo_del(struct oplock_info *opinfo)
 		write_unlock(&lease_list_lock);
 	}
 	down_write(&ci->m_lock);
-	list_del(&opinfo->op_entry);
+	list_del_rcu(&opinfo->op_entry);
 	up_write(&ci->m_lock);
 }
 
@@ -701,7 +710,7 @@ static int smb2_oplock_break_noti(struct oplock_info *opinfo)
 	if (!work)
 		return -ENOMEM;
 
-	br_info = kmalloc(sizeof(struct oplock_break_info), KSMBD_DEFAULT_GFP);
+	br_info = kmalloc(sizeof(struct oplock_break_info), GFP_KERNEL);
 	if (!br_info) {
 		ksmbd_free_work_struct(work);
 		return -ENOMEM;
@@ -806,7 +815,7 @@ static int smb2_lease_break_noti(struct oplock_info *opinfo)
 	if (!work)
 		return -ENOMEM;
 
-	br_info = kmalloc(sizeof(struct lease_break_info), KSMBD_DEFAULT_GFP);
+	br_info = kmalloc(sizeof(struct lease_break_info), GFP_KERNEL);
 	if (!br_info) {
 		ksmbd_free_work_struct(work);
 		return -ENOMEM;
@@ -1049,7 +1058,7 @@ static int add_lease_global_list(struct oplock_info *opinfo)
 	}
 	read_unlock(&lease_list_lock);
 
-	lb = kmalloc(sizeof(struct lease_table), KSMBD_DEFAULT_GFP);
+	lb = kmalloc(sizeof(struct lease_table), GFP_KERNEL);
 	if (!lb)
 		return -ENOMEM;
 
@@ -1338,8 +1347,8 @@ void smb_break_all_levII_oplock(struct ksmbd_work *work, struct ksmbd_file *fp,
 	ci = fp->f_ci;
 	op = opinfo_get(fp);
 
-	down_read(&ci->m_lock);
-	list_for_each_entry(brk_op, &ci->m_op_list, op_entry) {
+	rcu_read_lock();
+	list_for_each_entry_rcu(brk_op, &ci->m_op_list, op_entry) {
 		if (brk_op->conn == NULL)
 			continue;
 
@@ -1349,6 +1358,7 @@ void smb_break_all_levII_oplock(struct ksmbd_work *work, struct ksmbd_file *fp,
 		if (ksmbd_conn_releasing(brk_op->conn))
 			continue;
 
+		rcu_read_unlock();
 		if (brk_op->is_lease && (brk_op->o_lease->state &
 		    (~(SMB2_LEASE_READ_CACHING_LE |
 				SMB2_LEASE_HANDLE_CACHING_LE)))) {
@@ -1378,8 +1388,9 @@ void smb_break_all_levII_oplock(struct ksmbd_work *work, struct ksmbd_file *fp,
 		oplock_break(brk_op, SMB2_OPLOCK_LEVEL_NONE, NULL);
 next:
 		opinfo_put(brk_op);
+		rcu_read_lock();
 	}
-	up_read(&ci->m_lock);
+	rcu_read_unlock();
 
 	if (op)
 		opinfo_put(op);
@@ -1487,7 +1498,7 @@ struct lease_ctx_info *parse_lease_state(void *open_req)
 	if (IS_ERR_OR_NULL(cc))
 		return NULL;
 
-	lreq = kzalloc(sizeof(struct lease_ctx_info), KSMBD_DEFAULT_GFP);
+	lreq = kzalloc(sizeof(struct lease_ctx_info), GFP_KERNEL);
 	if (!lreq)
 		return NULL;
 
@@ -1496,7 +1507,7 @@ struct lease_ctx_info *parse_lease_state(void *open_req)
 
 		if (le16_to_cpu(cc->DataOffset) + le32_to_cpu(cc->DataLength) <
 		    sizeof(struct create_lease_v2) - 4)
-			goto err_out;
+			return NULL;
 
 		memcpy(lreq->lease_key, lc->lcontext.LeaseKey, SMB2_LEASE_KEY_SIZE);
 		lreq->req_state = lc->lcontext.LeaseState;
@@ -1512,7 +1523,7 @@ struct lease_ctx_info *parse_lease_state(void *open_req)
 
 		if (le16_to_cpu(cc->DataOffset) + le32_to_cpu(cc->DataLength) <
 		    sizeof(struct create_lease))
-			goto err_out;
+			return NULL;
 
 		memcpy(lreq->lease_key, lc->lcontext.LeaseKey, SMB2_LEASE_KEY_SIZE);
 		lreq->req_state = lc->lcontext.LeaseState;
@@ -1521,9 +1532,6 @@ struct lease_ctx_info *parse_lease_state(void *open_req)
 		lreq->version = 1;
 	}
 	return lreq;
-err_out:
-	kfree(lreq);
-	return NULL;
 }
 
 /**

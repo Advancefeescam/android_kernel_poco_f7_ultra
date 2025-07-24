@@ -244,7 +244,7 @@ static struct ksmbd_ipc_msg *ipc_msg_alloc(size_t sz)
 	struct ksmbd_ipc_msg *msg;
 	size_t msg_sz = sz + sizeof(struct ksmbd_ipc_msg);
 
-	msg = kvzalloc(msg_sz, KSMBD_DEFAULT_GFP);
+	msg = kvzalloc(msg_sz, GFP_KERNEL);
 	if (msg)
 		msg->sz = sz;
 	return msg;
@@ -284,7 +284,7 @@ static int handle_response(int type, void *payload, size_t sz)
 			continue;
 		}
 
-		entry->response = kvzalloc(sz, KSMBD_DEFAULT_GFP);
+		entry->response = kvzalloc(sz, GFP_KERNEL);
 		if (!entry->response) {
 			ret = -ENOMEM;
 			break;
@@ -310,11 +310,7 @@ static int ipc_server_config_on_startup(struct ksmbd_startup_request *req)
 	server_conf.signing = req->signing;
 	server_conf.tcp_port = req->tcp_port;
 	server_conf.ipc_timeout = req->ipc_timeout * HZ;
-	if (check_mul_overflow(req->deadtime, SMB_ECHO_INTERVAL,
-					&server_conf.deadtime)) {
-		ret = -EINVAL;
-		goto out;
-	}
+	server_conf.deadtime = req->deadtime * SMB_ECHO_INTERVAL;
 	server_conf.share_fake_fscaps = req->share_fake_fscaps;
 	ksmbd_init_domain(req->sub_auth);
 
@@ -338,10 +334,8 @@ static int ipc_server_config_on_startup(struct ksmbd_startup_request *req)
 	ret = ksmbd_set_netbios_name(req->netbios_name);
 	ret |= ksmbd_set_server_string(req->server_string);
 	ret |= ksmbd_set_work_group(req->work_group);
-	server_conf.bind_interfaces_only = req->bind_interfaces_only;
 	ret |= ksmbd_tcp_set_interfaces(KSMBD_STARTUP_CONFIG_INTERFACES(req),
 					req->ifc_list_sz);
-out:
 	if (ret) {
 		pr_err("Server configuration error: %s %s %s\n",
 		       req->netbios_name, req->server_string,
@@ -454,7 +448,7 @@ static int ipc_msg_send(struct ksmbd_ipc_msg *msg)
 	if (!ksmbd_tools_pid)
 		return ret;
 
-	skb = genlmsg_new(msg->sz, KSMBD_DEFAULT_GFP);
+	skb = genlmsg_new(msg->sz, GFP_KERNEL);
 	if (!skb)
 		return -ENOMEM;
 

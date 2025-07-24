@@ -648,7 +648,7 @@ process_accumulated_relocations(struct module *me,
 		kfree(bucket_iter);
 	}
 
-	kvfree(*relocation_hashtable);
+	kfree(*relocation_hashtable);
 }
 
 static int add_relocation_to_accumulate(struct module *me, int type,
@@ -752,10 +752,9 @@ initialize_relocation_hashtable(unsigned int num_relocations,
 
 	hashtable_size <<= should_double_size;
 
-	/* Number of relocations may be large, so kvmalloc it */
-	*relocation_hashtable = kvmalloc_array(hashtable_size,
-					       sizeof(**relocation_hashtable),
-					       GFP_KERNEL);
+	*relocation_hashtable = kmalloc_array(hashtable_size,
+					      sizeof(**relocation_hashtable),
+					      GFP_KERNEL);
 	if (!*relocation_hashtable)
 		return 0;
 
@@ -860,7 +859,7 @@ int apply_relocate_add(Elf_Shdr *sechdrs, const char *strtab,
 				}
 
 				j++;
-				if (j == num_relocations)
+				if (j > sechdrs[relsec].sh_size / sizeof(*rel))
 					j = 0;
 
 			} while (j_idx != j);

@@ -4296,12 +4296,26 @@ void sched_ttwu_pending(void *arg)
 	struct rq *rq = this_rq();
 	struct task_struct *p, *t;
 	struct rq_flags rf;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[6];
+	unsigned int counter = 0, list_wait_rq_lock_counter = 0;
+	unsigned int this_cpu = cpu_of(rq);
+#endif
 
 	if (!llist)
 		return;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[0] = sched_clock();
+#endif
 	rq_lock_irqsave(rq, &rf);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+#endif
 	update_rq_clock(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[2] = sched_clock();
+#endif
 
 	llist_for_each_entry_safe(p, t, llist, wake_entry.llist) {
 		int wake_flags;
@@ -4315,9 +4329,29 @@ void sched_ttwu_pending(void *arg)
 		ttwu_do_activate(rq, p, wake_flags, &rf);
 		rq_unlock(rq, &rf);
 		activate_blocked_waiters(rq, p, wake_flags);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[4] = sched_clock();
+#endif
 		rq_lock(rq, &rf);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[5] = sched_clock();
+
+		if (ts[5] - ts[4] > 100000U)
+			list_wait_rq_lock_counter++;
+#endif
 		update_rq_clock(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		counter++;
+#endif
 	}
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[3] = sched_clock();
+
+	if (ts[3] - ts[0] > 5000000U)
+		printk_deferred("this_cpu=%d, func=%s, counter=%d, list_wait_rq_lock_counter=%d, total_duration=%llu, ts[1]-ts[0]=%llu, ts[2]-ts[1]=%llu, ts[3]-ts[2]=%llu\n",
+			this_cpu, __func__, counter, list_wait_rq_lock_counter,
+			ts[3] - ts[0], ts[1]-ts[0], ts[2]-ts[1], ts[3]-ts[2]);
+#endif
 
 	/*
 	 * Must be after enqueueing at least once task such that
@@ -7720,6 +7754,9 @@ static void __sched notrace __schedule(int sched_mode)
 	bool prev_not_proxied;
 	int cpu;
 	bool preserve_need_resched = false;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[10];
+#endif
 
 	cpu = smp_processor_id();
 	rq = cpu_rq(cpu);
@@ -7731,6 +7768,9 @@ static void __sched notrace __schedule(int sched_mode)
 		hrtick_clear(rq);
 
 	local_irq_disable();
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[0] = sched_clock();
+#endif
 	rcu_note_context_switch(preempt);
 
 	/*
@@ -7772,6 +7812,13 @@ static void __sched notrace __schedule(int sched_mode)
 		/* SCX must consult the BPF scheduler to tell if rq is empty */
 		if (!rq->nr_running && !scx_enabled()) {
 			next = prev;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			ts[1] = sched_clock();
+			if (ts[1] - ts[0] > 2000000U)
+				printk_deferred("cpu=%d, func=%s, line=%d, ts[%d]=%llu, ts[%d]=%llu, duration=%llu\n",
+					cpu, __func__, __LINE__, 0, ts[0], 1, ts[1],
+					ts[1] - ts[0]);
+#endif
 			goto picked;
 		}
 	} else if (!preempt && prev_state) {
@@ -7782,22 +7829,64 @@ static void __sched notrace __schedule(int sched_mode)
 	prev_not_proxied = !prev->blocked_donor;
 
 	trace_sched_start_task_selection(prev, cpu, task_is_blocked(prev));
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+	if (ts[1] - ts[0] > 2000000U)
+		printk_deferred("cpu=%d, func=%s, line=%d, ts[%d]=%llu, ts[%d]=%llu, duration=%llu\n",
+			cpu, __func__, __LINE__, 0, ts[0], 1, ts[1], ts[1] - ts[0]);
+#endif
+
 pick_again:
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[4] = sched_clock();
+#endif
 	next = pick_next_task(rq, rq->donor, &rf);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[5] = sched_clock();
+	if (ts[5] - ts[4] > 1000000U)
+		printk_deferred("cpu=%d, func=%s, line=%d, task_is_blocked(next)=%d, ts[%d]=%llu, ts[%d]=%llu, duration=%llu\n",
+			cpu, __func__, __LINE__, task_is_blocked(next), 4, ts[4], 5, ts[5],
+			ts[5] - ts[4]);
+#endif
+
 	rq_set_donor(rq, next);
 	next->blocked_donor = NULL;
 	if (unlikely(task_is_blocked(next))) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[6] = sched_clock();
+#endif
 		next = find_proxy_task(rq, next, &rf);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[7] = sched_clock();
+		printk_deferred("cpu=%d, func=%s, line=%d, ts[%d]=%llu, ts[%d]=%llu, duration=%llu\n",
+			cpu, __func__, __LINE__, 6, ts[6], 7, ts[7], ts[7] - ts[6]);
+#endif
 		if (!next) {
 			/* zap the balance_callbacks before picking again */
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			ts[8] = sched_clock();
+#endif
 			zap_balance_callbacks(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			ts[9] = sched_clock();
+			printk_deferred("cpu=%d, func=%s, line=%d, ts[%d]=%llu, ts[%d]=%llu, duration=%llu\n",
+				cpu, __func__, __LINE__, 8, ts[8], 9, ts[9], ts[9] - ts[8]);
+#endif
 			goto pick_again;
 		}
 		if (next == rq->idle)
 			preserve_need_resched = true;
 	}
+
 	trace_sched_finish_task_selection(rq->donor, next, cpu);
 picked:
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[2] = sched_clock();
+	if (ts[2] - ts[1] > 2000000U)
+		printk_deferred("cpu=%d, func=%s, line=%d, ts[%d]=%llu, ts[%d]=%llu, duration=%llu\n",
+			cpu, __func__, __LINE__, 1, ts[1], 2, ts[2], ts[2] - ts[1]);
+#endif
+
 	if (!preserve_need_resched)
 		clear_tsk_need_resched(prev);
 	clear_preempt_need_resched();
@@ -7806,6 +7895,13 @@ picked:
 #endif
 
 	trace_android_rvh_schedule(prev, next, rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[3] = sched_clock();
+	if (ts[3] - ts[2] > 2000000U)
+		printk_deferred("cpu=%d, func=%s, line=%d, ts[%d]=%llu, ts[%d]=%llu, duration=%llu\n",
+			cpu, __func__, __LINE__, 2, ts[2], 3, ts[3], ts[3] - ts[2]);
+#endif
+
 	if (likely(prev != next)) {
 		rq->nr_switches++;
 		/*

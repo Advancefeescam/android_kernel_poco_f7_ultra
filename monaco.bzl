@@ -3,6 +3,7 @@ load(":msm_kernel_la.bzl", "define_msm_la")
 load(":image_opts.bzl", "boot_image_opts")
 
 target_name = "monaco"
+target_arch = "monaco"
 
 def define_monaco():
     _monaco_in_tree_modules = [
@@ -117,6 +118,7 @@ def define_monaco():
         "drivers/soc/qcom/memory_dump_v2.ko",
         "drivers/soc/qcom/memshare/heap_mem_ext_v01.ko",
         "drivers/soc/qcom/memshare/msm_memshare.ko",
+        "drivers/soc/qcom/minidump.ko",
         "drivers/soc/qcom/msm_performance.ko",
         "drivers/soc/qcom/msm_show_epoch.ko",
         "drivers/soc/qcom/panel_event_notifier.ko",
@@ -132,6 +134,7 @@ def define_monaco():
         "drivers/soc/qcom/qmi_helpers.ko",
         "drivers/soc/qcom/qsee_ipc_irq_bridge.ko",
         "drivers/soc/qcom/qti-pmic-lpm.ko",
+        "drivers/soc/qcom/rq_stats.ko",
         "drivers/soc/qcom/secure_buffer.ko",
         "drivers/soc/qcom/slate_events_bridge.ko",
         "drivers/soc/qcom/slate_events_bridge_rpmsg.ko",
@@ -145,6 +148,7 @@ def define_monaco():
         "drivers/soc/qcom/smp2p.ko",
         "drivers/soc/qcom/socinfo.ko",
         "drivers/soc/qcom/sps/sps_drv.ko",
+        "drivers/soc/qcom/sysmon_subsystem_stats.ko",
         "drivers/soc/qcom/wcd_usbss_i2c.ko",
         "drivers/spi/spi-msm-geni.ko",
         "drivers/spmi/spmi-pmic-arb.ko",
@@ -220,6 +224,7 @@ def define_monaco():
 
         define_msm_la(
             msm_target = target_name,
+			msm_arch = target_arch,
             variant = variant,
             in_tree_module_list = mod_list,
             boot_image_opts = boot_image_opts(

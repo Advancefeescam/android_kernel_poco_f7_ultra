@@ -1,9 +1,26 @@
+target_arch_map = {
+    "haotian" : "sun",
+    "dada" : "sun",
+    "miro" : "sun",
+    "xuanyuan" : "sun",
+    "bixi" : "sun",
+    "onyx" : "sun",
+    "luming" : "sun",
+}
+
 targets = [
     # keep sorted
     "monaco",
     "parrot",
     "pineapple",
     "sun",
+    "haotian",
+    "dada",
+    "xuanyuan",
+    "miro",
+    "bixi",
+    "onyx",
+    "luming",
 ]
 
 la_variants = [
@@ -62,3 +79,9 @@ def get_all_non_la_variants():
 
 def get_all_variants():
     return get_all_la_variants() + get_all_le_variants() + get_all_vm_variants()
+
+def get_arch_of_target(target):
+    arch = target_arch_map.get(target)
+    if not arch:
+        arch = target
+    return arch

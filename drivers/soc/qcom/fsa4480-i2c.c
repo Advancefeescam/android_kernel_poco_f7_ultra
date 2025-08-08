@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
-
+#define DEBUG
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/regmap.h>

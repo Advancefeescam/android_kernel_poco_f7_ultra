@@ -13,8 +13,10 @@
 #include <linux/notifier.h>
 #include <linux/panic_notifier.h>
 #include <soc/qcom/ice.h>
+
 #include <ufs/ufshcd.h>
 #include <ufs/unipro.h>
+
 
 #define MAX_UFS_QCOM_HOSTS	2
 #define MAX_U32                 (~(u32)0)
@@ -464,15 +466,20 @@ struct ufs_qcom_regs {
 };
 
 /**
- * struct cpu_freq_info - keep CPUs frequency info
+ * struct cpu_freq_info - keep cpu cluster's info
  * @cpu: the cpu to bump up when requests on perf core exceeds the threshold
  * @min_cpu_scale_freq: the minimal frequency of the cpu
  * @max_cpu_scale_freq: the maximal frequency of the cpu
+ * @default_cluster_mask : the deafault cluster mask
+ * @available_cluster_mask: the available cluster mask
  */
 struct cpu_freq_info {
-	u32 cpu;
+	u32 first_cpu;
+	u32 last_cpu;
 	unsigned int min_cpu_scale_freq;
 	unsigned int max_cpu_scale_freq;
+	cpumask_t default_cluster_mask;
+	cpumask_t available_cluster_mask;
 };
 
 struct ufs_qcom_dev_params {
@@ -490,6 +497,8 @@ struct ufs_qcom_dev_params {
 	int phy_submode;	/* gear number */
 	u32 desired_working_mode;
 };
+
+
 
 struct ufs_qcom_host {
 	/*
@@ -527,6 +536,7 @@ struct ufs_qcom_host {
 	struct ufs_hba *hba;
 	struct ufs_qcom_bus_vote bus_vote;
 	struct ufs_pa_layer_attr dev_req_params;
+
 	struct clk *rx_l0_sync_clk;
 	struct clk *tx_l0_sync_clk;
 	struct clk *rx_l1_sync_clk;
@@ -562,10 +572,11 @@ struct ufs_qcom_host {
 	bool disable_lpm;
 
 	bool vdd_hba_pc;
+	bool ufs_gen_type;
 	struct notifier_block vdd_hba_reg_nb;
 
 	struct ufs_vreg *vddp_ref_clk;
-	struct ufs_vreg *vccq_parent;
+	struct ufs_vreg *parent_vreg;
 	struct ufs_vreg *vccq_proxy_client;
 	bool work_pending;
 	bool bypass_g4_cfgready;
@@ -602,12 +613,17 @@ struct ufs_qcom_host {
 	cpumask_t def_mask;
 	cpumask_t esi_mask;
 	u32 *esi_affinity_mask;
+	cpumask_t qos_perf_mask;
+	cpumask_t qos_non_perf_mask;
+	bool is_qultivate_support;
+#define MAX_NUM_CLUSTERS 4
 	bool disable_wb_support;
 	struct ufs_qcom_ber_hist ber_hist[UFS_QCOM_BER_MODE_MAX];
 	struct list_head regs_list_head;
 	bool ber_th_exceeded;
 	bool irq_affinity_support;
 	bool esi_enabled;
+	bool storage_boost_en;
 
 	bool bypass_pbl_rst_wa;
 	atomic_t cqhp_update_pending;

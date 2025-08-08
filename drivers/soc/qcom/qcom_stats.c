@@ -1159,7 +1159,6 @@ static int qcom_stats_remove(struct platform_device *pdev)
 	unregister_chrdev_region(drv->dev_no, 1);
 
 	debugfs_remove_recursive(drv->root);
-
 	return 0;
 }
 
@@ -1170,6 +1169,33 @@ static int qcom_stats_suspend(struct device *dev)
 	void __iomem *reg = NULL;
 	int i;
 	u32 stats_id = 0;
+
+//cxvt info
+	struct qcom_stats_cx_vote_info vote_info[MAX_DRV+1];
+	memset(vote_info, 0, (int)sizeof(struct qcom_stats_cx_vote_info)*(MAX_DRV+1));
+	cx_stats_get_ss_vote_info(MAX_DRV, vote_info);
+
+	printk("CXVT INFO(OWEN DRV):");
+	for(i = 0; i < MAX_DRV; i++){
+		printk(KERN_CONT "%02x|", vote_info[i].level);
+	}
+	printk(KERN_CONT "\n");
+
+// LLC active info
+#ifdef LLC_INFO_PRINT
+	struct llc_island_stats_active_scids llc_active_scids;
+	memset(&llc_active_scids, 0, (int)sizeof(struct llc_island_stats_active_scids));
+	printk("LLC INFO:");
+	if(!llc_stats_get_active_scids(&llc_active_scids)) {
+		for(i = 0; i< NUM_MAX_SCID; i++){
+			if(llc_active_scids.scid_count[i]) {
+				printk(KERN_CONT "0x%llx|", llc_active_scids.scid_count[i]);
+			}
+		}
+			printk(KERN_CONT "0x%llx|", llc_active_scids.scid_count[i]);
+	}
+	printk(KERN_CONT "\n");
+#endif
 
 	if (!subsystem_stats_debug_on)
 		return 0;
@@ -1234,6 +1260,14 @@ static const struct stats_config rpm_data = {
 	.appended_stats_avail = true,
 	.dynamic_offset = true,
 	.subsystem_stats_in_smem = false,
+};
+
+static const struct stats_config rpm_v2_data = {
+	.stats_offset = 0,
+	.num_records = 2,
+	.appended_stats_avail = true,
+	.dynamic_offset = true,
+	.subsystem_stats_in_smem = true,
 };
 
 /* Older RPM firmwares have the stats at a fixed offset instead */
@@ -1307,6 +1341,7 @@ static const struct of_device_id qcom_stats_table[] = {
 	{ .compatible = "qcom,msm8916-rpm-stats", .data = &rpm_data_dba0 },
 	{ .compatible = "qcom,msm8974-rpm-stats", .data = &rpm_data_dba0 },
 	{ .compatible = "qcom,rpm-stats", .data = &rpm_data },
+	{ .compatible = "qcom,rpm-stats-v2", .data = &rpm_v2_data },
 	{ .compatible = "qcom,rpmh-stats", .data = &rpmh_data },
 	{ .compatible = "qcom,rpmh-stats-v2", .data = &rpmh_v2_data },
 	{ .compatible = "qcom,rpmh-stats-v3", .data = &rpmh_v3_data },

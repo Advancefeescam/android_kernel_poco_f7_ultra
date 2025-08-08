@@ -21,6 +21,7 @@
 #include "walt.h"
 #include "trace.h"
 
+
 /* mask of all CPUs with a fully pause claim outstanding */
 cpumask_t cpus_paused_by_us = { CPU_BITS_NONE };
 
@@ -1348,6 +1349,26 @@ static bool core_ctl_check_masks_set(void)
 	return all_masks_set;
 }
 
+#define SBT_CPU_BUSY_PCT_THRESH 20
+static bool core_ctl_non_large_cpus_below_busy_pct(void)
+{
+	cpumask_t non_large_cpus = { CPU_BITS_NONE };
+	struct cpu_data *c;
+	int cpu;
+	int i;
+
+	for (i = 0; i < num_sched_clusters - 1; i++)
+		cpumask_or(&non_large_cpus, &non_large_cpus, &cpu_array[0][i]);
+
+	for_each_cpu(cpu, &non_large_cpus) {
+		c = &per_cpu(cpu_state, cpu);
+		if (c->busy_pct > SBT_CPU_BUSY_PCT_THRESH)
+			return false;
+	}
+
+	return true;
+}
+
 bool prev_is_sbt;
 #define SBT_LIMIT 45
 /* is the system in a single-big-thread case? */
@@ -1366,6 +1387,9 @@ static inline bool core_ctl_is_sbt(int prev_is_sbt_windows, u32 wakeup_ctr_sum)
 		goto out;
 
 	if (wakeup_ctr_sum > SBT_LIMIT)
+		goto out;
+
+	if (!core_ctl_non_large_cpus_below_busy_pct())
 		goto out;
 
 	ret = true;

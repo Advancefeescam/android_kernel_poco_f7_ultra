@@ -497,6 +497,7 @@ exit:
 DEFINE_DEBUGFS_ATTRIBUTE(clk_measure_fops, clk_debug_measure_get,
 			 clk_debug_measure_set, "%lld\n");
 
+
 void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 {
 	debugfs_create_file("clk_measure", 0444, dentry, hw, &clk_measure_fops);

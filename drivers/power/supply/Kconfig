@@ -435,6 +435,17 @@ config QTI_BATTERY_CHARGER
 	  To compile the driver as a module, choose M here: the module will be
 	  called qti_battery_charger.
 
+config SCHGM_FLASH
+	tristate "charger flash"
+	depends on QTI_BATTERY_CHARGER
+	help
+	  Say Y here to enable Qualcomm Technologies, Inc. schgm_flash driver
+	  which handles flash failure, de-rating and allows configuration for
+	  different flash features.
+
+	  To compile the driver as a module, choose M here: the module will be
+	  called schgm-flash.
+
 config CHARGER_88PM860X
 	tristate "Marvell 88PM860x Charger driver"
 	depends on MFD_88PM860X && BATTERY_88PM860X
@@ -965,6 +976,16 @@ config CHARGER_QCOM_SMB2
 	  adds support for the SMB2 switch mode battery charger found
 	  in PMI8998 and related PMICs.
 
-source "drivers/power/supply/qcom/Kconfig"
+config  XM_POWER_SUPPLY
+	tristate "Xiaomi power supply config"
+	help
+	  Say Y or M here to enable xiaomi power supply
+
+config  CHARGER_PARTITION
+	tristate "Charger partition config"
+	help
+	  Say Y or M here to enable charger partition
+
+source "drivers/power/supply/mca/Kconfig"
 
 endif # POWER_SUPPLY

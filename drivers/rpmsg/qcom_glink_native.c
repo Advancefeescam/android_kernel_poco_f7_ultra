@@ -25,10 +25,12 @@
 #include <linux/termios.h>
 #include <linux/ipc_logging.h>
 #include <uapi/linux/sched/types.h>
+#include <linux/wakeup_reason.h>
 
 #include "rpmsg_internal.h"
 #include "qcom_glink_native.h"
 
+#define GLINK_IRQ_ITERATION_LIMITS 10
 #define GLINK_LOG_PAGE_CNT 32
 #define GLINK_INFO(ctxt, x, ...)					  \
 	ipc_log_string(ctxt, "[%s]: "x, __func__, ##__VA_ARGS__)
@@ -117,6 +119,7 @@ struct glink_core_rx_intent {
 	bool advertised;
 	bool ack_pending;
 	u32 offset;
+	bool cb_irq_done;
 
 	struct list_head node;
 };
@@ -245,6 +248,7 @@ struct glink_channel {
 	wait_queue_head_t intent_req_wq;
 	bool channel_ready;
 	int intent_timeout_count;
+	bool is_rt;
 	bool cb_irq;
 
 	unsigned int local_signals;
@@ -670,6 +674,8 @@ static int qcom_glink_send_rx_done(struct qcom_glink *glink,
 	cmd.lcid = cid;
 	cmd.liid = iid;
 
+	intent->offset = 0;
+
 	ret = qcom_glink_tx(glink, &cmd, sizeof(cmd), NULL, 0, wait);
 	if (ret)
 		return ret;
@@ -678,28 +684,28 @@ static int qcom_glink_send_rx_done(struct qcom_glink *glink,
 	if (!intent->size)
 		intent->data = NULL;
 
-	ret = intent->offset;
-
 	if (!reuse) {
 		kfree(intent->data);
 		kfree(intent);
 	}
 
-	CH_INFO(channel, "reuse:%d liid:%d data_size:%d", reuse, iid, ret);
+	CH_INFO(channel, "reuse:%d liid:%d", reuse, iid);
 	return 0;
 }
 
-static void __qcom_glink_rx_done(struct qcom_glink *glink,
+static int __qcom_glink_rx_done(struct qcom_glink *glink,
 			       struct glink_channel *channel,
-			       struct glink_core_rx_intent *intent)
+			       struct glink_core_rx_intent *intent,
+			       bool wait)
 {
 	unsigned long flags;
+	int ret;
 
 	/* We don't send RX_DONE to intentless systems */
 	if (glink->intentless) {
 		kfree(intent->data);
 		kfree(intent);
-		return;
+		return 0;
 	}
 
 	/* Take it off the tree of receive intents */
@@ -714,7 +720,9 @@ static void __qcom_glink_rx_done(struct qcom_glink *glink,
 	list_del(&intent->node);
 	spin_unlock_irqrestore(&channel->intent_lock, flags);
 
-	qcom_glink_send_rx_done(glink, channel, intent, true);
+	ret = qcom_glink_send_rx_done(glink, channel, intent, wait);
+
+	return ret;
 }
 
 bool qcom_glink_rx_done_supported(struct rpmsg_endpoint *ept)
@@ -1096,8 +1104,12 @@ static int qcom_glink_rx_thread(void *data)
 	struct glink_core_rx_intent *intent;
 	struct glink_channel *channel = data;
 	struct qcom_glink *glink = channel->glink;
+	struct sched_param param = {.sched_priority = 1};
 	unsigned long flags;
 	int ret = 0;
+
+	if (channel->is_rt)
+		sched_setscheduler_nocheck(current, SCHED_FIFO, &param);
 
 	for (;;) {
 		ret = wait_event_interruptible(channel->rx_wq, !list_empty(&channel->rx_queue) ||
@@ -1125,8 +1137,9 @@ static int qcom_glink_rx_thread(void *data)
 				spin_unlock_irqrestore(&channel->intent_lock, flags);
 			}
 
-			if (channel->cb_irq) {
-				__qcom_glink_rx_done(glink, channel, intent);
+			if (intent->cb_irq_done) {
+				intent->cb_irq_done = false;
+				__qcom_glink_rx_done(glink, channel, intent, true);
 				continue;
 			}
 
@@ -1148,14 +1161,12 @@ static int qcom_glink_rx_thread(void *data)
 			}
 
 			if (qcom_glink_is_wakeup(true))
-				pr_info("%s[%d:%d] %s: wakeup packet size:%d\n",
+				pr_info("%s[%d:%d] %s: wakeup packet\n",
 					channel->name, channel->lcid, channel->rcid,
-					__func__, intent->offset);
-
-			intent->offset = 0;
+					__func__);
 
 			if (!(qcom_glink_rx_done_supported(&channel->ept) && ret == RPMSG_DEFER))
-				__qcom_glink_rx_done(glink, channel, intent);
+				__qcom_glink_rx_done(glink, channel, intent, true);
 		} else {
 			ret = qcom_glink_alloc_intent_data(glink, channel, intent);
 			if (ret < 0) {
@@ -1175,10 +1186,14 @@ static int qcom_glink_rx_thread(void *data)
 	return 0;
 }
 
-static void qcom_glink_rx_data_handler(struct glink_channel *channel,
-				       struct glink_core_rx_intent *intent)
+static void qcom_glink_rx_data_handler(struct qcom_glink *glink,
+				       struct glink_channel *channel,
+				       struct glink_core_rx_intent *intent,
+				       unsigned int iters)
 {
-	if (channel->cb_irq) {
+	if (channel->cb_irq &&
+	    (iters < GLINK_IRQ_ITERATION_LIMITS) &&
+	    list_empty(&channel->rx_queue)) {
 		int ret = 0;
 
 		if (!channel->glink->intentless) {
@@ -1214,25 +1229,26 @@ static void qcom_glink_rx_data_handler(struct glink_channel *channel,
 		intent->offset = 0;
 
 		if (!(qcom_glink_rx_done_supported(&channel->ept) && ret == RPMSG_DEFER)) {
-			if (!channel->glink->intentless) {
-				spin_lock(&channel->intent_lock);
-				list_del(&intent->node);
-				spin_unlock(&channel->intent_lock);
+			ret = __qcom_glink_rx_done(glink, channel, intent, false);
+			if (ret < 0) {
+				intent->cb_irq_done = true;
+				goto out;
 			}
-		} else
-			goto out;
+		}
+
+		channel->buf = NULL;
+		return;
 	}
 
+out:
 	spin_lock(&channel->recv_lock);
 	list_add_tail(&intent->node, &channel->rx_queue);
 	spin_unlock(&channel->recv_lock);
 
 	wake_up_interruptible(&channel->rx_wq);
-out:
-	channel->buf = NULL;
 }
 
-static int qcom_glink_rx_data(struct qcom_glink *glink, size_t avail)
+static int qcom_glink_rx_data(struct qcom_glink *glink, size_t avail, unsigned int iters)
 {
 	struct glink_core_rx_intent *intent;
 	struct glink_channel *channel = NULL;
@@ -1326,7 +1342,7 @@ static int qcom_glink_rx_data(struct qcom_glink *glink, size_t avail)
 
 	/* Handle message when no fragments remain to be received */
 	if (!left_size)
-		qcom_glink_rx_data_handler(channel, intent);
+		qcom_glink_rx_data_handler(glink, channel, intent, iters);
 
 advance_rx:
 	qcom_glink_rx_advance(glink, ALIGN(sizeof(hdr) + chunk_size, 8));
@@ -1601,6 +1617,7 @@ static int qcom_glink_set_flow_control(struct rpmsg_endpoint *ept, bool pause, u
 
 void qcom_glink_native_rx(struct qcom_glink *glink)
 {
+	unsigned int iters = 0;
 	struct glink_msg msg;
 	unsigned int param1;
 	unsigned int param2;
@@ -1611,9 +1628,11 @@ void qcom_glink_native_rx(struct qcom_glink *glink)
 
 	if (should_wake) {
 		dev_dbg(glink->dev, "%s: wakeup\n", __func__);
+		pr_info("%s: wakeup %s\n", __func__, glink->name);
 		glink_resume_pkt = true;
 		should_wake = false;
 		pm_system_wakeup();
+		log_abnormal_wakeup_reason("%s\n", glink->name);
 	}
 	/* To wakeup any blocking writers */
 	wake_up_all(&glink->tx_avail_notify);
@@ -1629,6 +1648,7 @@ void qcom_glink_native_rx(struct qcom_glink *glink)
 		param1 = le16_to_cpu(msg.param1);
 		param2 = le32_to_cpu(msg.param2);
 
+		GLINK_INFO(glink->ilc, "cmd: %d\n", cmd);
 		switch (cmd) {
 		case GLINK_CMD_VERSION:
 		case GLINK_CMD_VERSION_ACK:
@@ -1645,7 +1665,7 @@ void qcom_glink_native_rx(struct qcom_glink *glink)
 			break;
 		case GLINK_CMD_TX_DATA:
 		case GLINK_CMD_TX_DATA_CONT:
-			ret = qcom_glink_rx_data(glink, avail);
+			ret = qcom_glink_rx_data(glink, avail, iters);
 			break;
 		case GLINK_CMD_TX_DATA_ZERO_COPY:
 			ret = qcom_glink_rx_data_zero_copy(glink, avail);
@@ -1674,6 +1694,7 @@ void qcom_glink_native_rx(struct qcom_glink *glink)
 			if (retry < 5)
 				continue;
 			else {
+                panic("unhandled rx cmd: %d\n", cmd);
 				ret = -EINVAL;
 				break;
 			}
@@ -1681,6 +1702,8 @@ void qcom_glink_native_rx(struct qcom_glink *glink)
 
 		if (ret)
 			break;
+
+		iters++;
 	}
 }
 EXPORT_SYMBOL(qcom_glink_native_rx);
@@ -1810,7 +1833,6 @@ static struct rpmsg_endpoint *qcom_glink_create_ept(struct rpmsg_device *rpdev,
 static int qcom_glink_announce_create(struct rpmsg_device *rpdev)
 {
 	struct glink_channel *channel = to_glink_channel(rpdev->ept);
-	struct sched_param param = {.sched_priority = 1};
 	struct device_node *np = rpdev->dev.of_node;
 	struct qcom_glink *glink = channel->glink;
 	struct glink_core_rx_intent *intent;
@@ -1860,18 +1882,17 @@ static int qcom_glink_announce_create(struct rpmsg_device *rpdev)
 		}
 	}
 
+	if (of_property_read_bool(np, "qcom,ch-sched-rt"))
+		channel->is_rt = true;
+	else
+		channel->is_rt = false;
+
 	channel->rx_task = kthread_run(qcom_glink_rx_thread, channel, "glink-%s", channel->name);
 	if (IS_ERR(channel->rx_task)) {
 		CH_ERR(channel, "channel thread failed to run\n");
 		rc = PTR_ERR(channel->rx_task);
 		channel->rx_task = NULL;
 		goto exit;
-	}
-
-	if (of_property_read_bool(np, "qcom,ch-sched-rt")) {
-		rc = sched_setscheduler(channel->rx_task, SCHED_FIFO, &param);
-		if (rc)
-			pr_err("failed to set [%s] thread policy.\n", channel->name);
 	}
 
 exit:

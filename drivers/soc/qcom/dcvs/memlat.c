@@ -36,6 +36,7 @@
 #include <linux/cpu_phys_log_map.h>
 #include "trace-dcvs.h"
 
+
 #define MAX_MEMLAT_GRPS	NUM_DCVS_HW_TYPES
 #define FP_NAME		"memlat_fp"
 #define MEMLAT_ALGO_STR 0x4D454D4C4154 /* "MEMLAT" */
@@ -248,6 +249,7 @@ struct memlat_dev_data {
 static struct memlat_dev_data		*memlat_data;
 static DEFINE_PER_CPU(struct cpu_stats *, sampling_stats);
 static DEFINE_MUTEX(memlat_lock);
+
 
 struct qcom_memlat_attr {
 	struct attribute		attr;
@@ -837,6 +839,7 @@ static void calculate_sampling_stats(void)
 	ktime_t now = ktime_get();
 	s64 delta_us, update_us;
 
+
 	update_us = ktime_us_delta(now, memlat_data->last_update_ts);
 	memlat_data->last_update_ts = now;
 
@@ -849,6 +852,7 @@ static void calculate_sampling_stats(void)
 			spin_lock_nested(&stats->ctrs_lock, level);
 		level++;
 	}
+
 
 	for_each_possible_cpu(cpu) {
 		stats = per_cpu(sampling_stats, cpu);
@@ -922,6 +926,7 @@ static void calculate_sampling_stats(void)
 					stats->freq_mhz, stats->be_stall_pct,
 					stats->wb_pct[grp], stats->ipm[grp],
 					stats->fe_stall_pct);
+
 
 		}
 		memcpy(&stats->prev, &stats->curr, sizeof(stats->curr));
@@ -1200,7 +1205,11 @@ static void memlat_pmu_idle_cb(struct qcom_pmu_data *data, int cpu, int state)
 		return;
 
 	spin_lock_irqsave(&stats->ctrs_lock, flags);
+
+
 	memcpy(&stats->raw_ctrs, data, sizeof(*data));
+
+
 	process_raw_ctrs(stats);
 	stats->idle_sample = true;
 	spin_unlock_irqrestore(&stats->ctrs_lock, flags);
@@ -1209,6 +1218,7 @@ static void memlat_pmu_idle_cb(struct qcom_pmu_data *data, int cpu, int state)
 static struct qcom_pmu_notif_node memlat_idle_notif = {
 	.idle_cb = memlat_pmu_idle_cb,
 };
+
 
 static void memlat_sched_tick_cb(void *unused, struct rq *rq)
 {
@@ -1222,9 +1232,12 @@ static void memlat_sched_tick_cb(void *unused, struct rq *rq)
 		return;
 
 	spin_lock_irqsave(&stats->ctrs_lock, flags);
+
 	delta_ns = now - stats->last_sample_ts + HALF_TICK_NS;
+
 	if (delta_ns < ms_to_ktime(memlat_data->sample_ms))
 		goto out;
+
 	stats->sample_ts = now;
 	stats->idle_sample = false;
 	stats->raw_ctrs.num_evs = 0;
@@ -1354,6 +1367,7 @@ static int memlat_sampling_init(void)
 
 	register_trace_android_vh_scheduler_tick(memlat_sched_tick_cb, NULL);
 	register_trace_android_vh_jiffies_update(memlat_jiffies_update_cb, NULL);
+
 	qcom_pmu_idle_register(&memlat_idle_notif);
 
 	return 0;
@@ -1731,10 +1745,13 @@ static int memlat_dev_probe(struct platform_device *pdev)
 			ret = qcom_pmu_event_supported(event_id, cpu);
 			if (!ret)
 				continue;
-			if (ret != -EPROBE_DEFER)
-				dev_err(dev, "ev=%d not found on cpu%d: %d\n",
+			if (ret != -EPROBE_DEFER) {
+				dev_err(dev, "ev=%u not found on cpu%d: %d\n",
 						event_id, cpu, ret);
-			return ret;
+				if (event_id == INST_EV || event_id == CYC_EV)
+					return ret;
+			} else
+				return ret;
 		}
 	}
 

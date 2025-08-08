@@ -98,6 +98,16 @@ static const struct alpha_pll_config disp_cc_pll0_config = {
 	.user_ctl_hi_val = 0x00000005,
 };
 
+static struct clk_init_data disp_cc_pll0_init = {
+	.name = "disp_cc_pll0",
+	.parent_data = &(const struct clk_parent_data) {
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.flags = CLK_GET_RATE_NOCACHE,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll disp_cc_pll0 = {
 	.offset = 0x0,
 	.vco_table = lucid_ole_vco,
@@ -111,7 +121,7 @@ static struct clk_alpha_pll disp_cc_pll0 = {
 			},
 			.num_parents = 1,
 			.flags = CLK_GET_RATE_NOCACHE,
-			.ops = &clk_alpha_pll_lucid_ole_ops,
+			.ops = &clk_alpha_pll_crm_lucid_ole_ops,
 		},
 		.vdd_data = {
 			.vdd_class = &vdd_mm,
@@ -988,6 +998,27 @@ static const struct freq_tbl ftbl_disp_cc_mdss_mdp_clk_src_tuna_v1[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_disp_cc_mdss_mdp_clk_src_kera[] = {
+	F(85714286, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
+	F(100000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
+	F(150000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
+	F(207000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
+	F(342000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
+	F(417000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
+	F(535000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
+	F(600000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
+	F(660000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
+	{ }
+};
+
+static struct clk_init_data disp_cc_mdss_mdp_clk_src_init = {
+	.name = "disp_cc_mdss_mdp_clk_src",
+	.parent_data = disp_cc_parent_data_11,
+	.num_parents = ARRAY_SIZE(disp_cc_parent_data_11),
+	.flags = CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT,
+	.ops = &clk_rcg2_ops,
+};
+
 static struct clk_rcg2 disp_cc_mdss_mdp_clk_src = {
 	.cmd_rcgr = 0x8150,
 	.mnd_width = 0,
@@ -1006,7 +1037,7 @@ static struct clk_rcg2 disp_cc_mdss_mdp_clk_src = {
 		.parent_data = disp_cc_parent_data_11,
 		.num_parents = ARRAY_SIZE(disp_cc_parent_data_11),
 		.flags = CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT,
-		.ops = &clk_rcg2_ops,
+		.ops = &clk_rcg2_crmb_ops,
 	},
 	.clkr.vdd_data = {
 		.vdd_classes = disp_cc_tuna_regulators,
@@ -2227,11 +2258,37 @@ static struct gdsc disp_cc_mdss_core_gdsc = {
 		.name = "disp_cc_mdss_core_gdsc",
 	},
 	.pwrsts = PWRSTS_OFF_ON,
-	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE | HW_CTRL | HW_CTRL_SKIP_DIS,
 	.supply = "vdd_mm",
 };
 
 static struct gdsc disp_cc_mdss_core_int2_gdsc = {
+	.gdscr = 0xb000,
+	.en_rest_wait_val = 0x2,
+	.en_few_wait_val = 0x2,
+	.clk_dis_wait_val = 0xf,
+	.pd = {
+		.name = "disp_cc_mdss_core_int2_gdsc",
+	},
+	.pwrsts = PWRSTS_OFF_ON,
+	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE | HW_CTRL | HW_CTRL_SKIP_DIS,
+	.supply = "vdd_mm",
+};
+
+static struct gdsc kera_disp_cc_mdss_core_gdsc = {
+	.gdscr = 0x9000,
+	.en_rest_wait_val = 0x2,
+	.en_few_wait_val = 0x2,
+	.clk_dis_wait_val = 0xf,
+	.pd = {
+		.name = "disp_cc_mdss_core_gdsc",
+	},
+	.pwrsts = PWRSTS_OFF_ON,
+	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+	.supply = "vdd_mm",
+};
+
+static struct gdsc kera_disp_cc_mdss_core_int2_gdsc = {
 	.gdscr = 0xb000,
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
@@ -2377,6 +2434,7 @@ static struct qcom_cc_desc disp_cc_tuna_desc = {
 static const struct of_device_id disp_cc_tuna_match_table[] = {
 	{ .compatible = "qcom,tuna-dispcc" },
 	{ .compatible = "qcom,tuna-dispcc-v1" },
+	{ .compatible = "qcom,kera-dispcc" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, disp_cc_tuna_match_table);
@@ -2385,6 +2443,21 @@ static void disp_cc_tuna_fixup_tunav1(struct regmap *regmap)
 {
 	disp_cc_mdss_mdp_clk_src.freq_tbl = ftbl_disp_cc_mdss_mdp_clk_src_tuna_v1;
 	disp_cc_mdss_mdp_clk_src.clkr.vdd_data.rate_max[VDD_HIGH] = 660000000;
+}
+
+static void disp_cc_tuna_fixup_kera(struct regmap *regmap)
+{
+	disp_cc_mdss_mdp_clk_src.freq_tbl = ftbl_disp_cc_mdss_mdp_clk_src_kera;
+
+	disp_cc_mdss_mdp_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 150000000;
+	disp_cc_mdss_mdp_clk_src.clkr.vdd_data.rate_max[VDD_HIGH] = 660000000;
+
+	disp_cc_mdss_mdp_clk_src.clkr.hw.init = &disp_cc_mdss_mdp_clk_src_init;
+
+	disp_cc_pll0.clkr.hw.init = &disp_cc_pll0_init;
+
+	disp_cc_tuna_gdscs[DISP_CC_MDSS_CORE_GDSC] = &kera_disp_cc_mdss_core_gdsc;
+	disp_cc_tuna_gdscs[DISP_CC_MDSS_CORE_INT2_GDSC] = &kera_disp_cc_mdss_core_int2_gdsc;
 }
 
 static int disp_cc_tuna_fixup(struct platform_device *pdev, struct regmap *regmap)
@@ -2398,6 +2471,9 @@ static int disp_cc_tuna_fixup(struct platform_device *pdev, struct regmap *regma
 
 	if (!strcmp(compat, "qcom,tuna-dispcc-v1"))
 		disp_cc_tuna_fixup_tunav1(regmap);
+
+	if (!strcmp(compat, "qcom,kera-dispcc"))
+		disp_cc_tuna_fixup_kera(regmap);
 
 	return 0;
 }

@@ -594,7 +594,7 @@ static const char * const
 /* gpio info structure */
 struct msm_pcie_gpio_info_t {
 	char *name;
-	uint32_t num;
+	int32_t num;
 	bool out;
 	uint32_t on;
 	uint32_t init;
@@ -1074,7 +1074,6 @@ struct msm_pcie_dev_t {
 
 	uint32_t wake_n;
 	uint32_t vreg_n;
-	uint32_t gpio_n;
 	uint32_t parf_deemph;
 	uint32_t parf_swing;
 
@@ -1296,9 +1295,9 @@ static struct msm_pcie_vreg_info_t msm_pcie_vreg_info[MSM_PCIE_MAX_VREG] = {
 
 /* GPIOs */
 static struct msm_pcie_gpio_info_t msm_pcie_gpio_info[MSM_PCIE_MAX_GPIO] = {
-	{"perst-gpio", 0, 1, 0, 0, 1},
-	{"wake-gpio", 0, 0, 0, 0, 0},
-	{"qcom,ep-gpio", 0, 1, 1, 0, 0}
+	{"perst-gpio", -EINVAL, 1, 0, 0, 1},
+	{"wake-gpio", -EINVAL, 0, 0, 0, 0},
+	{"qcom,ep-gpio", -EINVAL, 1, 1, 0, 0}
 };
 
 /* resets */
@@ -2148,7 +2147,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		PCIE_DBG_FS(dev, "PCIe L1ss sleep is supported using %s\n",
 							dev->drv_name);
 	else
-		PCIE_DBG_FS(dev, "PCIe L1ss sleep is not supported\n");
+		PCIE_DBG_FS(dev, "PCIe L1ss sleep is not supported for RC%d\n",
+				dev->rc_idx);
 }
 
 static void msm_pcie_access_reg(struct msm_pcie_dev_t *dev, bool wr)
@@ -3894,7 +3894,7 @@ static void __maybe_unused
 }
 
 /* Read the curr perf ol value from the cesta register */
-static const char *const msm_pcie_cesta_curr_perf_ol(struct msm_pcie_dev_t *dev)
+static const char *const __maybe_unused msm_pcie_cesta_curr_perf_ol(struct msm_pcie_dev_t *dev)
 {
 	u32 ret;
 	int res;
@@ -4048,11 +4048,10 @@ static int msm_pcie_gpio_init(struct msm_pcie_dev_t *dev)
 	struct msm_pcie_gpio_info_t *info;
 
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
-
-	for (i = 0; i < dev->gpio_n; i++) {
+	for (i = 0; i < MSM_PCIE_MAX_GPIO; i++) {
 		info = &dev->gpio[i];
 
-		if (!info->num)
+		if (info->num < 0)
 			continue;
 
 		rc = gpio_request(info->num, info->name);
@@ -4077,7 +4076,8 @@ static int msm_pcie_gpio_init(struct msm_pcie_dev_t *dev)
 
 	if (rc)
 		while (i--)
-			gpio_free(dev->gpio[i].num);
+			if (dev->gpio[i].num >= 0)
+				gpio_free(dev->gpio[i].num);
 
 	return rc;
 }
@@ -4088,8 +4088,10 @@ static void msm_pcie_gpio_deinit(struct msm_pcie_dev_t *dev)
 
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
 
-	for (i = 0; i < dev->gpio_n; i++)
-		gpio_free(dev->gpio[i].num);
+	for (i = 0; i < MSM_PCIE_MAX_GPIO; i++) {
+		if (dev->gpio[i].num >= 0)
+			gpio_free(dev->gpio[i].num);
+	}
 }
 
 static int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
@@ -5550,7 +5552,6 @@ static int msm_pcie_get_gpio(struct msm_pcie_dev_t *pcie_dev)
 {
 	int i, ret;
 
-	pcie_dev->gpio_n = 0;
 	for (i = 0; i < MSM_PCIE_MAX_GPIO; i++) {
 		struct msm_pcie_gpio_info_t *gpio_info = &pcie_dev->gpio[i];
 
@@ -5558,7 +5559,6 @@ static int msm_pcie_get_gpio(struct msm_pcie_dev_t *pcie_dev)
 					gpio_info->name, 0);
 		if (ret >= 0) {
 			gpio_info->num = ret;
-			pcie_dev->gpio_n++;
 			PCIE_DBG(pcie_dev, "GPIO num for %s is %d\n",
 				gpio_info->name, gpio_info->num);
 		} else {
@@ -8829,11 +8829,9 @@ int msm_pcie_allow_l1(struct pci_dev *pci_dev)
 	if (pcie_dev->prevent_l1)
 		goto out;
 
+	msm_pcie_config_l1_enable_all(pcie_dev);
+
 	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
-	/* enable L1 */
-	msm_pcie_write_mask(pcie_dev->dm_core +
-				(root_pci_dev->pcie_cap + PCI_EXP_LNKCTL),
-				0, PCI_EXP_LNKCTL_ASPM_L1);
 
 	PCIE_DBG2(pcie_dev, "PCIe: RC%d: %02x:%02x.%01x: exit\n",
 		pcie_dev->rc_idx, pci_dev->bus->number,
@@ -8850,6 +8848,7 @@ int msm_pcie_prevent_l1(struct pci_dev *pci_dev)
 {
 	struct pci_dev *root_pci_dev;
 	struct msm_pcie_dev_t *pcie_dev;
+	struct pci_bus *bus;
 	u32 cnt = 0;
 	u32 cnt_max = 1000; /* 100ms timeout */
 	int ret = 0;
@@ -8859,6 +8858,7 @@ int msm_pcie_prevent_l1(struct pci_dev *pci_dev)
 		return -ENODEV;
 
 	pcie_dev = PCIE_BUS_PRIV_DATA(root_pci_dev->bus);
+	bus = pcie_dev->dev->bus;
 
 	/* disable L1 */
 	mutex_lock(&pcie_dev->setup_lock);
@@ -8892,9 +8892,6 @@ int msm_pcie_prevent_l1(struct pci_dev *pci_dev)
 	if (pcie_dev->prevent_l1++)
 		goto out;
 
-	msm_pcie_write_mask(pcie_dev->dm_core +
-				(root_pci_dev->pcie_cap + PCI_EXP_LNKCTL),
-				PCI_EXP_LNKCTL_ASPM_L1, 0);
 	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_PM_CTRL, 0, BIT(5));
 
 	/* confirm link is in L0/L0s */
@@ -8928,6 +8925,8 @@ int msm_pcie_prevent_l1(struct pci_dev *pci_dev)
 
 		usleep_range(100, 105);
 	}
+
+	msm_pcie_config_l1_disable_all(pcie_dev, bus);
 
 	PCIE_DBG2(pcie_dev, "PCIe: RC%d: %02x:%02x.%01x: exit\n",
 		pcie_dev->rc_idx, pci_dev->bus->number,
@@ -10234,7 +10233,7 @@ static int msm_pcie_handle_pm_resume(struct msm_pcie_dev_t *pcie_dev,
 	mutex_lock(&pcie_dev->enumerate_lock);
 	list_for_each_entry_safe(dev_info_itr, temp,
 				 &pcie_dev->susp_ep_list, pcidev_node) {
-		if (dev_info_itr->dev == user) {
+		if (dev_info_itr->dev == pcidev) {
 			list_del(&dev_info_itr->pcidev_node);
 			dev_info = dev_info_itr;
 			list_add_tail(&dev_info->pcidev_node,

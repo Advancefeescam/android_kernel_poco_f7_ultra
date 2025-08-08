@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "walt.h"
@@ -34,6 +34,19 @@ void walt_config(void)
 	sysctl_sched_coloc_busy_hyst_max_ms = 5000;
 	sched_ravg_window = DEFAULT_SCHED_RAVG_WINDOW;
 	sysctl_input_boost_ms = 40;
+//MIUI ADD: Performance_BoostFramework
+	sysctl_powerkey_input_boost_ms = 40;
+	sysctl_powerkey_sched_boost_on_input = true;
+
+	for (i = 0; i < WALT_NR_CPUS; i++)
+		sysctl_powerkey_input_boost_freq[i] = 0;
+
+	sysctl_volkey_input_boost_ms = 40;
+	sysctl_volkey_sched_boost_on_input = true;
+
+	for (i = 0; i < WALT_NR_CPUS; i++)
+		sysctl_volkey_input_boost_freq[i] = 0;
+//END Performance_BoostFramework
 	sysctl_sched_min_task_util_for_boost = 51;
 	sysctl_sched_min_task_util_for_uclamp = 51;
 	sysctl_sched_min_task_util_for_colocation = 35;
@@ -108,6 +121,9 @@ void walt_config(void)
 	sysctl_pipeline_non_special_task_util_thres = 200;
 	sysctl_pipeline_pin_thres_low_pct = 50;
 	sysctl_pipeline_pin_thres_high_pct = 60;
+
+	/* Initialize smart freq configurations */
+	smart_freq_init(name);
 
 	/* return if socinfo is not available */
 	if (!name)
@@ -210,7 +226,8 @@ void walt_config(void)
 	} else if (!strcmp(name, "TUNA")) {
 		soc_feat_set(SOC_ENABLE_SILVER_RT_SPREAD_BIT);
 		soc_feat_set(SOC_ENABLE_BOOST_TO_NEXT_CLUSTER_BIT);
-
+		soc_feat_set(SOC_ENABLE_FORCE_SPECIAL_PIPELINE_PINNING);
+		soc_sched_lib_name_capacity = 2;
 		/*
 		 * Treat Golds and Primes as candidates for load sync under pipeline usecase.
 		 * However, it is possible that a single CPU is not present. As prime is the
@@ -243,6 +260,4 @@ void walt_config(void)
 		}
 
 	}
-
-	smart_freq_init(name);
 }

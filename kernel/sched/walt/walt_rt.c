@@ -9,6 +9,7 @@
 #include "walt.h"
 #include "trace.h"
 
+
 static DEFINE_PER_CPU(cpumask_var_t, walt_local_cpu_mask);
 DEFINE_PER_CPU(u64, rt_task_arrival_time) = 0;
 static bool long_running_rt_task_trace_rgstrd;
@@ -119,6 +120,7 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 	if (soc_feat(SOC_ENABLE_SILVER_RT_SPREAD_BIT) && order_index == 0)
 		end_index = 1;
 
+
 	for (cluster = 0; cluster < num_sched_clusters; cluster++) {
 		for_each_cpu_and(cpu, lowest_mask, &cpu_array[order_index][cluster]) {
 			bool lt;
@@ -142,6 +144,8 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 			lt = (walt_low_latency_task(cpu_rq(cpu)->curr) ||
 				walt_nr_rtg_high_prio(cpu));
 
+
+
 			/*
 			 * When the best is suitable and the current is not,
 			 * skip it
@@ -155,6 +159,7 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 			 */
 			if (!(best_cpu_lt ^ lt) && (util > best_cpu_util))
 				continue;
+
 
 			/*
 			 * If the previous CPU has same load, keep it as
@@ -233,6 +238,7 @@ static inline bool walt_should_honor_rt_sync(struct rq *rq, struct task_struct *
 		rq->rt.rt_nr_running <= 2;
 }
 
+
 enum rt_fastpaths {
 	NONE = 0,
 	NON_WAKEUP,
@@ -253,6 +259,7 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	int fastpath = NONE;
 	struct cpumask lowest_mask_reduced = { CPU_BITS_NONE };
 	struct walt_task_struct *wts;
+
 
 	if (unlikely(walt_disabled))
 		return;
@@ -278,6 +285,7 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 		*new_cpu = this_cpu;
 		goto out;
 	}
+
 
 	*new_cpu = cpu; /* previous CPU as back up */
 	rq = cpu_rq(cpu);

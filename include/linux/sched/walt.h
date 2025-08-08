@@ -142,6 +142,10 @@ struct walt_task_struct {
 	int				prev_on_rq;
 	int				prev_on_rq_cpu;
 	struct list_head		mvp_list;
+//MIUI ADD: Performance_BoostFramework
+	struct list_head		runnable_list;
+	u64				runnable_start;
+//END Performance_BoostFramework
 	u64				sum_exec_snapshot_for_slice;
 	u64				sum_exec_snapshot_for_total;
 	u64				total_exec;
@@ -161,6 +165,8 @@ struct walt_task_struct {
 	u8				yield_state;
 	u16				busy_bitmap;
 	u32				period_contrib_run;
+	u64				yield_ts;
+	u64				yield_total_sleep_usec;
 };
 
 #define wts_to_ts(wts) ({ \

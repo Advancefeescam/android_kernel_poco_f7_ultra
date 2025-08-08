@@ -618,20 +618,20 @@ static void regulator_debug_print_enabled(struct regulator_dev *rdev)
 		mode = rdev->desc->ops->get_mode(rdev);
 
 	if (uV != -EPERM && mode != -EPERM)
-		pr_info("%s[%u] %d uV, mode=%d\n",
+		pr_info( "%s[%u] %d uV, mode=%d\n",
 			rdev_name(rdev), rdev->use_count, uV, mode);
 	else if (uV != -EPERM)
-		pr_info("%s[%u] %d uV\n",
+		pr_info( "%s[%u] %d uV\n",
 			rdev_name(rdev), rdev->use_count, uV);
 	else if (mode != -EPERM)
-		pr_info("%s[%u], mode=%d\n",
+		pr_info( "%s[%u], mode=%d\n",
 			rdev_name(rdev), rdev->use_count, mode);
 	else
-		pr_info("%s[%u]\n", rdev_name(rdev), rdev->use_count);
+		pr_info( "%s[%u]\n", rdev_name(rdev), rdev->use_count);
 
 	/* Print a header if there are consumers. */
 	if (rdev->open_count)
-		pr_info("  %-32s EN    Min_uV   Max_uV  load_uA\n",
+		pr_info( "  %-32s EN    Min_uV   Max_uV  load_uA\n",
 			"Device-Supply");
 
 	list_for_each_entry(reg, &rdev->consumer_list, list) {
@@ -640,7 +640,7 @@ static void regulator_debug_print_enabled(struct regulator_dev *rdev)
 		else
 			supply_name = "(null)-(null)";
 
-		pr_info("  %-32s %d   %8d %8d %8d\n", supply_name,
+		pr_info( "  %-32s %d   %8d %8d %8d\n", supply_name,
 			reg->enable_count,
 			reg->voltage[PM_SUSPEND_ON].min_uV,
 			reg->voltage[PM_SUSPEND_ON].max_uV,
@@ -718,6 +718,7 @@ static int __init regulator_debug_init(void)
 		pr_err("%s: unable to create regulator debug_suspend debugfs directory, ret=%d\n",
 			__func__, ret);
 	}
+
 
 	return 0;
 }

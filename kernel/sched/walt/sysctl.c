@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kmemleak.h>
@@ -11,6 +11,7 @@
 #include "trace.h"
 
 static int neg_five = -5;
+static int three = 3;
 static int four = 4;
 static int five = 5;
 static int two_hundred_fifty_five = 255;
@@ -50,6 +51,15 @@ unsigned int sysctl_sched_wake_up_idle[2];
 unsigned int sysctl_input_boost_ms;
 unsigned int sysctl_input_boost_freq[WALT_NR_CPUS];
 unsigned int sysctl_sched_boost_on_input;
+//MIUI ADD: Performance_BoostFramework
+unsigned int sysctl_powerkey_input_boost_ms;
+unsigned int sysctl_powerkey_input_boost_freq[WALT_NR_CPUS];
+unsigned int sysctl_powerkey_sched_boost_on_input;
+
+unsigned int sysctl_volkey_input_boost_ms;
+unsigned int sysctl_volkey_input_boost_freq[WALT_NR_CPUS];
+unsigned int sysctl_volkey_sched_boost_on_input;
+//END Performance_BoostFramework
 unsigned int sysctl_sched_early_up[MAX_MARGIN_LEVELS];
 unsigned int sysctl_sched_early_down[MAX_MARGIN_LEVELS];
 
@@ -98,7 +108,13 @@ unsigned int sysctl_ipc_freq_levels_cluster0[SMART_FMAX_IPC_MAX];
 unsigned int sysctl_ipc_freq_levels_cluster1[SMART_FMAX_IPC_MAX];
 unsigned int sysctl_ipc_freq_levels_cluster2[SMART_FMAX_IPC_MAX];
 unsigned int sysctl_ipc_freq_levels_cluster3[SMART_FMAX_IPC_MAX];
+unsigned int sysctl_legacy_freq_levels_cluster0[LEGACY_SMART_FREQ*2];
+unsigned int sysctl_legacy_freq_levels_cluster1[LEGACY_SMART_FREQ*2];
+unsigned int sysctl_legacy_freq_levels_cluster2[LEGACY_SMART_FREQ*2];
+unsigned int sysctl_legacy_freq_levels_cluster3[LEGACY_SMART_FREQ*2];
 unsigned int sysctl_sched_walt_core_util[WALT_NR_CPUS];
+unsigned int sysctl_disable_minfreq_pause;
+unsigned int sysctl_sched_storage_boost_disable;
 unsigned int sysctl_pipeline_busy_boost_pct;
 unsigned int sysctl_sched_lrpb_active_ms[NUM_PIPELINE_BUSY_THRES];
 unsigned int sysctl_cluster01_load_sync[NUM_LOAD_SYNC_SETTINGS];
@@ -121,10 +137,15 @@ unsigned int load_sync_low_pct[MAX_CLUSTERS][MAX_CLUSTERS];
 unsigned int load_sync_low_pct_60fps[MAX_CLUSTERS][MAX_CLUSTERS];
 unsigned int load_sync_high_pct[MAX_CLUSTERS][MAX_CLUSTERS];
 unsigned int load_sync_high_pct_60fps[MAX_CLUSTERS][MAX_CLUSTERS];
+//MIUI ADD: Performance_BoostFramework
+unsigned int sysctl_disable_mvp_thres = 60000;
+//END Performance_BoostFramework
 unsigned int sysctl_pipeline_special_task_util_thres;
 unsigned int sysctl_pipeline_non_special_task_util_thres;
 unsigned int sysctl_pipeline_pin_thres_low_pct;
 unsigned int sysctl_pipeline_pin_thres_high_pct;
+unsigned int sysctl_pipeline_rearrange_delay_ms[2] = {100, 0};
+unsigned int sysctl_single_thread_pipeline;
 
 /* range is [1 .. INT_MAX] */
 static int sysctl_task_read_pid = 1;
@@ -322,6 +343,32 @@ unlock:
 	return ret;
 }
 
+static int walt_single_thread_pipeline_handler(struct ctl_table *table,
+					   int write, void __user *buffer, size_t *lenp,
+					   loff_t *ppos)
+{
+	int ret = 0;
+	unsigned int val;
+
+	struct ctl_table tmp = {
+		.data	= &val,
+		.maxlen	= sizeof(val),
+		.mode	= table->mode,
+	};
+	static DEFINE_MUTEX(mutex);
+
+	mutex_lock(&mutex);
+
+	val = sysctl_single_thread_pipeline;
+	ret = proc_dointvec_minmax(&tmp, write, buffer, lenp, ppos);
+	if (ret || !write || val ==  sysctl_single_thread_pipeline)
+		goto unlock;
+
+	walt_configure_single_thread_pipeline(val);
+unlock:
+	mutex_unlock(&mutex);
+	return ret;
+}
 
 static int sched_ravg_window_handler(struct ctl_table *table,
 				int write, void __user *buffer, size_t *lenp,
@@ -1007,6 +1054,28 @@ unlock_mutex:
 
 #endif /* CONFIG_PROC_SYSCTL */
 
+static int sysctl_sched_sibling_cluster_map[4] = {-1, -1, -1, -1};
+static int sched_sibling_cluster_handler(struct ctl_table *table, int write,
+				       void __user *buffer, size_t *lenp,
+				       loff_t *ppos)
+{
+	int ret = -EACCES, i = 0;
+	static bool initialized;
+	struct walt_sched_cluster *cluster;
+
+	if (write && initialized)
+		return ret;
+
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+	if (!ret && write) {
+		initialized = true;
+		for_each_sched_cluster(cluster)
+			cluster->sibling_cluster = sysctl_sched_sibling_cluster_map[i++];
+	}
+
+	return ret;
+}
+
 static struct ctl_table cluster_01[] = {
 	{
 		.procname	= "load_sync_settings",
@@ -1164,6 +1233,13 @@ static struct ctl_table smart_freq_cluster0[] = {
 		.mode		= 0444,
 		.proc_handler	= sched_smart_freq_ipc_dump_handler,
 	},
+	{
+		.procname	= "legacy_freq_levels",
+		.data		= &sysctl_legacy_freq_levels_cluster0,
+		.maxlen		= (LEGACY_SMART_FREQ*2) * sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_smart_freq_legacy_freq_handler,
+	},
 };
 
 static struct ctl_table smart_freq_cluster1[] = {
@@ -1187,6 +1263,13 @@ static struct ctl_table smart_freq_cluster1[] = {
 		.maxlen		= 1024 * sizeof(char),
 		.mode		= 0444,
 		.proc_handler	= sched_smart_freq_ipc_dump_handler,
+	},
+	{
+		.procname	= "legacy_freq_levels",
+		.data		= &sysctl_legacy_freq_levels_cluster1,
+		.maxlen		= (LEGACY_SMART_FREQ*2) * sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_smart_freq_legacy_freq_handler,
 	},
 };
 
@@ -1212,6 +1295,13 @@ static struct ctl_table smart_freq_cluster2[] = {
 		.mode		= 0444,
 		.proc_handler	= sched_smart_freq_ipc_dump_handler,
 	},
+	{
+		.procname	= "legacy_freq_levels",
+		.data		= &sysctl_legacy_freq_levels_cluster2,
+		.maxlen		= (LEGACY_SMART_FREQ*2) * sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_smart_freq_legacy_freq_handler,
+	},
 };
 
 static struct ctl_table smart_freq_cluster3[] = {
@@ -1236,9 +1326,73 @@ static struct ctl_table smart_freq_cluster3[] = {
 		.mode		= 0444,
 		.proc_handler	= sched_smart_freq_ipc_dump_handler,
 	},
+	{
+		.procname	= "legacy_freq_levels",
+		.data		= &sysctl_legacy_freq_levels_cluster3,
+		.maxlen		= (LEGACY_SMART_FREQ*2) * sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_smart_freq_legacy_freq_handler,
+	},
 };
 
 static struct ctl_table input_boost_sysctls[] = {
+//MIUI ADD: Performance_BoostFramework
+	{
+		.procname	= "powerkey_input_boost_ms",
+		.data		= &sysctl_powerkey_input_boost_ms,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= &one_hundred_thousand,
+	},
+	{
+		.procname	= "powerkey_input_boost_freq",
+		.data		= &sysctl_powerkey_input_boost_freq,
+		.maxlen		= sizeof(unsigned int) * 8,
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+	{
+		.procname	= "powerkey_sched_boost_on_input",
+		.data		= &sysctl_powerkey_sched_boost_on_input,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+
+	{
+		.procname	= "volkey_input_boost_ms",
+		.data		= &sysctl_volkey_input_boost_ms,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= &one_hundred_thousand,
+	},
+	{
+		.procname	= "volkey_input_boost_freq",
+		.data		= &sysctl_volkey_input_boost_freq,
+		.maxlen		= sizeof(unsigned int) * 8,
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+	{
+		.procname	= "volkey_sched_boost_on_input",
+		.data		= &sysctl_volkey_sched_boost_on_input,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+//END Performance_BoostFramework
 	{
 		.procname	= "input_boost_ms",
 		.data		= &sysctl_input_boost_ms,
@@ -1761,6 +1915,17 @@ static struct ctl_table walt_table[] = {
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= &max_nr_pipeline,
 	},
+//MIUI ADD: Performance_BoostFramework
+	{
+		.procname	= "sched_disable_mvp_thres",
+		.data		= &sysctl_disable_mvp_thres,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_douintvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+//END Performance_BoostFramework
 	{
 		.procname	= "sched_sbt_enable",
 		.data		= &sysctl_sched_sbt_enable,
@@ -1846,6 +2011,15 @@ static struct ctl_table walt_table[] = {
 		.extra2		= SYSCTL_INT_MAX,
 	},
 	{
+		.procname	= "sched_disable_minfreq_pause",
+		.data		= &sysctl_disable_minfreq_pause,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0664,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+	{
 		.procname	= "sched_pipeline_busy_boost_pct",
 		.data		= &sysctl_pipeline_busy_boost_pct,
 		.maxlen		= sizeof(unsigned int),
@@ -1861,6 +2035,29 @@ static struct ctl_table walt_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+	{
+		.procname	= "sched_storage_boost_disable",
+		.data		= &sysctl_sched_storage_boost_disable,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_douintvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+	{
+		/*
+		 * A tuple to configure following delay:
+		 * 1st val: delay between re-evaluation of pipeline tasks.
+		 * 2nd val: delay between re-arranging pipeline tasks between prime and gold.
+		 */
+		.procname	= "sched_pipeline_rearrange_delay_ms",
+		.data		= &sysctl_pipeline_rearrange_delay_ms,
+		.maxlen		= sizeof(int) * 2,
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ONE,
 		.extra2		= SYSCTL_INT_MAX,
 	},
 	{
@@ -1882,6 +2079,15 @@ static struct ctl_table walt_table[] = {
 		.extra2		= SYSCTL_INT_MAX,
 	},
 	{
+		.procname	= "sched_single_thread_pipeline",
+		.data		= &sysctl_single_thread_pipeline,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= walt_single_thread_pipeline_handler,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_ONE,
+	},
+	{
 		.procname	= "sched_pipeline_pin_thres_low_pct",
 		.data		= &sysctl_pipeline_pin_thres_low_pct,
 		.maxlen		= sizeof(unsigned int),
@@ -1898,6 +2104,15 @@ static struct ctl_table walt_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= SYSCTL_INT_MAX,
+	},
+	{
+		.procname	= "sched_sibling_cluster",
+		.data		= &sysctl_sched_sibling_cluster_map,
+		.maxlen		= sizeof(int) * 4,
+		.mode		= 0644,
+		.proc_handler	= sched_sibling_cluster_handler,
+		.extra1		= SYSCTL_NEG_ONE,
+		.extra2		= &three,
 	},
 	{ }
 };

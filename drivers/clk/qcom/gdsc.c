@@ -17,6 +17,7 @@
 #include <linux/reset-controller.h>
 #include <linux/slab.h>
 #include "gdsc.h"
+#include "gdsc-debug.h"
 
 #define PWR_ON_MASK		BIT(31)
 #define EN_REST_WAIT_MASK	GENMASK_ULL(23, 20)
@@ -183,6 +184,10 @@ static int gdsc_toggle_logic(struct gdsc *sc, enum gdsc_status status,
 	}
 
 	ret = gdsc_poll_status(sc, status);
+	if (ret && sc->gds_hw_ctrl) {
+		pr_warn("%s enable timed out, Re-polling\n", sc->pd.name);
+		ret = gdsc_poll_status(sc, status);
+	}
 	WARN(ret, "%s status stuck at 'o%s'", sc->pd.name, status ? "ff" : "n");
 
 out:
@@ -528,6 +533,11 @@ int gdsc_register(struct gdsc_desc *desc,
 			pm_genpd_add_subdomain(scs[i]->parent, &scs[i]->pd);
 		else if (!IS_ERR_OR_NULL(dev->pm_domain))
 			pm_genpd_add_subdomain(pd_to_genpd(dev->pm_domain), &scs[i]->pd);
+
+		ret = gdsc_genpd_debug_register(scs[i]);
+		if (ret)
+			dev_warn(dev, "Failed to register debugfs for %s ret=%d\n",
+							scs[i]->pd.name, ret);
 	}
 
 	return of_genpd_add_provider_onecell(dev->of_node, data);
@@ -544,6 +554,9 @@ void gdsc_unregister(struct gdsc_desc *desc)
 	for (i = 0; i < num; i++) {
 		if (!scs[i])
 			continue;
+
+		gdsc_genpd_debug_unregister(scs[i]);
+
 		if (scs[i]->parent)
 			pm_genpd_remove_subdomain(scs[i]->parent, &scs[i]->pd);
 		else if (!IS_ERR_OR_NULL(dev->pm_domain))

@@ -22,12 +22,19 @@
 #include <linux/fs.h>
 #include <linux/of.h>
 #include <linux/mm.h>
+#include <linux/delay.h>
 #include <soc/qcom/secure_buffer.h>
 
 #include "gh_private.h"
 #include "gh_secure_vm_virtio_backend.h"
 
 #define PAGE_ROUND_UP(x) ((((u64)(x) + (PAGE_SIZE - 1)) / PAGE_SIZE)  * PAGE_SIZE)
+
+struct gh_sec_ext_region {
+	phys_addr_t ext_phys;
+	ssize_t ext_size;
+	u32 ext_label;
+};
 
 struct gh_sec_vm_dev {
 	struct list_head list;
@@ -36,8 +43,11 @@ struct gh_sec_vm_dev {
 	bool system_vm;
 	bool keep_running;
 	phys_addr_t fw_phys;
+	dma_addr_t dma_handle;
 	void *fw_virt;
 	ssize_t fw_size;
+	struct gh_sec_ext_region *ext_region;
+
 	int pas_id;
 	int vmid;
 	bool is_static;
@@ -259,6 +269,25 @@ static int gh_vm_loader_sec_load(struct gh_sec_vm_dev *vm_dev,
 		goto release_fw;
 	}
 
+	if (vm_dev->ext_region) {
+		ret = gh_vm_alloc_ext_region(vm);
+		if (ret)
+			goto release_fw;
+
+		vm->ext_region->ext_label = vm_dev->ext_region->ext_label;
+		vm->ext_region->ext_phys = vm_dev->ext_region->ext_phys;
+		vm->ext_region->ext_size = vm_dev->ext_region->ext_size;
+
+		ret = gh_provide_mem(vm, vm_dev->ext_region->ext_phys,
+				vm_dev->ext_region->ext_size,
+				vm_dev->system_vm);
+		if (ret) {
+			dev_err(dev, "Failed to provide memory for ext-region to vm: %s, %d\n",
+				vm_dev->vm_name, ret);
+			goto release_fw;
+		}
+	}
+
 	vm->is_secure_vm = true;
 
 	ret = gh_vm_configure(GH_VM_AUTH_PIL_ELF, metadata_offset,
@@ -304,31 +333,48 @@ static int gh_sec_vm_loader_load_fw(struct gh_sec_vm_dev *vm_dev,
 	struct device *dev;
 	int ret = 0;
 	void *virt;
+	gh_vmid_t vmid;
 
 	dev = vm_dev->dev;
 
 	vm_name = get_gh_vm_name(vm_dev->vm_name);
+	//check if vm was created
+	ret = ghd_rm_get_vmid(vm_name, &vmid);
+	if (ret || vmid != GH_VMID_INVAL) {
+		dev_err(dev, "vmid as %d already allocated or get error for %s with ret %d\n",
+		        vmid, vm_dev->vm_name, ret);
+		return ret != 0 ? ret : -EINVAL;
+	}
 
 	if (!vm_dev->is_static) {
-		virt = dma_alloc_coherent(dev, vm_dev->fw_size, &dma_handle,
-				GFP_KERNEL);
-		if (!virt) {
-			ret = -ENOMEM;
-			dev_err(dev, "Couldn't allocate cma memory for %s %d\n",
-						vm_dev->vm_name, ret);
-			return ret;
-		}
+		if (vm_dev->fw_virt) {
+			pr_info("Use allocated CMA memory for %s\n", vm_dev->vm_name);
+			virt = vm_dev->fw_virt;
+			dma_handle = vm_dev->dma_handle;
+		} else {
+			pr_info("Allocate CMA memory for %s\n", vm_dev->vm_name);
+			virt = dma_alloc_coherent(dev, vm_dev->fw_size, &dma_handle, GFP_KERNEL);
+			if (!virt) {
+				ret = -ENOMEM;
+				dev_err(dev, "Failed to allocate cma memory for %s %d\n", vm_dev->vm_name, ret);
+				return ret;
+			}
 
-		vm_dev->fw_virt = virt;
-		vm_dev->fw_phys = dma_to_phys(dev, dma_handle);
+			vm_dev->fw_virt = virt;
+			vm_dev->dma_handle = dma_handle;
+		}
 	}
 
 	ret = gh_rm_vm_alloc_vmid(vm_name, &vm_dev->vmid);
 	if (ret < 0) {
 		dev_err(dev, "Couldn't allocate VMID for %s %d\n",
 						vm_dev->vm_name, ret);
-		if (!vm_dev->is_static)
+		if (!vm_dev->is_static) {
 			dma_free_coherent(dev, vm_dev->fw_size, virt, dma_handle);
+			vm_dev->fw_virt = 0;
+			vm_dev->dma_handle = 0;
+		}
+
 		return ret;
 	}
 
@@ -595,10 +641,14 @@ static int gh_vm_loader_mem_probe(struct gh_sec_vm_dev *sec_vm_dev)
 	struct reserved_mem *rmem;
 	struct device_node *node;
 	struct resource res;
+	struct gh_sec_ext_region *ext_region;
 	phys_addr_t phys;
+	dma_addr_t dma_handle;
 	ssize_t size;
 	void *virt;
 	int ret;
+	const int max_retry = 10;
+	int retry_times = 0;
 
 	node = of_parse_phandle(dev->of_node, "memory-region", 0);
 	if (!node) {
@@ -629,6 +679,28 @@ static int gh_vm_loader_mem_probe(struct gh_sec_vm_dev *sec_vm_dev)
 		}
 
 		sec_vm_dev->fw_size = rmem->size;
+		//5*10 ms should be long enough to avoid some special cases, such as filemap_read
+		do {
+			virt = dma_alloc_coherent(dev, sec_vm_dev->fw_size, &dma_handle,
+						  GFP_KERNEL);
+			if (virt) {
+				break;
+			}
+
+			retry_times++;
+			msleep(5);
+		} while (retry_times < max_retry && !virt);
+
+		if (!virt) {
+			ret = -ENOMEM;
+			dev_err(dev, "Couldn't allocate cma memory %d times for %s with %d\n",
+				retry_times, node->name, ret);
+			goto err_of_node_put;
+		}
+
+		sec_vm_dev->fw_virt = virt;
+		sec_vm_dev->fw_phys = dma_to_phys(dev, dma_handle);
+		sec_vm_dev->dma_handle = dma_handle;
 	} else {
 		sec_vm_dev->is_static = true;
 		ret = of_address_to_resource(node, 0, &res);
@@ -650,6 +722,33 @@ static int gh_vm_loader_mem_probe(struct gh_sec_vm_dev *sec_vm_dev)
 		sec_vm_dev->fw_phys = phys;
 		sec_vm_dev->fw_virt = virt;
 		sec_vm_dev->fw_size = size;
+	}
+
+	node = of_parse_phandle(dev->of_node, "ext-region", 0);
+	if (node) {
+		ret = of_address_to_resource(node, 0, &res);
+		if (ret) {
+			dev_err(dev, "error %d getting \"ext-region\" resource\n",
+				ret);
+			goto err_of_node_put;
+		}
+
+		ext_region = devm_kzalloc(dev, sizeof(*ext_region), GFP_KERNEL);
+		if (!ext_region) {
+			ret = -ENOMEM;
+			goto err_of_node_put;
+		}
+
+		sec_vm_dev->ext_region = ext_region;
+		sec_vm_dev->ext_region->ext_phys = res.start;
+		sec_vm_dev->ext_region->ext_size = (size_t)resource_size(&res);
+		ret = of_property_read_u32(dev->of_node, "ext-label",
+				&sec_vm_dev->ext_region->ext_label);
+		if (ret) {
+			dev_err(dev, "DT error getting \"ext-label\": %d\n", ret);
+			goto err_of_node_put;
+		}
+
 	}
 
 err_of_node_put:

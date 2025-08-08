@@ -78,6 +78,16 @@ source "drivers/staging/fieldbus/Kconfig"
 
 source "drivers/staging/qlge/Kconfig"
 
+source "drivers/staging/binder_prio/Kconfig"
+
 source "drivers/staging/vme_user/Kconfig"
+
+source "drivers/staging/mi_mem_engine/Kconfig"
+
+source "drivers/staging/mi-perf/Kconfig"
+
+source "drivers/staging/mi-log/Kconfig"
+
+source "drivers/staging/mi_async_reclaim/Kconfig"
 
 endif # STAGING

@@ -1342,8 +1342,9 @@ static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 			__func__, uart_error, port->uart_error);
 		ret = uart_error;
 
+		if (port->ioctl_count)
+			geni_se_dump_dbg_regs(uport);
 		/* Do not use previous log file from this issue point */
-		geni_se_dump_dbg_regs(uport);
 		port->ipc_log_rx = port->ipc_log_new;
 		port->ipc_log_tx = port->ipc_log_new;
 		port->ipc_log_misc = port->ipc_log_new;
@@ -5340,15 +5341,6 @@ static int msm_geni_serial_port_init(struct platform_device *pdev,
 								GFP_KERNEL);
 		if (!dev_port->rx_fifo)
 			return -ENOMEM;
-		if (dev_port->pm_auto_suspend_disable) {
-			pm_runtime_set_active(&pdev->dev);
-			pm_runtime_forbid(&pdev->dev);
-		} else {
-			pm_runtime_set_suspended(&pdev->dev);
-			pm_runtime_set_autosuspend_delay(&pdev->dev, 150);
-			pm_runtime_use_autosuspend(&pdev->dev);
-			pm_runtime_enable(&pdev->dev);
-		}
 	}
 
 	if (IS_ENABLED(CONFIG_SERIAL_MSM_GENI_HALF_SAMPLING) &&
@@ -5464,6 +5456,7 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	if (ret)
 		goto exit_geni_serial_probe;
 
+	msm_geni_serial_debug_init(uport, is_console);
 	ret = msm_geni_serial_port_init(pdev, dev_port);
 	if (ret)
 		goto exit_geni_serial_probe;
@@ -5471,7 +5464,6 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "Serial port: %d added.FifoSize: %d is_console: %d\n",
 		 line, uport->fifosize, is_console);
 
-	msm_geni_serial_debug_init(uport, is_console);
 	dev_port->port_setup = false;
 
 	dev_port->uart_error = UART_ERROR_DEFAULT;
@@ -5494,6 +5486,16 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		msm_geni_se_clks_on_off(dev_port, true);
 		msm_geni_check_stop_engine(uport);
 		msm_geni_se_clks_on_off(dev_port, false);
+
+		if (dev_port->pm_auto_suspend_disable) {
+			pm_runtime_set_active(&pdev->dev);
+			pm_runtime_forbid(&pdev->dev);
+		} else {
+			pm_runtime_set_suspended(&pdev->dev);
+			pm_runtime_set_autosuspend_delay(&pdev->dev, 150);
+			pm_runtime_use_autosuspend(&pdev->dev);
+			pm_runtime_enable(&pdev->dev);
+		}
 	}
 
 	/* Ignore dependencies on children by runtime PM framework */

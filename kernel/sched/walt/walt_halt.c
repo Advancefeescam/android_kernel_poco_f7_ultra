@@ -22,6 +22,7 @@ enum pause_type {
 struct cpumask __cpu_halt_mask;
 struct cpumask __cpu_partial_halt_mask;
 
+
 /* spin lock to allow calling from non-preemptible context */
 static DEFINE_RAW_SPINLOCK(halt_lock);
 
@@ -293,7 +294,7 @@ void restrict_cpus_and_freq(struct cpumask *cpus)
 
 struct task_struct *walt_drain_thread;
 
-static int halt_cpus(struct cpumask *cpus, enum pause_type type)
+static int halt_cpus(struct cpumask *cpus, enum pause_type type, enum pause_client client)
 {
 	int cpu;
 	int ret = 0;
@@ -336,13 +337,13 @@ static int halt_cpus(struct cpumask *cpus, enum pause_type type)
 		wake_up_process(walt_drain_thread);
 	}
 out:
-	trace_halt_cpus(cpus, start_time, 1, ret);
+	trace_halt_cpus(cpus, start_time, 1, ret, client);
 
 	return ret;
 }
 
 /* start the cpus again, and kick them to balance */
-static int start_cpus(struct cpumask *cpus, enum pause_type type)
+static int start_cpus(struct cpumask *cpus, enum pause_type type, enum pause_client client)
 {
 	u64 start_time = sched_clock();
 	struct halt_cpu_state *halt_cpu_state;
@@ -369,7 +370,7 @@ static int start_cpus(struct cpumask *cpus, enum pause_type type)
 
 	restrict_cpus_and_freq(cpus);
 
-	trace_halt_cpus(cpus, start_time, 0, 0);
+	trace_halt_cpus(cpus, start_time, 0, 0, client);
 
 	return 0;
 }
@@ -422,7 +423,7 @@ static int walt_halt_cpus(struct cpumask *cpus, enum pause_client client, enum p
 		goto unlock;
 	}
 
-	ret = halt_cpus(cpus, type);
+	ret = halt_cpus(cpus, type, client);
 
 	if (ret < 0)
 		pr_debug("halt_cpus failure ret=%d cpus=%*pbl\n", ret,
@@ -465,7 +466,7 @@ static int walt_start_cpus(struct cpumask *cpus, enum pause_client client, enum 
 	/* remove cpus that should still be halted */
 	update_halt_cpus(cpus, type);
 
-	ret = start_cpus(cpus, type);
+	ret = start_cpus(cpus, type, client);
 
 	if (ret < 0) {
 		pr_debug("halt_cpus failure ret=%d cpus=%*pbl\n", ret,
@@ -500,6 +501,9 @@ bool cpus_halted_by_client(struct cpumask *cpus, enum pause_client client)
 {
 	struct halt_cpu_state *halt_cpu_state;
 	int cpu;
+
+	if (sysctl_disable_minfreq_pause && client == PAUSE_THERMAL)
+		return false;
 
 	for_each_cpu(cpu, cpus) {
 		halt_cpu_state = per_cpu_ptr(&halt_state, cpu);

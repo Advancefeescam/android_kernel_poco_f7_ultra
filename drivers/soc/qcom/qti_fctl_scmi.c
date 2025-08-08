@@ -305,7 +305,7 @@ static int smp_create_thread(struct qcom_fctl_dd *fds, u32 cpu)
 	struct task_struct *tsk;
 	u32 *td;
 
-	td = kzalloc_node(sizeof(*td), GFP_KERNEL, cpu_to_node(cpu));
+	td = devm_kzalloc(fds->dev, sizeof(*td), GFP_KERNEL);
 	if (!td)
 		return -ENOMEM;
 

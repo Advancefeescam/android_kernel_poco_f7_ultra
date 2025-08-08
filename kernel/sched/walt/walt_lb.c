@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <trace/hooks/sched.h>
 
 #include "walt.h"
 #include "trace.h"
+
 
 inline unsigned long walt_lb_cpu_util(int cpu)
 {
@@ -690,10 +691,14 @@ void walt_lb_tick(struct rq *rq)
 		clear_reserved(prev_cpu);
 	raw_spin_unlock(&rq->__lock);
 
-	if (rq->cpu == 0 && is_storage_boost()) {
-		raw_spin_lock_irqsave(&walt_lb_migration_lock, flags);
-		storage_balance = move_storage_load(rq);
-		raw_spin_unlock_irqrestore(&walt_lb_migration_lock, flags);
+	if (is_storage_boost()) {
+		if (rq->cpu == 0) {
+			raw_spin_lock_irqsave(&walt_lb_migration_lock, flags);
+			storage_balance = move_storage_load(rq);
+			raw_spin_unlock_irqrestore(&walt_lb_migration_lock, flags);
+		} else if (cpumask_test_cpu(rq->cpu, &walt_enforce_high_irq_cpu_mask)) {
+			return;
+		}
 	}
 
 	if (!walt_fair_task(p))
@@ -775,6 +780,7 @@ static bool walt_balance_rt(struct rq *this_rq)
 	/* can't help if this has a runnable RT */
 	if (sched_rt_runnable(this_rq))
 		return false;
+
 
 	/* check if any CPU has a pushable RT task */
 	for_each_possible_cpu(i) {
@@ -913,6 +919,7 @@ static void walt_newidle_balance(struct rq *this_rq,
 
 	help_min_cap = should_help_min_cap(this_cpu);
 	raw_spin_unlock(&this_rq->__lock);
+
 
 	/*
 	 * careful, we dropped the lock, and has to be acquired
@@ -1114,7 +1121,19 @@ static void walt_sched_newidle_balance(void *unused, struct rq *this_rq,
 				       struct rq_flags *rf, int *pulled_task,
 				       int *done)
 {
-	walt_newidle_balance(this_rq, rf, pulled_task, done, false);
+	/*
+	 * There is a task waiting to run. No need to search for one.
+	 * The task will be enqueued when switching to idle.
+	 * Also set done to 0, such that this_rq misfit status is updated by
+	 * newidle_balance()
+	 */
+	if (unlikely(walt_disabled))
+		return;
+
+	if (this_rq->ttwu_pending)
+		done = 0;
+	else
+		walt_newidle_balance(this_rq, rf, pulled_task, done, false);
 }
 
 void sched_walt_oscillate(unsigned int busy_cpu)
@@ -1187,6 +1206,38 @@ out:
 }
 EXPORT_SYMBOL_GPL(sched_walt_oscillate);
 
+static void walt_find_new_ilb(void *unused, struct cpumask *nohz_idle_cpus_mask,
+		int *ilb)
+{
+	int cpu, i;
+
+	if (unlikely(walt_disabled))
+		return;
+
+	*ilb = nr_cpu_ids;
+	for (i = 0; i < num_sched_clusters - 1; i++) {
+		for_each_cpu_and(cpu, nohz_idle_cpus_mask, &cpu_array[0][i]) {
+			if (cpu == smp_processor_id())
+				continue;
+			if (available_idle_cpu(cpu) && cpu_online(cpu)) {
+				*ilb = cpu;
+				return;
+			}
+		}
+	}
+
+	for (i = 0; i < num_sched_clusters - 1; i++) {
+		for_each_cpu(cpu, &cpu_array[0][i]) {
+			if (cpu == smp_processor_id())
+				continue;
+			if (available_idle_cpu(cpu) && cpu_online(cpu)) {
+				*ilb = cpu;
+				return;
+			}
+		}
+	}
+}
+
 void walt_lb_init(void)
 {
 	int cpu;
@@ -1197,6 +1248,8 @@ void walt_lb_init(void)
 	register_trace_android_rvh_can_migrate_task(walt_can_migrate_task, NULL);
 	register_trace_android_rvh_find_busiest_queue(walt_find_busiest_queue, NULL);
 	register_trace_android_rvh_sched_newidle_balance(walt_sched_newidle_balance, NULL);
+	register_trace_android_rvh_find_new_ilb(walt_find_new_ilb, NULL);
+
 
 	for_each_cpu(cpu, cpu_possible_mask) {
 		call_single_data_t *csd;

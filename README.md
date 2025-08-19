@@ -226,3 +226,12 @@
 | dijun-v-oss | Xiaomi 15 SPro / Xiaomi Pad 7 Ultra | Android V | release-v-xring-O1 | [dijun-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dijun-v-oss) |
 | onyx-v-oss | REDMI Turbo 4 Pro | Android V | LA.VENDOR.15.4.0.r1-15000-r1.0.r1_00044.1 |[onyx-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/onyx-v-oss) |
 | bixi-v-oss | Xiaomi MIX Flip 2 | Android V | LA.VENDOR.15.4.0.r1-10100-r1.0.r1_00025.1 |[bixi-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bixi-v-oss) |
+| xuanyuan-v-oss | Xiaomi 15 Ultra | Android V | release-v-qcom-sm8750-O1 | [xuanyuan-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/xuanyuan-v-oss) |
+| dijun-v-oss | Xiaomi 15 SPro / Xiaomi Pad 7 Ultra | Android V | release-v-xring-O1 | [dijun-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dijun-v-oss) |
+| onyx-v-oss | REDMI Turbo 4 Pro | Android V | LA.VENDOR.15.4.0.r1-15000-r1.0.r1_00044.1 | [onyx-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/onyx-v-oss) |
+| bixi-v-oss | Xiaomi MIX Flip 2 | Android V | LA.VENDOR.15.4.0.r1-10100-r1.0.r1_00025.1 | [bixi-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bixi-v-oss) |
+| uke-v-oss | Xiaomi Pad 7 | Android V | LA.VENDOR.14.3.0.r1-14500-r1.0.r1_00042.0 | [uke-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/uke-v-oss) |
+| bsp-zorn-v-oss | Redmi K80 | Android V | qcom-LA.VENDOR.14.3.0.r1-14500-r1.0.r1_00042.0 | [bsp-zorn-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-zorn-v-oss) |
+| bsp-miro-v-oss | Redmi K80 Pro | Android V | qcom-LA.VENDOR.14.3.0.r1-14500-r1.0.r1_00042.0 | [bsp-miro-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-miro-v-oss) |
+| dada-v-oss | Xiaomi 15 / Xiaomi 15 Pro | Android V | qcom-LA.VENDOR.15.4.0.r1-08900-r1.0.r1_00022.1 | [dada-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dada-v-oss) |
+

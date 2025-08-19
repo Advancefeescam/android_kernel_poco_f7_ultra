@@ -1436,7 +1436,12 @@ static int ufshcd_clock_scaling_prepare(struct ufs_hba *hba, u64 timeout_us)
 	 * make sure that there are no outstanding requests when
 	 * clock scaling is in progress
 	 */
+#if IS_ENABLED(CONFIG_PROVE_LOCKING)
+	if (!mutex_trylock(&hba->host->scan_mutex))
+		return -EAGAIN;
+#else
 	mutex_lock(&hba->host->scan_mutex);
+#endif
 	blk_mq_quiesce_tagset(&hba->host->tag_set);
 	mutex_lock(&hba->wb_mutex);
 	down_write(&hba->clk_scaling_lock);

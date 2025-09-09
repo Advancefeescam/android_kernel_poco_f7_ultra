@@ -228,10 +228,6 @@ int misc_register(struct miscdevice *misc)
 	int err = 0;
 	bool is_dynamic = (misc->minor == MISC_DYNAMIC_MINOR);
 
-#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
-	BUG_ON(misc->this_device);
-#endif
-
 	INIT_LIST_HEAD(&misc->list);
 
 	mutex_lock(&misc_mtx);
@@ -273,9 +269,6 @@ int misc_register(struct miscdevice *misc)
 			misc->minor = MISC_DYNAMIC_MINOR;
 		}
 		err = PTR_ERR(misc->this_device);
-#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
-		misc->this_device = NULL;
-#endif
 		goto out;
 	}
 
@@ -300,19 +293,12 @@ EXPORT_SYMBOL(misc_register);
 
 void misc_deregister(struct miscdevice *misc)
 {
-#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
-	BUG_ON(!misc->this_device);
-#else
 	if (WARN_ON(list_empty(&misc->list)))
 		return;
-#endif
 
 	mutex_lock(&misc_mtx);
 	list_del(&misc->list);
 	device_destroy(&misc_class, MKDEV(MISC_MAJOR, misc->minor));
-#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
-	misc->this_device = NULL;
-#endif
 	misc_minor_free(misc->minor);
 	mutex_unlock(&misc_mtx);
 }

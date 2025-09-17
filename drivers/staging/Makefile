@@ -41,3 +41,7 @@ obj-$(CONFIG_XIL_AXIS_FIFO)	+= axis-fifo/
 obj-$(CONFIG_FIELDBUS_DEV)     += fieldbus/
 obj-$(CONFIG_QLGE)		+= qlge/
 obj-$(CONFIG_WFX)		+= wfx/
+#MIUI ADD: MiSight_LogEnhance
+obj-$(CONFIG_MIEV)		+= miev/
+# END MiSight_LogEnhance
+obj-$(CONFIG_BINDER_PRIO)	+= binder_prio/

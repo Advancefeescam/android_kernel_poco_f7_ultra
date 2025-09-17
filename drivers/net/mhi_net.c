@@ -319,7 +319,7 @@ static int mhi_net_newlink(struct mhi_device *mhi_dev, struct net_device *ndev)
 	u64_stats_init(&mhi_netdev->stats.tx_syncp);
 
 	/* Start MHI channels */
-	err = mhi_prepare_for_transfer(mhi_dev);
+	err = mhi_prepare_for_transfer(mhi_dev, 0);
 	if (err)
 		return err;
 
@@ -342,6 +342,8 @@ static void mhi_net_dellink(struct mhi_device *mhi_dev, struct net_device *ndev)
 	mhi_unprepare_from_transfer(mhi_dev);
 
 	kfree_skb(mhi_netdev->skbagg_head);
+
+	free_netdev(ndev);
 
 	dev_set_drvdata(&mhi_dev->dev, NULL);
 }

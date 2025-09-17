@@ -1015,7 +1015,7 @@ TRACE_EVENT(rdev_get_mpp,
 TRACE_EVENT(rdev_dump_mpp,
 	TP_PROTO(struct wiphy *wiphy, struct net_device *netdev, int _idx,
 		 u8 *dst, u8 *mpp),
-	TP_ARGS(wiphy, netdev, _idx, mpp, dst),
+	TP_ARGS(wiphy, netdev, _idx, dst, mpp),
 	TP_STRUCT__entry(
 		WIPHY_ENTRY
 		NETDEV_ENTRY
@@ -1730,7 +1730,7 @@ TRACE_EVENT(rdev_return_void_tx_rx,
 
 DECLARE_EVENT_CLASS(tx_rx_evt,
 	TP_PROTO(struct wiphy *wiphy, u32 tx, u32 rx),
-	TP_ARGS(wiphy, rx, tx),
+	TP_ARGS(wiphy, tx, rx),
 	TP_STRUCT__entry(
 		WIPHY_ENTRY
 		__field(u32, tx)
@@ -1747,7 +1747,7 @@ DECLARE_EVENT_CLASS(tx_rx_evt,
 
 DEFINE_EVENT(tx_rx_evt, rdev_set_antenna,
 	TP_PROTO(struct wiphy *wiphy, u32 tx, u32 rx),
-	TP_ARGS(wiphy, rx, tx)
+	TP_ARGS(wiphy, tx, rx)
 );
 
 DECLARE_EVENT_CLASS(wiphy_netdev_id_evt,
@@ -3165,14 +3165,15 @@ TRACE_EVENT(cfg80211_control_port_tx_status,
 
 TRACE_EVENT(cfg80211_rx_control_port,
 	TP_PROTO(struct net_device *netdev, struct sk_buff *skb,
-		 bool unencrypted),
-	TP_ARGS(netdev, skb, unencrypted),
+		 bool unencrypted, int link_id),
+	TP_ARGS(netdev, skb, unencrypted, link_id),
 	TP_STRUCT__entry(
 		NETDEV_ENTRY
 		__field(int, len)
 		MAC_ENTRY(from)
 		__field(u16, proto)
 		__field(bool, unencrypted)
+		__field(int, link_id)
 	),
 	TP_fast_assign(
 		NETDEV_ASSIGN;
@@ -3180,10 +3181,12 @@ TRACE_EVENT(cfg80211_rx_control_port,
 		MAC_ASSIGN(from, eth_hdr(skb)->h_source);
 		__entry->proto = be16_to_cpu(skb->protocol);
 		__entry->unencrypted = unencrypted;
+		__entry->link_id = link_id;
 	),
-	TP_printk(NETDEV_PR_FMT ", len=%d, %pM, proto: 0x%x, unencrypted: %s",
+	TP_printk(NETDEV_PR_FMT ", len=%d, %pM, proto: 0x%x, unencrypted: %s, link: %d",
 		  NETDEV_PR_ARG, __entry->len, __entry->from,
-		  __entry->proto, BOOL_TO_STR(__entry->unencrypted))
+		  __entry->proto, BOOL_TO_STR(__entry->unencrypted),
+		  __entry->link_id)
 );
 
 TRACE_EVENT(cfg80211_cqm_rssi_notify,
@@ -3244,39 +3247,47 @@ TRACE_EVENT(cfg80211_chandef_dfs_required,
 TRACE_EVENT(cfg80211_ch_switch_notify,
 	TP_PROTO(struct net_device *netdev,
 		 struct cfg80211_chan_def *chandef,
-		 unsigned int link_id),
-	TP_ARGS(netdev, chandef, link_id),
+		 unsigned int link_id,
+		 u16 punct_bitmap),
+	TP_ARGS(netdev, chandef, link_id, punct_bitmap),
 	TP_STRUCT__entry(
 		NETDEV_ENTRY
 		CHAN_DEF_ENTRY
 		__field(unsigned int, link_id)
+		__field(u16, punct_bitmap)
 	),
 	TP_fast_assign(
 		NETDEV_ASSIGN;
 		CHAN_DEF_ASSIGN(chandef);
 		__entry->link_id = link_id;
+		__entry->punct_bitmap = punct_bitmap;
 	),
-	TP_printk(NETDEV_PR_FMT ", " CHAN_DEF_PR_FMT ", link:%d",
-		  NETDEV_PR_ARG, CHAN_DEF_PR_ARG, __entry->link_id)
+	TP_printk(NETDEV_PR_FMT ", " CHAN_DEF_PR_FMT ", link:%d, punct_bitmap:%u",
+		  NETDEV_PR_ARG, CHAN_DEF_PR_ARG, __entry->link_id,
+		  __entry->punct_bitmap)
 );
 
 TRACE_EVENT(cfg80211_ch_switch_started_notify,
 	TP_PROTO(struct net_device *netdev,
 		 struct cfg80211_chan_def *chandef,
-		 unsigned int link_id),
-	TP_ARGS(netdev, chandef, link_id),
+		 unsigned int link_id,
+		 u16 punct_bitmap),
+	TP_ARGS(netdev, chandef, link_id, punct_bitmap),
 	TP_STRUCT__entry(
 		NETDEV_ENTRY
 		CHAN_DEF_ENTRY
 		__field(unsigned int, link_id)
+		__field(u16, punct_bitmap)
 	),
 	TP_fast_assign(
 		NETDEV_ASSIGN;
 		CHAN_DEF_ASSIGN(chandef);
 		__entry->link_id = link_id;
+		__entry->punct_bitmap = punct_bitmap;
 	),
-	TP_printk(NETDEV_PR_FMT ", " CHAN_DEF_PR_FMT ", link:%d",
-		  NETDEV_PR_ARG, CHAN_DEF_PR_ARG, __entry->link_id)
+	TP_printk(NETDEV_PR_FMT ", " CHAN_DEF_PR_FMT ", link:%d, punct_bitmap:%u",
+		  NETDEV_PR_ARG, CHAN_DEF_PR_ARG, __entry->link_id,
+		  __entry->punct_bitmap)
 );
 
 TRACE_EVENT(cfg80211_radar_event,

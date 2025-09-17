@@ -300,8 +300,14 @@ qtnf_event_handle_bss_leave(struct qtnf_vif *vif,
 
 	pr_debug("VIF%u.%u: disconnected\n", vif->mac->macid, vif->vifid);
 
+#ifndef CFG80211_PROP_MULTI_LINK_SUPPORT
 	cfg80211_disconnected(vif->netdev, le16_to_cpu(leave_info->reason),
 			      NULL, 0, 0, GFP_KERNEL);
+#else /* CFG80211_PROP_MULTI_LINK_SUPPORT */
+	cfg80211_disconnected(vif->netdev, le16_to_cpu(leave_info->reason),
+			      NULL, 0, 0,
+			      NL80211_MLO_INVALID_LINK_ID, GFP_KERNEL);
+#endif /* CFG80211_PROP_MULTI_LINK_SUPPORT */
 	netif_carrier_off(vif->netdev);
 
 	return 0;
@@ -478,7 +484,7 @@ qtnf_event_handle_freq_change(struct qtnf_wmac *mac,
 			continue;
 
 		mutex_lock(&vif->wdev.mtx);
-		cfg80211_ch_switch_notify(vif->netdev, &chandef, 0);
+		cfg80211_ch_switch_notify(vif->netdev, &chandef, 0, 0);
 		mutex_unlock(&vif->wdev.mtx);
 	}
 

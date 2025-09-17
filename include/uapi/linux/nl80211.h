@@ -57,6 +57,9 @@
 #define NL80211_EDMG_CHANNELS_MIN	1
 #define NL80211_EDMG_CHANNELS_MAX	0x3c /* 0b00111100 */
 
+#define NL80211_MLD_MAX_NUM_LINKS	15 /* Max Num of MLD Links */
+#define NL80211_MLO_INVALID_LINK_ID	-1
+
 /**
  * DOC: Station handling
  *
@@ -2774,6 +2777,18 @@ enum nl80211_commands {
  *	the incoming frame RX timestamp.
  * @NL80211_ATTR_TD_BITMAP: Transition Disable bitmap, for subsequent
  *	(re)associations.
+ *
+ * @NL80211_ATTR_PUNCT_BITMAP: (u32) Preamble puncturing bitmap, lowest
+ *	bit corresponds to the lowest 20 MHz channel. Each bit set to 1
+ *	indicates that the sub-channel is punctured. Higher 16 bits are
+ *	reserved.
+ *
+ * @NL80211_ATTR_MLD_MAC: MLD MAC address.
+ * @NL80211_ATTR_MLD_REFERENCE: MLD Reference.
+ * @NL80211_ATTR_MLD_LINK_IDS: nested attribute to hold MLD link-ids.
+ * @NL80211_ATTR_MLD_LINK_MACS: nested attribute to hold MLD mac addrs.
+ * @NL80211_ATTR_RECONFIG: whether the operation is reconfiguration or not
+ *
  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -3302,8 +3317,8 @@ enum nl80211_attrs {
 	NL80211_ATTR_TX_HW_TIMESTAMP,
 	NL80211_ATTR_RX_HW_TIMESTAMP,
 	NL80211_ATTR_TD_BITMAP,
+	NL80211_ATTR_PUNCT_BITMAP,
 
-	NL80211_ATTR_RESERVED_DO_NOT_USE_11 = 322,
 	NL80211_ATTR_RESERVED_DO_NOT_USE_12 = 323,
 	NL80211_ATTR_RESERVED_DO_NOT_USE_13 = 324,
 	NL80211_ATTR_RESERVED_DO_NOT_USE_14 = 325,
@@ -3318,6 +3333,13 @@ enum nl80211_attrs {
 	NL80211_ATTR_RESERVED_DO_NOT_USE_23 = 334,
 	NL80211_ATTR_RESERVED_DO_NOT_USE_24 = 335,
 	NL80211_ATTR_RESERVED_DO_NOT_USE_25 = 336,
+
+	NL80211_ATTR_EHT_PUNCTURE_BITMAP = 350,
+	NL80211_ATTR_MLD_MAC,
+	NL80211_ATTR_MLD_REFERENCE,
+	NL80211_ATTR_MLD_LINK_IDS,
+	NL80211_ATTR_MLD_LINK_MACS,
+	NL80211_ATTR_RECONFIG,
 
 	/* add attributes here, update the policy in nl80211.c */
 
@@ -3379,8 +3401,14 @@ enum nl80211_attrs {
  * present in %NL80211_CMD_GET_WIPHY response.
  */
 #define NL80211_MAX_NR_AKM_SUITES		2
+
+#ifndef CFG80211_PROP_MULTI_LINK_SUPPORT
 #define NL80211_EHT_MIN_CAPABILITY_LEN          13
 #define NL80211_EHT_MAX_CAPABILITY_LEN          51
+#else /* CFG80211_PROP_MULTI_LINK_SUPPORT */
+#define NL80211_EHT_MIN_CAPABILITY_LEN          16
+#define NL80211_EHT_MAX_CAPABILITY_LEN          54
+#endif /* CFG80211_PROP_MULTI_LINK_SUPPORT */
 
 #define NL80211_MIN_REMAIN_ON_CHANNEL_TIME	10
 
@@ -4180,6 +4208,7 @@ enum nl80211_wmm_rule {
  *	as the primary or any of the secondary channels isn't possible
  * @NL80211_FREQUENCY_ATTR_NO_EHT: EHT operation is not allowed on this channel
  *	in current regulatory domain.
+ * @NL80211_FREQUENCY_ATTR_CHANNEL: HW value for frequency
  * @NL80211_FREQUENCY_ATTR_MAX: highest frequency attribute number
  *	currently defined
  * @__NL80211_FREQUENCY_ATTR_AFTER_LAST: internal use
@@ -4218,6 +4247,7 @@ enum nl80211_frequency_attr {
 	NL80211_FREQUENCY_ATTR_16MHZ,
 	NL80211_FREQUENCY_ATTR_NO_320MHZ,
 	NL80211_FREQUENCY_ATTR_NO_EHT,
+	NL80211_FREQUENCY_ATTR_CHANNEL,
 
 	/* keep last */
 	__NL80211_FREQUENCY_ATTR_AFTER_LAST,
@@ -6369,6 +6399,16 @@ enum nl80211_feature_flags {
  *	might apply, e.g. no scans in progress, no offchannel operations
  *	in progress, and no active connections.
  *
+ * @NL80211_EXT_FEATURE_PUNCT: Driver supports preamble puncturing in AP mode.
+ *
+ * @NL80211_EXT_FEATURE_SECURE_NAN: Device supports NAN Pairing which enables
+ *	authentication, data encryption and message integrity.
+ * @NL80211_EXT_FEATURE_MLO: Driver/Device support Multi-link Operation(MLO)
+ *      feature.
+ *
+ * @NL80211_EXT_FEATURE_AUTH_TX_RANDOM_TA: Device supports randomized TA
+ *	for authentication frames in @NL80211_CMD_FRAME.
+ *
  * @NUM_NL80211_EXT_FEATURES: number of extended features.
  * @MAX_NL80211_EXT_FEATURES: highest extended feature index.
  */
@@ -6437,8 +6477,8 @@ enum nl80211_ext_feature_index {
 	NL80211_EXT_FEATURE_FILS_CRYPTO_OFFLOAD,
 	NL80211_EXT_FEATURE_RADAR_BACKGROUND,
 	NL80211_EXT_FEATURE_POWERED_ADDR_CHANGE,
-	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_2 = 63,
-	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_3 = 64,
+	NL80211_EXT_FEATURE_PUNCT,
+	NL80211_EXT_FEATURE_SECURE_NAN,
 	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_4 = 65,
 	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_5 = 66,
 	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_6 = 67,
@@ -6446,7 +6486,10 @@ enum nl80211_ext_feature_index {
 	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_8 = 69,
 	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_9 = 70,
 	NL80211_EXT_FEATURE_RESERVED_DO_NOT_USE_10 = 71,
-
+#ifdef CFG80211_PROP_MULTI_LINK_SUPPORT
+	NL80211_EXT_FEATURE_MLO,
+	NL80211_EXT_FEATURE_AUTH_TX_RANDOM_TA,
+#endif
 	/* add new features before the definition below */
 	NUM_NL80211_EXT_FEATURES,
 	MAX_NL80211_EXT_FEATURES = NUM_NL80211_EXT_FEATURES - 1

@@ -8,19 +8,18 @@
  */
 
 #include <linux/init.h>
-#include <linux/module.h>
 #include <linux/ioctl.h>
 #include <linux/fs.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/list.h>
 #include <linux/errno.h>
+#include <linux/mod_devicetable.h>
+#include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/property.h>
 #include <linux/slab.h>
 #include <linux/compat.h>
-#include <linux/of.h>
-#include <linux/of_device.h>
-#include <linux/acpi.h>
 
 #include <linux/spi/spi.h>
 #include <linux/spi/spidev.h>
@@ -82,7 +81,7 @@ struct spidev_data {
 static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
 
-static unsigned bufsiz = 4096;
+static unsigned int bufsiz = 35000;
 module_param(bufsiz, uint, S_IRUGO);
 MODULE_PARM_DESC(bufsiz, "data bytes in biggest supported SPI message");
 
@@ -98,14 +97,18 @@ spidev_sync(struct spidev_data *spidev, struct spi_message *message)
 	spi = spidev->spi;
 	spin_unlock_irq(&spidev->spi_lock);
 
-	if (spi == NULL)
+	if (spi == NULL) {
+		pr_err("%s spi is NULL\n", __func__);
 		status = -ESHUTDOWN;
-	else
+	}
+	else {
 		status = spi_sync(spi, message);
+		pr_debug("%s spi_sync ret:%d\n", __func__, status);
+	}
 
 	if (status == 0)
 		status = message->actual_length;
-
+	pr_info("%s ret:%d\n", __func__, status);
 	return status;
 }
 
@@ -115,12 +118,13 @@ spidev_sync_write(struct spidev_data *spidev, size_t len)
 	struct spi_transfer	t = {
 			.tx_buf		= spidev->tx_buffer,
 			.len		= len,
-			.speed_hz	= spidev->speed_hz,
+			.speed_hz	=  960000, //spidev->speed_hz,
 		};
 	struct spi_message	m;
 
 	spi_message_init(&m);
 	spi_message_add_tail(&t, &m);
+	pr_debug("%s run\n", __func__);
 	return spidev_sync(spidev, &m);
 }
 
@@ -136,6 +140,7 @@ spidev_sync_read(struct spidev_data *spidev, size_t len)
 
 	spi_message_init(&m);
 	spi_message_add_tail(&t, &m);
+	pr_debug("%s run\n", __func__);
 	return spidev_sync(spidev, &m);
 }
 
@@ -155,6 +160,14 @@ spidev_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 	spidev = filp->private_data;
 
 	mutex_lock(&spidev->buf_lock);
+	if (!spidev->rx_buffer) {
+		spidev->rx_buffer = kmalloc(bufsiz, GFP_KERNEL);
+		if (!spidev->rx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto read_unlock;
+		}
+	}
 	status = spidev_sync_read(spidev, count);
 	if (status > 0) {
 		unsigned long	missing;
@@ -165,6 +178,10 @@ spidev_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 		else
 			status = status - missing;
 	}
+	kfree(spidev->rx_buffer);
+	spidev->rx_buffer = NULL;
+
+read_unlock:
 	mutex_unlock(&spidev->buf_lock);
 
 	return status;
@@ -180,17 +197,33 @@ spidev_write(struct file *filp, const char __user *buf,
 	unsigned long		missing;
 
 	/* chipselect only toggles at start or end of operation */
-	if (count > bufsiz)
+	/*if (count > bufsiz)
 		return -EMSGSIZE;
+	*/
 
 	spidev = filp->private_data;
 
+	pr_debug("%s run\n", __func__);
+
 	mutex_lock(&spidev->buf_lock);
+	if (!spidev->tx_buffer) {
+		spidev->tx_buffer = kmalloc(count, GFP_KERNEL);
+		if (!spidev->tx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto write_unlock;
+		}
+	}
 	missing = copy_from_user(spidev->tx_buffer, buf, count);
 	if (missing == 0)
 		status = spidev_sync_write(spidev, count);
 	else
 		status = -EFAULT;
+
+	kfree(spidev->tx_buffer);
+	spidev->tx_buffer = NULL;
+
+write_unlock:
 	mutex_unlock(&spidev->buf_lock);
 
 	return status;
@@ -216,6 +249,22 @@ static int spidev_message(struct spidev_data *spidev,
 	 * We walk the array of user-provided transfers, using each one
 	 * to initialize a kernel version of the same transfer.
 	 */
+	if (!spidev->rx_buffer) {
+		spidev->rx_buffer = kmalloc(bufsiz, GFP_KERNEL);
+		if (!spidev->rx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto rxbuffer_err;
+		}
+	}
+	if (!spidev->tx_buffer) {
+		spidev->tx_buffer = kmalloc(bufsiz, GFP_KERNEL);
+		if (!spidev->tx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto txbuffer_err;
+		}
+	}
 	tx_buf = spidev->tx_buffer;
 	rx_buf = spidev->rx_buffer;
 	total = 0;
@@ -313,6 +362,12 @@ static int spidev_message(struct spidev_data *spidev,
 	status = total;
 
 done:
+	kfree(spidev->tx_buffer);
+	spidev->tx_buffer = NULL;
+txbuffer_err:
+	kfree(spidev->rx_buffer);
+	spidev->rx_buffer = NULL;
+rxbuffer_err:
 	kfree(k_xfers);
 	return status;
 }
@@ -376,12 +431,23 @@ spidev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	/* read requests */
 	case SPI_IOC_RD_MODE:
-		retval = put_user(spi->mode & SPI_MODE_MASK,
-					(__u8 __user *)arg);
-		break;
 	case SPI_IOC_RD_MODE32:
-		retval = put_user(spi->mode & SPI_MODE_MASK,
-					(__u32 __user *)arg);
+		tmp = spi->mode;
+
+		{
+			struct spi_controller *ctlr = spi->controller;
+
+			if (ctlr->use_gpio_descriptors && ctlr->cs_gpiods &&
+			    ctlr->cs_gpiods[spi->chip_select])
+				tmp &= ~SPI_CS_HIGH;
+		}
+
+		if (cmd == SPI_IOC_RD_MODE)
+			retval = put_user(tmp & SPI_MODE_MASK,
+					  (__u8 __user *)arg);
+		else
+			retval = put_user(tmp & SPI_MODE_MASK,
+					  (__u32 __user *)arg);
 		break;
 	case SPI_IOC_RD_LSB_FIRST:
 		retval = put_user((spi->mode & SPI_LSB_FIRST) ?  1 : 0,
@@ -578,10 +644,10 @@ static int spidev_open(struct inode *inode, struct file *filp)
 		goto err_find_dev;
 	}
 
+	/*
 	if (!spidev->tx_buffer) {
 		spidev->tx_buffer = kmalloc(bufsiz, GFP_KERNEL);
 		if (!spidev->tx_buffer) {
-			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
 			status = -ENOMEM;
 			goto err_find_dev;
 		}
@@ -590,11 +656,11 @@ static int spidev_open(struct inode *inode, struct file *filp)
 	if (!spidev->rx_buffer) {
 		spidev->rx_buffer = kmalloc(bufsiz, GFP_KERNEL);
 		if (!spidev->rx_buffer) {
-			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
 			status = -ENOMEM;
 			goto err_alloc_rx_buf;
 		}
 	}
+	*/
 
 	spidev->users++;
 	filp->private_data = spidev;
@@ -603,9 +669,11 @@ static int spidev_open(struct inode *inode, struct file *filp)
 	mutex_unlock(&device_list_lock);
 	return 0;
 
+/*
 err_alloc_rx_buf:
 	kfree(spidev->tx_buffer);
 	spidev->tx_buffer = NULL;
+*/
 err_find_dev:
 	mutex_unlock(&device_list_lock);
 	return status;
@@ -629,11 +697,13 @@ static int spidev_release(struct inode *inode, struct file *filp)
 	spidev->users--;
 	if (!spidev->users) {
 
+		/*
 		kfree(spidev->tx_buffer);
 		spidev->tx_buffer = NULL;
 
 		kfree(spidev->rx_buffer);
 		spidev->rx_buffer = NULL;
+		*/
 
 		if (dofree)
 			kfree(spidev);
@@ -674,6 +744,7 @@ static const struct file_operations spidev_fops = {
 static struct class *spidev_class;
 
 static const struct spi_device_id spidev_spi_ids[] = {
+	{ .name = "bh2228fv" },
 	{ .name = "dh2228fv" },
 	{ .name = "ltc2488" },
 	{ .name = "sx1301" },
@@ -682,11 +753,12 @@ static const struct spi_device_id spidev_spi_ids[] = {
 	{ .name = "m53cpld" },
 	{ .name = "spi-petra" },
 	{ .name = "spi-authenta" },
+	{ .name = "em3581" },
+	{ .name = "ir-spi" },
 	{},
 };
 MODULE_DEVICE_TABLE(spi, spidev_spi_ids);
 
-#ifdef CONFIG_OF
 static const struct of_device_id spidev_dt_ids[] = {
 	{ .compatible = "rohm,dh2228fv" },
 	{ .compatible = "lineartechnology,ltc2488" },
@@ -696,15 +768,19 @@ static const struct of_device_id spidev_dt_ids[] = {
 	{ .compatible = "menlo,m53cpld" },
 	{ .compatible = "cisco,spi-petra" },
 	{ .compatible = "micron,spi-authenta" },
+	{ .compatible = "qcom,spi-msm-codec-slave" },
+	{ .compatible = "qcom,si5518-clk" },
+	{ .compatible = "lc,ir-spi" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, spidev_dt_ids);
-#endif
-
-#ifdef CONFIG_ACPI
 
 /* Dummy SPI devices not to be used in production systems */
-#define SPIDEV_ACPI_DUMMY	1
+static int spidev_acpi_check(struct device *dev)
+{
+	dev_warn(dev, "do not use this driver in production systems!\n");
+	return 0;
+}
 
 static const struct acpi_device_id spidev_acpi_ids[] = {
 	/*
@@ -713,49 +789,30 @@ static const struct acpi_device_id spidev_acpi_ids[] = {
 	 * description of the connected peripheral and they should also use
 	 * a proper driver instead of poking directly to the SPI bus.
 	 */
-	{ "SPT0001", SPIDEV_ACPI_DUMMY },
-	{ "SPT0002", SPIDEV_ACPI_DUMMY },
-	{ "SPT0003", SPIDEV_ACPI_DUMMY },
+	{ "SPT0001", (kernel_ulong_t)&spidev_acpi_check },
+	{ "SPT0002", (kernel_ulong_t)&spidev_acpi_check },
+	{ "SPT0003", (kernel_ulong_t)&spidev_acpi_check },
 	{},
 };
 MODULE_DEVICE_TABLE(acpi, spidev_acpi_ids);
-
-static void spidev_probe_acpi(struct spi_device *spi)
-{
-	const struct acpi_device_id *id;
-
-	if (!has_acpi_companion(&spi->dev))
-		return;
-
-	id = acpi_match_device(spidev_acpi_ids, &spi->dev);
-	if (WARN_ON(!id))
-		return;
-
-	if (id->driver_data == SPIDEV_ACPI_DUMMY)
-		dev_warn(&spi->dev, "do not use this driver in production systems!\n");
-}
-#else
-static inline void spidev_probe_acpi(struct spi_device *spi) {}
-#endif
 
 /*-------------------------------------------------------------------------*/
 
 static int spidev_probe(struct spi_device *spi)
 {
+	int (*match)(struct device *dev);
 	struct spidev_data	*spidev;
 	int			status;
 	unsigned long		minor;
 
-	/*
-	 * spidev should never be referenced in DT without a specific
-	 * compatible string, it is a Linux implementation thing
-	 * rather than a description of the hardware.
-	 */
-	WARN(spi->dev.of_node &&
-	     of_device_is_compatible(spi->dev.of_node, "spidev"),
-	     "%pOF: buggy DT: spidev listed directly in DT\n", spi->dev.of_node);
+	pr_debug("%s run\n", __func__);
 
-	spidev_probe_acpi(spi);
+	match = device_get_match_data(&spi->dev);
+	if (match) {
+		status = match(&spi->dev);
+		if (status)
+			return status;
+	}
 
 	/* Allocate driver data */
 	spidev = kzalloc(sizeof(*spidev), GFP_KERNEL);
@@ -778,9 +835,11 @@ static int spidev_probe(struct spi_device *spi)
 		struct device *dev;
 
 		spidev->devt = MKDEV(SPIDEV_MAJOR, minor);
-		dev = device_create(spidev_class, &spi->dev, spidev->devt,
-				    spidev, "spidev%d.%d",
-				    spi->master->bus_num, spi->chip_select);
+		// dev = device_create(spidev_class, &spi->dev, spidev->devt,
+		// 		    spidev, "spidev%d.%d",
+		// 		    spi->master->bus_num, spi->chip_select);
+		// pr_debug("%s device_create spidev%d.%d\n", __func__, spi->master->bus_num, spi->chip_select);
+		dev = device_create(spidev_class, &spi->dev, spidev->devt, spidev, "lct-ir-spi");
 		status = PTR_ERR_OR_ZERO(dev);
 	} else {
 		dev_dbg(&spi->dev, "no minor number available!\n");
@@ -826,8 +885,8 @@ static int spidev_remove(struct spi_device *spi)
 static struct spi_driver spidev_spi_driver = {
 	.driver = {
 		.name =		"spidev",
-		.of_match_table = of_match_ptr(spidev_dt_ids),
-		.acpi_match_table = ACPI_PTR(spidev_acpi_ids),
+		.of_match_table = spidev_dt_ids,
+		.acpi_match_table = spidev_acpi_ids,
 	},
 	.probe =	spidev_probe,
 	.remove =	spidev_remove,
@@ -850,6 +909,7 @@ static int __init spidev_init(void)
 	 * that will key udev/mdev to add/remove /dev nodes.  Last, register
 	 * the driver which manages those device numbers.
 	 */
+	pr_debug("%s run\n", __func__);
 	BUILD_BUG_ON(N_SPI_MINORS > 256);
 	status = register_chrdev(SPIDEV_MAJOR, "spi", &spidev_fops);
 	if (status < 0)
@@ -857,11 +917,13 @@ static int __init spidev_init(void)
 
 	spidev_class = class_create(THIS_MODULE, "spidev");
 	if (IS_ERR(spidev_class)) {
+		pr_debug("%s IS_ERR(spidev_class) is true\n", __func__);
 		unregister_chrdev(SPIDEV_MAJOR, spidev_spi_driver.driver.name);
 		return PTR_ERR(spidev_class);
 	}
 
 	status = spi_register_driver(&spidev_spi_driver);
+	pr_debug("%s spi_register_driver ret: %d\n", __func__, status);
 	if (status < 0) {
 		class_destroy(spidev_class);
 		unregister_chrdev(SPIDEV_MAJOR, spidev_spi_driver.driver.name);

@@ -81,7 +81,7 @@ echo "ONBOOT=yes" >> $1
 
 cp $1 /etc/sysconfig/network-scripts/
 
-umask 0177
+chmod 600 $2
 interface=$(echo $2 | awk -F - '{ print $2 }')
 filename="${2##*/}"
 

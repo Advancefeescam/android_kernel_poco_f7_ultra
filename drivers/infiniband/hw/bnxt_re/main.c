@@ -107,14 +107,9 @@ static void bnxt_re_set_db_offset(struct bnxt_re_dev *rdev)
 		dev_info(rdev_to_dev(rdev),
 			 "Couldn't get DB bar size, Low latency framework is disabled\n");
 	/* set register offsets for both UC and WC */
-	if (bnxt_qplib_is_chip_gen_p7(cctx)) {
-		res->dpi_tbl.ucreg.offset = offset;
-		res->dpi_tbl.wcreg.offset = en_dev->l2_db_size;
-	} else {
-		res->dpi_tbl.ucreg.offset = res->is_vf ? BNXT_QPLIB_DBR_VF_DB_OFFSET :
-							 BNXT_QPLIB_DBR_PF_DB_OFFSET;
-		res->dpi_tbl.wcreg.offset = res->dpi_tbl.ucreg.offset;
-	}
+	res->dpi_tbl.ucreg.offset = res->is_vf ? BNXT_QPLIB_DBR_VF_DB_OFFSET :
+						 BNXT_QPLIB_DBR_PF_DB_OFFSET;
+	res->dpi_tbl.wcreg.offset = res->dpi_tbl.ucreg.offset;
 
 	/* If WC mapping is disabled by L2 driver then en_dev->l2_db_size
 	 * is equal to the DB-Bar actual size. This indicates that L2
@@ -128,13 +123,13 @@ static void bnxt_re_set_db_offset(struct bnxt_re_dev *rdev)
 	}
 }
 
-static void bnxt_re_set_drv_mode(struct bnxt_re_dev *rdev)
+static void bnxt_re_set_drv_mode(struct bnxt_re_dev *rdev, u8 mode)
 {
 	struct bnxt_qplib_chip_ctx *cctx;
 
 	cctx = rdev->chip_ctx;
-	cctx->modes.wqe_mode = bnxt_qplib_is_chip_gen_p7(rdev->chip_ctx) ?
-			       BNXT_QPLIB_WQE_MODE_VARIABLE : BNXT_QPLIB_WQE_MODE_STATIC;
+	cctx->modes.wqe_mode = bnxt_qplib_is_chip_gen_p5(rdev->chip_ctx) ?
+			       mode : BNXT_QPLIB_WQE_MODE_STATIC;
 	if (bnxt_re_hwrm_qcaps(rdev))
 		dev_err(rdev_to_dev(rdev),
 			"Failed to query hwrm qcaps\n");
@@ -155,7 +150,7 @@ static void bnxt_re_destroy_chip_ctx(struct bnxt_re_dev *rdev)
 	kfree(chip_ctx);
 }
 
-static int bnxt_re_setup_chip_ctx(struct bnxt_re_dev *rdev)
+static int bnxt_re_setup_chip_ctx(struct bnxt_re_dev *rdev, u8 wqe_mode)
 {
 	struct bnxt_qplib_chip_ctx *chip_ctx;
 	struct bnxt_en_dev *en_dev;
@@ -177,15 +172,12 @@ static int bnxt_re_setup_chip_ctx(struct bnxt_re_dev *rdev)
 	rdev->qplib_res.dattr = &rdev->dev_attr;
 	rdev->qplib_res.is_vf = BNXT_EN_VF(en_dev);
 
-	bnxt_re_set_drv_mode(rdev);
+	bnxt_re_set_drv_mode(rdev, wqe_mode);
 
 	bnxt_re_set_db_offset(rdev);
 	rc = bnxt_qplib_map_db_bar(&rdev->qplib_res);
-	if (rc) {
-		kfree(rdev->chip_ctx);
-		rdev->chip_ctx = NULL;
+	if (rc)
 		return rc;
-	}
 
 	if (bnxt_qplib_determine_atomics(en_dev->pdev))
 		ibdev_info(&rdev->ibdev,
@@ -223,7 +215,7 @@ static void bnxt_re_limit_pf_res(struct bnxt_re_dev *rdev)
 	ctx->srqc_count = min_t(u32, BNXT_RE_MAX_SRQC_COUNT,
 				attr->max_srq);
 	ctx->cq_count = min_t(u32, BNXT_RE_MAX_CQ_COUNT, attr->max_cq);
-	if (!bnxt_qplib_is_chip_gen_p5_p7(rdev->chip_ctx))
+	if (!bnxt_qplib_is_chip_gen_p5(rdev->chip_ctx))
 		for (i = 0; i < MAX_TQM_ALLOC_REQ; i++)
 			rdev->qplib_ctx.tqm_ctx.qcount[i] =
 			rdev->dev_attr.tqm_alloc_reqs[i];
@@ -272,7 +264,7 @@ static void bnxt_re_set_resource_limits(struct bnxt_re_dev *rdev)
 	memset(&rdev->qplib_ctx.vf_res, 0, sizeof(struct bnxt_qplib_vf_res));
 	bnxt_re_limit_pf_res(rdev);
 
-	num_vfs =  bnxt_qplib_is_chip_gen_p5_p7(rdev->chip_ctx) ?
+	num_vfs =  bnxt_qplib_is_chip_gen_p5(rdev->chip_ctx) ?
 			BNXT_RE_GEN_P5_MAX_VF : rdev->num_vfs;
 	if (num_vfs)
 		bnxt_re_limit_vf_res(&rdev->qplib_ctx, num_vfs);
@@ -284,7 +276,7 @@ static void bnxt_re_vf_res_config(struct bnxt_re_dev *rdev)
 	if (test_bit(BNXT_RE_FLAG_ERR_DEVICE_DETACHED, &rdev->flags))
 		return;
 	rdev->num_vfs = pci_sriov_get_totalvfs(rdev->en_dev->pdev);
-	if (!bnxt_qplib_is_chip_gen_p5_p7(rdev->chip_ctx)) {
+	if (!bnxt_qplib_is_chip_gen_p5(rdev->chip_ctx)) {
 		bnxt_re_set_resource_limits(rdev);
 		bnxt_qplib_set_func_resources(&rdev->qplib_res, &rdev->rcfw,
 					      &rdev->qplib_ctx);
@@ -485,8 +477,6 @@ static void bnxt_re_set_default_pacing_data(struct bnxt_re_dev *rdev)
 static void __wait_for_fifo_occupancy_below_th(struct bnxt_re_dev *rdev)
 {
 	u32 read_val, fifo_occup;
-	struct bnxt_qplib_db_pacing_data *pacing_data = rdev->qplib_res.pacing_data;
-	u32 retry_fifo_check = 1000;
 
 	/* loop shouldn't run infintely as the occupancy usually goes
 	 * below pacing algo threshold as soon as pacing kicks in.
@@ -502,14 +492,6 @@ static void __wait_for_fifo_occupancy_below_th(struct bnxt_re_dev *rdev)
 
 		if (fifo_occup < rdev->qplib_res.pacing_data->pacing_th)
 			break;
-		if (!retry_fifo_check--) {
-			dev_info_once(rdev_to_dev(rdev),
-				      "%s: fifo_occup = 0x%xfifo_max_depth = 0x%x pacing_th = 0x%x\n",
-				      __func__, fifo_occup, pacing_data->fifo_max_depth,
-					pacing_data->pacing_th);
-			break;
-		}
-
 	}
 }
 
@@ -1085,6 +1067,16 @@ static int bnxt_re_cqn_handler(struct bnxt_qplib_nq *nq,
 	return 0;
 }
 
+#define BNXT_RE_GEN_P5_PF_NQ_DB		0x10000
+#define BNXT_RE_GEN_P5_VF_NQ_DB		0x4000
+static u32 bnxt_re_get_nqdb_offset(struct bnxt_re_dev *rdev, u16 indx)
+{
+	return bnxt_qplib_is_chip_gen_p5(rdev->chip_ctx) ?
+		(rdev->is_virtfn ? BNXT_RE_GEN_P5_VF_NQ_DB :
+				   BNXT_RE_GEN_P5_PF_NQ_DB) :
+				   rdev->en_dev->msix_entries[indx].db_offset;
+}
+
 static void bnxt_re_cleanup_res(struct bnxt_re_dev *rdev)
 {
 	int i;
@@ -1105,7 +1097,7 @@ static int bnxt_re_init_res(struct bnxt_re_dev *rdev)
 	bnxt_qplib_init_res(&rdev->qplib_res);
 
 	for (i = 1; i < rdev->num_msix ; i++) {
-		db_offt = rdev->en_dev->msix_entries[i].db_offset;
+		db_offt = bnxt_re_get_nqdb_offset(rdev, i);
 		rc = bnxt_qplib_enable_nq(rdev->en_dev->pdev, &rdev->nq[i - 1],
 					  i - 1, rdev->en_dev->msix_entries[i].vector,
 					  db_offt, &bnxt_re_cqn_handler,
@@ -1450,7 +1442,7 @@ static void bnxt_re_worker(struct work_struct *work)
 	schedule_delayed_work(&rdev->worker, msecs_to_jiffies(30000));
 }
 
-static int bnxt_re_dev_init(struct bnxt_re_dev *rdev)
+static int bnxt_re_dev_init(struct bnxt_re_dev *rdev, u8 wqe_mode)
 {
 	struct bnxt_re_ring_attr rattr = {};
 	struct bnxt_qplib_creq_ctx *creq;
@@ -1468,7 +1460,7 @@ static int bnxt_re_dev_init(struct bnxt_re_dev *rdev)
 	}
 	set_bit(BNXT_RE_FLAG_NETDEV_REGISTERED, &rdev->flags);
 
-	rc = bnxt_re_setup_chip_ctx(rdev);
+	rc = bnxt_re_setup_chip_ctx(rdev, wqe_mode);
 	if (rc) {
 		bnxt_unregister_dev(rdev->en_dev);
 		clear_bit(BNXT_RE_FLAG_NETDEV_REGISTERED, &rdev->flags);
@@ -1516,7 +1508,7 @@ static int bnxt_re_dev_init(struct bnxt_re_dev *rdev)
 		ibdev_err(&rdev->ibdev, "Failed to allocate CREQ: %#x\n", rc);
 		goto free_rcfw;
 	}
-	db_offt = rdev->en_dev->msix_entries[BNXT_RE_AEQ_IDX].db_offset;
+	db_offt = bnxt_re_get_nqdb_offset(rdev, BNXT_RE_AEQ_IDX);
 	vid = rdev->en_dev->msix_entries[BNXT_RE_AEQ_IDX].vector;
 	rc = bnxt_qplib_enable_rcfw_channel(&rdev->rcfw,
 					    vid, db_offt,
@@ -1544,7 +1536,7 @@ static int bnxt_re_dev_init(struct bnxt_re_dev *rdev)
 	bnxt_re_set_resource_limits(rdev);
 
 	rc = bnxt_qplib_alloc_ctx(&rdev->qplib_res, &rdev->qplib_ctx, 0,
-				  bnxt_qplib_is_chip_gen_p5_p7(rdev->chip_ctx));
+				  bnxt_qplib_is_chip_gen_p5(rdev->chip_ctx));
 	if (rc) {
 		ibdev_err(&rdev->ibdev,
 			  "Failed to allocate QPLIB context: %#x\n", rc);
@@ -1619,7 +1611,7 @@ fail:
 	return rc;
 }
 
-static int bnxt_re_add_device(struct auxiliary_device *adev)
+static int bnxt_re_add_device(struct auxiliary_device *adev, u8 wqe_mode)
 {
 	struct bnxt_aux_priv *aux_priv =
 		container_of(adev, struct bnxt_aux_priv, aux_dev);
@@ -1636,7 +1628,7 @@ static int bnxt_re_add_device(struct auxiliary_device *adev)
 		goto exit;
 	}
 
-	rc = bnxt_re_dev_init(rdev);
+	rc = bnxt_re_dev_init(rdev, wqe_mode);
 	if (rc)
 		goto re_dev_dealloc;
 
@@ -1667,7 +1659,7 @@ static void bnxt_re_setup_cc(struct bnxt_re_dev *rdev, bool enable)
 		return;
 
 	/* Currently enabling only for GenP5 adapters */
-	if (!bnxt_qplib_is_chip_gen_p5_p7(rdev->chip_ctx))
+	if (!bnxt_qplib_is_chip_gen_p5(rdev->chip_ctx))
 		return;
 
 	if (enable) {
@@ -1766,8 +1758,7 @@ static int bnxt_re_probe(struct auxiliary_device *adev,
 	int rc;
 
 	mutex_lock(&bnxt_re_mutex);
-
-	rc = bnxt_re_add_device(adev);
+	rc = bnxt_re_add_device(adev, BNXT_QPLIB_WQE_MODE_STATIC);
 	if (rc) {
 		mutex_unlock(&bnxt_re_mutex);
 		return rc;

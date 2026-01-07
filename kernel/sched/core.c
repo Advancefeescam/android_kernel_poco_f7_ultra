@@ -1215,9 +1215,9 @@ static void nohz_csd_func(void *info)
 	WARN_ON(!(flags & NOHZ_KICK_MASK));
 
 	rq->idle_balance = idle_cpu(cpu);
-	if (rq->idle_balance) {
+	if (rq->idle_balance && !need_resched()) {
 		rq->nohz_idle_balance = flags;
-		__raise_softirq_irqoff(SCHED_SOFTIRQ);
+		raise_softirq_irqoff(SCHED_SOFTIRQ);
 	}
 }
 
@@ -1926,7 +1926,7 @@ undo:
 #endif
 
 static int uclamp_validate(struct task_struct *p,
-			   const struct sched_attr *attr, bool user)
+			   const struct sched_attr *attr)
 {
 	int util_min = p->uclamp_req[UCLAMP_MIN].value;
 	int util_max = p->uclamp_req[UCLAMP_MAX].value;
@@ -1957,19 +1957,11 @@ static int uclamp_validate(struct task_struct *p,
 	/*
 	 * We have valid uclamp attributes; make sure uclamp is enabled.
 	 *
-	 * We need to do that here, because enabling static branches is
-	 * a blocking operation which obviously cannot be done while holding
+	 * We need to do that here, because enabling static branches is a
+	 * blocking operation which obviously cannot be done while holding
 	 * scheduler locks.
-	 *
-	 * We only enable the static key if this was initiated by user space
-	 * request. There should be no in-kernel users of uclamp except to
-	 * implement things like inheritance like in binder. These in-kernel
-	 * callers can rightfully be called be sometimes in_atomic() context
-	 * which is invalid context to enable the key in. The enabling path
-	 * unconditionally holds the cpus_read_lock() which might_sleep().
 	 */
-	if (user)
-		static_branch_enable(&sched_uclamp_used);
+	static_branch_enable(&sched_uclamp_used);
 
 	return 0;
 }
@@ -2110,7 +2102,7 @@ static void __init init_uclamp(void)
 static inline void uclamp_rq_inc(struct rq *rq, struct task_struct *p) { }
 static inline void uclamp_rq_dec(struct rq *rq, struct task_struct *p) { }
 static inline int uclamp_validate(struct task_struct *p,
-				  const struct sched_attr *attr, bool user)
+				  const struct sched_attr *attr)
 {
 	return -EOPNOTSUPP;
 }
@@ -4616,8 +4608,7 @@ EXPORT_SYMBOL(wake_up_state);
  * Perform scheduler related setup for a newly forked process p.
  * p is forked by current.
  *
- * __sched_fork() is basic setup which is also used by sched_init() to
- * initialize the boot CPU's idle task.
+ * __sched_fork() is basic setup used by init_idle() too:
  */
 static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 {
@@ -7855,7 +7846,7 @@ recheck:
 
 	/* Update task specific "requested" clamps */
 	if (attr->sched_flags & SCHED_FLAG_UTIL_CLAMP) {
-		retval = uclamp_validate(p, attr, user);
+		retval = uclamp_validate(p, attr);
 		if (retval)
 			return retval;
 	}
@@ -9456,6 +9447,8 @@ void __init init_idle(struct task_struct *idle, int cpu)
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long flags;
 
+	__sched_fork(0, idle);
+
 	raw_spin_lock_irqsave(&idle->pi_lock, flags);
 	raw_spin_rq_lock(rq);
 
@@ -9470,8 +9463,10 @@ void __init init_idle(struct task_struct *idle, int cpu)
 
 #ifdef CONFIG_SMP
 	/*
-	 * No validation and serialization required at boot time and for
-	 * setting up the idle tasks of not yet online CPUs.
+	 * It's possible that init_idle() gets called multiple times on a task,
+	 * in that case do_set_cpus_allowed() will not do the right thing.
+	 *
+	 * And since this is boot we can forgo the serialization.
 	 */
 	set_cpus_allowed_common(idle, &ac);
 #endif
@@ -10323,7 +10318,6 @@ void __init sched_init(void)
 	 * but because we are the idle thread, we just pick up running again
 	 * when this runqueue becomes "idle".
 	 */
-	__sched_fork(0, current);
 	init_idle(current, smp_processor_id());
 
 	calc_load_update = jiffies + LOAD_FREQ;

@@ -68,36 +68,11 @@ EXPORT_SYMBOL_GPL(tdx_kvm_hypercall);
  * should only be used for calls that have no legitimate reason to fail
  * or where the kernel can not survive the call failing.
  */
-static inline void tdcall(u64 fn, struct tdx_module_args *args)
+static inline void tdx_module_call(u64 fn, u64 rcx, u64 rdx, u64 r8, u64 r9,
+				   struct tdx_module_output *out)
 {
-	if (__tdcall_ret(fn, args))
+	if (__tdx_module_call(fn, rcx, rdx, r8, r9, out))
 		panic("TDCALL %lld failed (Buggy TDX module!)\n", fn);
-}
-
-/* Read TD-scoped metadata */
-static inline u64 tdg_vm_rd(u64 field, u64 *value)
-{
-	struct tdx_module_args args = {
-		.rdx = field,
-	};
-	u64 ret;
-
-	ret = __tdcall_ret(TDG_VM_RD, &args);
-	*value = args.r8;
-
-	return ret;
-}
-
-/* Write TD-scoped metadata */
-static inline u64 tdg_vm_wr(u64 field, u64 value, u64 mask)
-{
-	struct tdx_module_args args = {
-		.rdx = field,
-		.r8 = value,
-		.r9 = mask,
-	};
-
-	return __tdcall(TDG_VM_WR, &args);
 }
 
 /**
@@ -116,14 +91,11 @@ static inline u64 tdg_vm_wr(u64 field, u64 value, u64 mask)
  */
 int tdx_mcall_get_report0(u8 *reportdata, u8 *tdreport)
 {
-	struct tdx_module_args args = {
-		.rcx = virt_to_phys(tdreport),
-		.rdx = virt_to_phys(reportdata),
-		.r8 = TDREPORT_SUBTYPE_0,
-	};
 	u64 ret;
 
-	ret = __tdcall(TDG_MR_REPORT, &args);
+	ret = __tdx_module_call(TDX_GET_REPORT, virt_to_phys(tdreport),
+				virt_to_phys(reportdata), TDREPORT_SUBTYPE_0,
+				0, NULL);
 	if (ret) {
 		if (TDCALL_RETURN_CODE(ret) == TDCALL_INVALID_OPERAND)
 			return -EINVAL;
@@ -169,63 +141,9 @@ static void __noreturn tdx_panic(const char *msg)
 		__tdx_hypercall(&args);
 }
 
-/*
- * The kernel cannot handle #VEs when accessing normal kernel memory. Ensure
- * that no #VE will be delivered for accesses to TD-private memory.
- *
- * TDX 1.0 does not allow the guest to disable SEPT #VE on its own. The VMM
- * controls if the guest will receive such #VE with TD attribute
- * ATTR_SEPT_VE_DISABLE.
- *
- * Newer TDX modules allow the guest to control if it wants to receive SEPT
- * violation #VEs.
- *
- * Check if the feature is available and disable SEPT #VE if possible.
- *
- * If the TD is allowed to disable/enable SEPT #VEs, the ATTR_SEPT_VE_DISABLE
- * attribute is no longer reliable. It reflects the initial state of the
- * control for the TD, but it will not be updated if someone (e.g. bootloader)
- * changes it before the kernel starts. Kernel must check TDCS_TD_CTLS bit to
- * determine if SEPT #VEs are enabled or disabled.
- */
-static void disable_sept_ve(u64 td_attr)
+static void tdx_parse_tdinfo(u64 *cc_mask)
 {
-	const char *msg = "TD misconfiguration: SEPT #VE has to be disabled";
-	bool debug = td_attr & ATTR_DEBUG;
-	u64 config, controls;
-
-	/* Is this TD allowed to disable SEPT #VE */
-	tdg_vm_rd(TDCS_CONFIG_FLAGS, &config);
-	if (!(config & TDCS_CONFIG_FLEXIBLE_PENDING_VE)) {
-		/* No SEPT #VE controls for the guest: check the attribute */
-		if (td_attr & ATTR_SEPT_VE_DISABLE)
-			return;
-
-		/* Relax SEPT_VE_DISABLE check for debug TD for backtraces */
-		if (debug)
-			pr_warn("%s\n", msg);
-		else
-			tdx_panic(msg);
-		return;
-	}
-
-	/* Check if SEPT #VE has been disabled before us */
-	tdg_vm_rd(TDCS_TD_CTLS, &controls);
-	if (controls & TD_CTLS_PENDING_VE_DISABLE)
-		return;
-
-	/* Keep #VEs enabled for splats in debugging environments */
-	if (debug)
-		return;
-
-	/* Disable SEPT #VEs */
-	tdg_vm_wr(TDCS_TD_CTLS, TD_CTLS_PENDING_VE_DISABLE,
-		  TD_CTLS_PENDING_VE_DISABLE);
-}
-
-static void tdx_setup(u64 *cc_mask)
-{
-	struct tdx_module_args args = {};
+	struct tdx_module_output out;
 	unsigned int gpa_width;
 	u64 td_attr;
 
@@ -236,7 +154,7 @@ static void tdx_setup(u64 *cc_mask)
 	 * Guest-Host-Communication Interface (GHCI), section 2.4.2 TDCALL
 	 * [TDG.VP.INFO].
 	 */
-	tdcall(TDG_VP_INFO, &args);
+	tdx_module_call(TDX_GET_INFO, 0, 0, 0, 0, &out);
 
 	/*
 	 * The highest bit of a guest physical address is the "sharing" bit.
@@ -245,15 +163,24 @@ static void tdx_setup(u64 *cc_mask)
 	 * The GPA width that comes out of this call is critical. TDX guests
 	 * can not meaningfully run without it.
 	 */
-	gpa_width = args.rcx & GENMASK(5, 0);
+	gpa_width = out.rcx & GENMASK(5, 0);
 	*cc_mask = BIT_ULL(gpa_width - 1);
 
-	td_attr = args.rdx;
+	/*
+	 * The kernel can not handle #VE's when accessing normal kernel
+	 * memory.  Ensure that no #VE will be delivered for accesses to
+	 * TD-private memory.  Only VMM-shared memory (MMIO) will #VE.
+	 */
+	td_attr = out.rdx;
+	if (!(td_attr & ATTR_SEPT_VE_DISABLE)) {
+		const char *msg = "TD misconfiguration: SEPT_VE_DISABLE attribute must be set.";
 
-	/* Kernel does not use NOTIFY_ENABLES and does not need random #VEs */
-	tdg_vm_wr(TDCS_NOTIFY_ENABLES, 0, -1ULL);
-
-	disable_sept_ve(td_attr);
+		/* Relax SEPT_VE_DISABLE check for debug TD. */
+		if (td_attr & ATTR_DEBUG)
+			pr_warn("%s\n", msg);
+		else
+			tdx_panic(msg);
+	}
 }
 
 /*
@@ -656,7 +583,7 @@ __init bool tdx_early_handle_ve(struct pt_regs *regs)
 
 void tdx_get_ve_info(struct ve_info *ve)
 {
-	struct tdx_module_args args = {};
+	struct tdx_module_output out;
 
 	/*
 	 * Called during #VE handling to retrieve the #VE info from the
@@ -673,15 +600,15 @@ void tdx_get_ve_info(struct ve_info *ve)
 	 * Note, the TDX module treats virtual NMIs as inhibited if the #VE
 	 * valid flag is set. It means that NMI=>#VE will not result in a #DF.
 	 */
-	tdcall(TDG_VP_VEINFO_GET, &args);
+	tdx_module_call(TDX_GET_VEINFO, 0, 0, 0, 0, &out);
 
 	/* Transfer the output parameters */
-	ve->exit_reason = args.rcx;
-	ve->exit_qual   = args.rdx;
-	ve->gla         = args.r8;
-	ve->gpa         = args.r9;
-	ve->instr_len   = lower_32_bits(args.r10);
-	ve->instr_info  = upper_32_bits(args.r10);
+	ve->exit_reason = out.rcx;
+	ve->exit_qual   = out.rdx;
+	ve->gla         = out.r8;
+	ve->gpa         = out.r9;
+	ve->instr_len   = lower_32_bits(out.r10);
+	ve->instr_info  = upper_32_bits(out.r10);
 }
 
 /*
@@ -849,11 +776,11 @@ void __init tdx_early_init(void)
 	setup_force_cpu_cap(X86_FEATURE_TDX_GUEST);
 
 	cc_vendor = CC_VENDOR_INTEL;
-
-	/* Configure the TD */
-	tdx_setup(&cc_mask);
-
+	tdx_parse_tdinfo(&cc_mask);
 	cc_set_mask(cc_mask);
+
+	/* Kernel does not use NOTIFY_ENABLES and does not need random #VEs */
+	tdx_module_call(TDX_WR, 0, TDCS_NOTIFY_ENABLES, 0, -1ULL, NULL);
 
 	/*
 	 * All bits above GPA width are reserved and kernel treats shared bit

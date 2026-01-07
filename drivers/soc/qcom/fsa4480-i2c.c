@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
-
+#define DEBUG 1
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
@@ -14,7 +14,15 @@
 #include <linux/qti-regmap-debugfs.h>
 
 #define FSA4480_I2C_NAME	"fsa4480-driver"
-
+/* ADD: AudioSwitch_Bringup */
+#define CONFIG_LCT_AUDIO_INFO   1
+#define AUDIO_INFO_MAX_LEN      (64)
+#define FSA4480_DEV_ID          0x00
+#define HL5281M_ID1_VALUE       0x40
+#define HL5281M_ID2_VALUE       0x41
+#define DIO4480_ID_VALUE        0xF1
+#define DIO4485_ID_VALUE        0xF6
+/* END AudioSwitch_Bringup */
 #define FSA4480_SWITCH_SETTINGS 0x04
 #define FSA4480_SWITCH_CONTROL  0x05
 #define FSA4480_SWITCH_STATUS1  0x07
@@ -27,7 +35,34 @@
 #define FSA4480_DELAY_L_MIC     0x0E
 #define FSA4480_DELAY_L_SENSE   0x0F
 #define FSA4480_DELAY_L_AGND    0x10
+#define FSA4480_FUNC_ENABLE     0x12 /* ADD: AudioSwitch_Bringup */
 #define FSA4480_RESET           0x1E
+
+#if IS_ENABLED(CONFIG_RUST_DETECTION)
+#define FSA4480_RES_DET_PIN       0x31
+#define FSA4480_RES_SELECT_MODE   0x13
+#define FSA4480_RES_DET_THRESHOLD 0x15
+#define FSA4480_RES_DET_VAL       0x14
+#define FSA4480_RES_DET_INTERVAL  0x16
+#define FSA4480_DETECTION_INT     0x18
+#define FSA4480_DET_V_TH          0x32
+#define FSA4480_DETM_V_CCIN       0x38
+#define FSA4480_DETM_V_SBU1       0x3B
+#define FSA4480_DETM_V_SBU2       0x3C
+#define FSA4480_V_MULTIPLE        9375 //二供转换电压倍数,(val*9375)/1000
+#define FSA4480_V_MULTIPLE_2      1000
+#define FSA4480_V_CCIN_TH         1850 //1.85V
+#define FSA4480_V_SBU1_TH         1850 //1.85V
+#define FSA4480_V_SBU2_TH         1850 //1.85V
+#endif
+
+/* ADD: AudioSwitch_Bringup */
+#define DIO4485_MIC_DET_STATUS  0x17
+#define DIO4485_DELAY_T_SETTING 0x21
+#define DIO4485_FREQ1_SETTING   0x4E
+#define DIO4485_FREQ2_SETTING   0x50
+#define DIO4485_FREQ3_SETTING   0x51
+/* END AudioSwitch_Bringup */
 
 struct fsa4480_priv {
 	struct regmap *regmap;
@@ -37,7 +72,14 @@ struct fsa4480_priv {
 	struct work_struct usbc_analog_work;
 	struct blocking_notifier_head fsa4480_notifier;
 	struct mutex notification_lock;
+	/* ADD: AudioSwitch_Bringup */
+	u32 dev_id;
+	/* END AudioSwitch_Bringup */
 };
+
+#if IS_ENABLED(CONFIG_RUST_DETECTION)
+static struct fsa4480_priv *global_fsa4480_data = NULL;
+#endif
 
 struct fsa4480_reg_val {
 	u16 reg;
@@ -47,7 +89,11 @@ struct fsa4480_reg_val {
 static const struct regmap_config fsa4480_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
+#if IS_ENABLED(CONFIG_RUST_DETECTION)
+	.max_register = FSA4480_DETM_V_SBU2, //修改max寄存器值，不作修改的话如果注册的值超过这个值就不允许写入
+#else
 	.max_register = FSA4480_RESET,
+#endif
 };
 
 static const struct fsa4480_reg_val fsa_reg_i2c_defaults[] = {
@@ -60,14 +106,69 @@ static const struct fsa4480_reg_val fsa_reg_i2c_defaults[] = {
 	{FSA4480_DELAY_L_MIC, 0x00},
 	{FSA4480_DELAY_L_SENSE, 0x00},
 	{FSA4480_DELAY_L_AGND, 0x09},
+	{FSA4480_FUNC_ENABLE, 0x10},
 	{FSA4480_SWITCH_SETTINGS, 0x98},
 };
+
+/* ADD: AudioSwitch_Bringup */
+#ifdef CONFIG_LCT_AUDIO_INFO
+static char g_audio_switch[AUDIO_INFO_MAX_LEN];
+int fsa4480_get_name(char* audio_switch)
+{
+	strncpy(audio_switch, g_audio_switch, strlen(g_audio_switch));
+	return 0;
+}
+EXPORT_SYMBOL(fsa4480_get_name);
+#endif
+/* END AudioSwitch_Bringup */
+
+static int g_fsa4480_usbhs_state;
+int fsa4480_flip_event(int* fsa4480_usbhs_state)
+{
+	*fsa4480_usbhs_state = g_fsa4480_usbhs_state;
+	return 0;
+}
+EXPORT_SYMBOL(fsa4480_flip_event);
+
+struct fsa4480_reg_val fsa_initial_settings[] = {
+	{ FSA4480_RESET, 0x01 },
+};
+struct fsa4480_reg_val fsa_freq_settings[] = {
+	{ DIO4485_FREQ1_SETTING, 0x8F },
+	{ DIO4485_FREQ1_SETTING, 0x5A },
+	{ DIO4485_FREQ3_SETTING, 0x90 },
+	{ DIO4485_FREQ2_SETTING, 0x45 },
+};
+
+struct fsa4480_reg_val fsa_delay_settings[] = {
+	{ FSA4480_DELAY_L_SENSE, 0x00 },
+	{ FSA4480_DELAY_L_AGND, 0x00 },
+	{ FSA4480_DELAY_L_MIC, 0x1F },
+	{ FSA4480_DELAY_L_R, 0xFF },
+	{ DIO4485_DELAY_T_SETTING, 0xFF },
+};
+
+struct fsa4480_reg_val fsa_enable_settings[] = {
+	{ FSA4480_FUNC_ENABLE, 0x18 },
+};
+
+static int apply_reg_settings(struct regmap *regmap, struct fsa4480_reg_val *settings, size_t count)
+{
+	int rc = 0;
+	for (size_t i = 0; i < count; i++) {
+		rc = regmap_write(regmap, settings[i].reg, settings[i].val);
+		if (rc) {
+			pr_err("[%s]  write regster addr: [%x] fail.\n",__func__, settings[i].reg);
+			break;
+		}
+	}
+	return 0;
+}
 
 static void fsa4480_usbc_update_settings(struct fsa4480_priv *fsa_priv,
 		u32 switch_control, u32 switch_enable)
 {
-	u32 prev_control, prev_enable;
-
+	u32 prev_control, prev_enable, cur_control, micdet_status; /* ADD: AudioSwitch_Bringup */
 	if (!fsa_priv->regmap) {
 		dev_err(fsa_priv->dev, "%s: regmap invalid\n", __func__);
 		return;
@@ -80,11 +181,76 @@ static void fsa4480_usbc_update_settings(struct fsa4480_priv *fsa_priv,
 		return;
 	}
 
-	regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, 0x80);
-	regmap_write(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, switch_control);
-	/* FSA4480 chip hardware requirement */
-	usleep_range(50, 55);
-	regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, switch_enable);
+	/* ADD: AudioSwitch_Bringup */
+	if (switch_enable == 0x98) {
+		regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, 0x80);
+		regmap_write(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, switch_control);
+		/* FSA4480 chip hardware requirement */
+		usleep_range(50, 55);
+		regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, switch_enable);
+		g_fsa4480_usbhs_state = 0;
+	} else if (switch_enable == 0x9F) {
+		if (prev_control == 0x18) {
+			regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, switch_enable);
+			regmap_write(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, switch_control);
+			regmap_write(fsa_priv->regmap, FSA4480_FUNC_ENABLE, 0x59);
+			if (DIO4485_ID_VALUE == fsa_priv->dev_id) {
+				usleep_range(350000, 351000);
+			} else if ((HL5281M_ID1_VALUE == fsa_priv->dev_id) || (HL5281M_ID2_VALUE == fsa_priv->dev_id)) {
+				usleep_range(50000, 51000);
+			}
+		} else {
+			dev_dbg(fsa_priv->dev, "%s: Reverse insertion settings unchanged\n", __func__);
+			if ((HL5281M_ID1_VALUE == fsa_priv->dev_id) || (HL5281M_ID2_VALUE == fsa_priv->dev_id)) {
+				regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, switch_enable);
+				regmap_write(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, switch_control);
+				usleep_range(5000, 5500);
+			}
+		}
+
+		regmap_read(fsa_priv->regmap, DIO4485_MIC_DET_STATUS, &micdet_status);
+
+		if (DIO4485_ID_VALUE == fsa_priv->dev_id) {
+			if (micdet_status == 0x1) {
+				dev_err(fsa_priv->dev,"%s: The headset is not detected. Please detect it again.\n",__func__);
+				if (switch_control == 0x0) {
+					apply_reg_settings(fsa_priv->regmap, fsa_initial_settings, ARRAY_SIZE(fsa_initial_settings));
+					usleep_range(5000, 5500);
+					apply_reg_settings(fsa_priv->regmap, fsa_freq_settings, ARRAY_SIZE(fsa_freq_settings));
+					usleep_range(5000, 5500);
+					apply_reg_settings(fsa_priv->regmap, fsa_delay_settings, ARRAY_SIZE(fsa_delay_settings));
+					apply_reg_settings(fsa_priv->regmap, fsa_enable_settings, ARRAY_SIZE(fsa_enable_settings));
+				}
+				regmap_write(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, switch_control);
+				regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, switch_enable);
+				usleep_range(5000, 5500);
+			}
+		} else if ((HL5281M_ID1_VALUE == fsa_priv->dev_id) || (HL5281M_ID2_VALUE == fsa_priv->dev_id)) {
+			if (micdet_status == 0x2) {
+				regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, switch_enable);
+			} else if (micdet_status == 0x1) {
+				dev_dbg(fsa_priv->dev, "%s: The headset is not detected. Please detect it again.\n", __func__);
+				if (switch_control == 0x0) {
+					regmap_write(fsa_priv->regmap, FSA4480_RESET, 0x01);
+					usleep_range(5000, 5500);
+					regmap_write(fsa_priv->regmap, FSA4480_FUNC_ENABLE, 0x48);
+				}
+				regmap_write(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, switch_control);
+				regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, switch_enable);
+				usleep_range(5000, 5500);
+			}
+
+		}
+		regmap_read(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, &cur_control);
+#ifdef CONFIG_LCT_AUDIO_INFO
+		if (cur_control == 0x0) {
+			g_fsa4480_usbhs_state = 1;
+		} else if (cur_control == 0x7) {
+			g_fsa4480_usbhs_state = 2;
+		}
+#endif
+	}
+	/* END AudioSwitch_Bringup */
 }
 
 static int fsa4480_usbc_event_changed(struct notifier_block *nb,
@@ -147,9 +313,16 @@ static int fsa4480_usbc_analog_setup_switches(struct fsa4480_priv *fsa_priv)
 	switch (mode) {
 	/* add all modes FSA should notify for in here */
 	case TYPEC_ACCESSORY_AUDIO:
+		/* ADD: AudioSwitch_Bringup */
+		if (DIO4485_ID_VALUE == fsa_priv->dev_id) {
+			apply_reg_settings(fsa_priv->regmap, fsa_initial_settings, ARRAY_SIZE(fsa_initial_settings));
+			msleep(5);
+			apply_reg_settings(fsa_priv->regmap, fsa_freq_settings, ARRAY_SIZE(fsa_freq_settings));
+			apply_reg_settings(fsa_priv->regmap, fsa_delay_settings, ARRAY_SIZE(fsa_delay_settings));
+		}
+		/* END AudioSwitch_Bringup */
 		/* activate switches */
 		fsa4480_usbc_update_settings(fsa_priv, 0x00, 0x9F);
-
 		/* notify call chain on event */
 		blocking_notifier_call_chain(&fsa_priv->fsa4480_notifier,
 					     mode, NULL);
@@ -160,6 +333,11 @@ static int fsa4480_usbc_analog_setup_switches(struct fsa4480_priv *fsa_priv)
 				TYPEC_ACCESSORY_NONE, NULL);
 
 		/* deactivate switches */
+		/* ADD: AudioSwitch_Bringup */
+		if ((HL5281M_ID1_VALUE == fsa_priv->dev_id) || (HL5281M_ID2_VALUE == fsa_priv->dev_id)) {
+			regmap_write(fsa_priv->regmap, FSA4480_FUNC_ENABLE, 0x58);
+		}
+		/* END AudioSwitch_Bringup */
 		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
 		break;
 	default:
@@ -289,7 +467,7 @@ int fsa4480_switch_event(struct device_node *node,
 		else
 			switch_control = 0x7;
 		fsa4480_usbc_update_settings(fsa_priv, switch_control, 0x9F);
-		break;
+		return 1; /* ADD: AudioSwitch_Bringup */
 	case FSA_USBC_ORIENTATION_CC1:
 		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
 		return fsa4480_validate_display_port_settings(fsa_priv);
@@ -329,6 +507,135 @@ static void fsa4480_update_reg_defaults(struct regmap *regmap)
 				   fsa_reg_i2c_defaults[i].val);
 }
 
+#if IS_ENABLED(CONFIG_RUST_DETECTION)
+int rust_detection_workfunc_open(void)
+{
+	struct fsa4480_priv *fsa_priv = global_fsa4480_data;
+	int reg_val_enable = 0, reg_val_pin = 0, reg_val_interval = 0, reg_val_select_mode = 0;
+	int reg_val_ccin = 0, reg_val_sbu1 = 0, reg_val_sbu2 = 0;
+	int val_result = 0, reg_val_det_int = 0, count_retry = 10, ret = 0;
+	struct device *dev = NULL;
+
+	if (!fsa_priv) {
+		pr_err("%s: [UST DET] Failed because fsa4480_data is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	dev = fsa_priv->dev;
+	if (!dev) {
+		pr_err("%s: [UST DET] dev is NULL\n", __func__);
+		return -EINVAL;
+	}
+        if ((HL5281M_ID1_VALUE == fsa_priv->dev_id) || (HL5281M_ID2_VALUE == fsa_priv->dev_id) || (DIO4485_ID_VALUE == fsa_priv->dev_id)) {
+		dev_dbg(dev, "%s: dev_id = 0x%x\n", __func__, fsa_priv->dev_id);
+	} else {
+		dev_err(dev, "%s: dev_id not matched\n", __func__);
+		return -EINVAL;
+	}
+
+
+	ret |= regmap_read(fsa_priv->regmap, FSA4480_RES_DET_INTERVAL, &reg_val_interval);
+	ret |= regmap_write(fsa_priv->regmap, FSA4480_RES_DET_INTERVAL, (0x4 | reg_val_interval)); //选择multi-pin mode， bit<2> = 1
+
+	ret |= regmap_read(fsa_priv->regmap, FSA4480_RES_SELECT_MODE, &reg_val_select_mode);
+	ret |= regmap_write(fsa_priv->regmap, FSA4480_RES_SELECT_MODE, (0x8 | reg_val_select_mode)); //选择电压模式，bit<3> = 1
+
+	ret |= regmap_read(fsa_priv->regmap, FSA4480_RES_DET_PIN, &reg_val_pin);
+	ret |= regmap_write(fsa_priv->regmap, FSA4480_RES_DET_PIN, (0x13 | reg_val_pin)); //选择需要检测的pin，bit<4>,bit<1>,bit<0> = 1
+
+	ret |= regmap_write(fsa_priv->regmap, FSA4480_DET_V_TH, 0xFF); //阈值设为最大，所有pin都会检测
+
+	ret |= regmap_read(fsa_priv->regmap, FSA4480_DETECTION_INT, &reg_val_det_int); //0x18 清除状态
+
+	ret |= regmap_read(fsa_priv->regmap, FSA4480_FUNC_ENABLE, &reg_val_enable);
+	ret |= regmap_write(fsa_priv->regmap, FSA4480_FUNC_ENABLE, (0x2 | reg_val_enable)); //打开检测使能，bit<1> = 1
+
+	msleep(50);
+	while (count_retry--) {
+		ret = regmap_read(fsa_priv->regmap, FSA4480_DETECTION_INT, &reg_val_det_int);
+		if (ret) {
+			dev_err(dev, "%s: detection not complete, reg_val_det_int = 0x%x, count = %d\n", __func__, reg_val_det_int, count_retry);
+			if (count_retry == 0) {
+				return ret;
+			}
+		}
+
+		if (reg_val_det_int & 0x1) {
+			break;
+		}
+
+		msleep(5);
+	}
+	ret |= regmap_read(fsa_priv->regmap, FSA4480_DETM_V_CCIN, &reg_val_ccin); //0x38的值
+	ret |= regmap_read(fsa_priv->regmap, FSA4480_DETM_V_SBU1, &reg_val_sbu1); //0x3B的值
+	ret |= regmap_read(fsa_priv->regmap, FSA4480_DETM_V_SBU2, &reg_val_sbu2); //0x3C的值
+	if (ret) {
+		dev_err(dev, "%s: get reg failed, ret = %d\n", __func__, ret);
+		return -EINVAL;
+	}
+	dev_dbg(dev, "%s: params check, dev_id = 0x%x, ccin=%d, sbu1=%d, sbu2=%d\n", __func__, fsa_priv->dev_id, reg_val_ccin, reg_val_sbu1, reg_val_sbu2);
+	if ((HL5281M_ID1_VALUE == fsa_priv->dev_id) || (HL5281M_ID2_VALUE == fsa_priv->dev_id)) {
+		if (((((reg_val_ccin + 1) * FSA4480_V_MULTIPLE) / FSA4480_V_MULTIPLE_2) > FSA4480_V_CCIN_TH)
+				&& (((((reg_val_sbu1 + 1) * FSA4480_V_MULTIPLE) / FSA4480_V_MULTIPLE_2) > FSA4480_V_SBU1_TH)
+				|| ((((reg_val_sbu2 + 1) * FSA4480_V_MULTIPLE) / FSA4480_V_MULTIPLE_2) > FSA4480_V_SBU2_TH))) {
+			dev_dbg(dev, "%s: HL5281M Moisture occur\n", __func__);
+			val_result = 1;
+			return val_result;
+		}
+	} else if (DIO4485_ID_VALUE == fsa_priv->dev_id) {
+		if (((reg_val_ccin * 9) > FSA4480_V_CCIN_TH)
+				&& (((reg_val_sbu1 * 9) > FSA4480_V_SBU1_TH)
+				|| ((reg_val_sbu2 * 9) > FSA4480_V_SBU2_TH))) {
+			dev_dbg(dev, "%s: DIO4485 Moisture occur\n", __func__);
+			val_result = 1;
+			return val_result;
+		}
+	}
+
+	dev_dbg(dev, "%s: Moisture doesn’t occur\n", __func__);
+
+	return val_result;
+}
+EXPORT_SYMBOL_GPL(rust_detection_workfunc_open);
+
+int rust_detection_workfunc_close(void)
+{
+	struct fsa4480_priv *fsa_priv = global_fsa4480_data;
+	int reg_val_enable = 0, ret = 0;
+	struct device *dev = NULL;
+
+	if (!fsa_priv) {
+		pr_err("%s: [UST DET] Failed because fsa4480_data is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	dev = fsa_priv->dev;
+	if (!dev) {
+		pr_err("%s: [UST DET] dev is NULL\n", __func__);
+		return -EINVAL;
+	}
+	if ((HL5281M_ID1_VALUE == fsa_priv->dev_id) || (HL5281M_ID2_VALUE == fsa_priv->dev_id) || (DIO4485_ID_VALUE == fsa_priv->dev_id)) {
+		dev_dbg(dev, "%s: dev_id = 0x%x\n", __func__, fsa_priv->dev_id);
+	} else {
+		dev_err(dev, "%s: dev_id not matched\n", __func__);
+		return -EINVAL;
+	}
+
+
+	ret |= regmap_read(fsa_priv->regmap, FSA4480_FUNC_ENABLE, &reg_val_enable);
+	ret |= regmap_write(fsa_priv->regmap, FSA4480_FUNC_ENABLE, (0xFD & reg_val_enable)); //关闭检测使能，bit<1> = 0
+
+	if (ret) {
+		dev_err(dev, "%s: get reg failed, ret = %d\n", __func__, ret);
+		return -EINVAL;
+	}
+	dev_dbg(dev, "%s: Moisture detection off\n", __func__);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(rust_detection_workfunc_close);
+#endif
+
 static int fsa4480_probe(struct i2c_client *i2c)
 {
 	struct fsa4480_priv *fsa_priv;
@@ -356,6 +663,8 @@ static int fsa4480_probe(struct i2c_client *i2c)
 	fsa4480_update_reg_defaults(fsa_priv->regmap);
 	devm_regmap_qti_debugfs_register(fsa_priv->dev, fsa_priv->regmap);
 
+	INIT_WORK(&fsa_priv->usbc_analog_work, fsa4480_usbc_analog_work_fn);
+
 	fsa_priv->ucsi_nb.notifier_call = fsa4480_usbc_event_changed;
 	fsa_priv->ucsi_nb.priority = 0;
 	rc = register_ucsi_glink_notifier(&fsa_priv->ucsi_nb);
@@ -365,17 +674,41 @@ static int fsa4480_probe(struct i2c_client *i2c)
 		goto err_data;
 	}
 
+	/* ADD: AudioSwitch_Bringup */
+	rc = regmap_read(fsa_priv->regmap, FSA4480_DEV_ID, &fsa_priv->dev_id);
+#ifdef CONFIG_LCT_AUDIO_INFO
+	strcpy(g_audio_switch, dev_name(&i2c->dev));
+	if (rc) {
+		strcat(g_audio_switch, "-fail");
+	} else {
+		if ((HL5281M_ID1_VALUE == fsa_priv->dev_id) || (HL5281M_ID2_VALUE == fsa_priv->dev_id)) {
+			strcat(g_audio_switch, "-HL5281M");
+		} else if (DIO4485_ID_VALUE == fsa_priv->dev_id) {
+			strcat(g_audio_switch, "-DIO4485");
+		} else if (DIO4480_ID_VALUE == fsa_priv->dev_id) {
+			strcat(g_audio_switch, "-DIO4480");
+		} else {
+			strcat(g_audio_switch, "-unknown");
+		}
+	}
+	dev_err(fsa_priv->dev, "%s: %s 0x%x\n", __func__, g_audio_switch, fsa_priv->dev_id);
+#endif
+
+	/* END AudioSwitch_Bringup */
+
+#if IS_ENABLED(CONFIG_RUST_DETECTION)
+	global_fsa4480_data = fsa_priv;
+#endif
+
 	mutex_init(&fsa_priv->notification_lock);
 	i2c_set_clientdata(i2c, fsa_priv);
-
-	INIT_WORK(&fsa_priv->usbc_analog_work,
-		  fsa4480_usbc_analog_work_fn);
 
 	BLOCKING_INIT_NOTIFIER_HEAD(&fsa_priv->fsa4480_notifier);
 
 	return 0;
 
 err_data:
+	cancel_work_sync(&fsa_priv->usbc_analog_work);
 	return rc;
 }
 
@@ -395,6 +728,17 @@ static void fsa4480_remove(struct i2c_client *i2c)
 	dev_set_drvdata(&i2c->dev, NULL);
 }
 
+/* ADD: AudioSwitch_Bringup */
+static void fsa4480_shutdown(struct i2c_client* i2c)
+{
+	struct fsa4480_priv* fsa_priv = (struct fsa4480_priv*)i2c_get_clientdata(i2c);
+	if (!fsa_priv)
+		return;
+	pr_info("%s poweroff reset switch.", __func__);
+	apply_reg_settings(fsa_priv->regmap, fsa_initial_settings, ARRAY_SIZE(fsa_initial_settings));
+}
+/* END AudioSwitch_Bringup */
+
 static const struct of_device_id fsa4480_i2c_dt_match[] = {
 	{
 		.compatible = "qcom,fsa4480-i2c",
@@ -410,6 +754,7 @@ static struct i2c_driver fsa4480_i2c_driver = {
 	},
 	.probe = fsa4480_probe,
 	.remove = fsa4480_remove,
+	.shutdown = fsa4480_shutdown, /* ADD: AudioSwitch_Bringup */
 };
 
 static int __init fsa4480_init(void)

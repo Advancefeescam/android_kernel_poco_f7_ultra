@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/usb/typec.h>
@@ -37,14 +37,6 @@ enum {
 };
 
 enum {
-	INVALID_MODE,
-	MBHC_MODE1 = 1,
-	ULP_MODE2 = 2,
-	STD_MODE3 = 3,
-	HIFI_MODE4 = 4,
-};
-
-enum {
 	WCD_USBSS_LPD_USB_MODE_CLEAR = 0,
 	WCD_USBSS_LPD_MODE_SET,
 	WCD_USBSS_USB_MODE_SET,
@@ -77,7 +69,9 @@ static const struct wcd_usbss_reg_mask_val coeff_init[] = {
 	{WCD_USBSS_GND_COEF_R_K2_0,       0xFF, 0xE8},
 	{WCD_USBSS_GND_COEF_R_K4_0,       0xFF, 0x73},
 	{WCD_USBSS_RATIO_SPKR_REXT_L_LSB, 0xFF, 0x00},
+	{WCD_USBSS_RATIO_SPKR_REXT_L_MSB, 0x7F, 0x04},
 	{WCD_USBSS_RATIO_SPKR_REXT_R_LSB, 0xFF, 0x00},
+	{WCD_USBSS_RATIO_SPKR_REXT_R_MSB, 0x7F, 0x04},
 };
 
 static struct wcd_usbss_ctxt *wcd_usbss_ctxt_;
@@ -873,6 +867,10 @@ static int wcd_usbss_switch_update_defaults(struct wcd_usbss_ctxt *priv)
 				0x40, 0x00);
 	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_SW_CTRL_1, 0x00);
 	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_LIN_EN, 0x00);
+	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_PMP_CLK, 0x10);
+	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_SW_LIN_CTRL_1, 0x00);
+	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_DC_TRIMCODE_2, 0x00);
+	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_DC_TRIMCODE_3, 0x00);
 
 	/* Once plug-out done, restore to MANUAL mode */
 	audio_fsm_mode = WCD_USBSS_AUDIO_MANUAL;
@@ -1067,7 +1065,6 @@ int wcd_usbss_audio_config(bool enable, enum wcd_usbss_config_type config_type,
 
 	int rc = 0;
 	unsigned int current_power_mode;
-	unsigned int force_power_mode = HIFI_MODE4;
 
 	/* check if driver is probed and private context is init'ed */
 	if (wcd_usbss_ctxt_ == NULL)
@@ -1100,17 +1097,12 @@ int wcd_usbss_audio_config(bool enable, enum wcd_usbss_config_type config_type,
 	case WCD_USBSS_CONFIG_TYPE_POWER_MODE:
 		/* switching to MBHC mode */
 		if (power_mode == 0x1) {
-			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_SW_CTRL_1, 0x98);
 			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_PMP_EN, 0xF);
-			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_LIN_EN, 0x82);
+			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_LIN_EN, 0xC4);
 			regmap_update_bits(wcd_usbss_ctxt_->regmap,
 					WCD_USBSS_USB_SS_CNTL, 0x07, power_mode);
-			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_LIN_EN, 0x02);
-			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_SW_CTRL_1, 0x9E);
 			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_PMP_CLK, 0x10);
 		} else { /* switching to ULP/HiFi/Std */
-			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_LIN_EN, 0x82);
-			power_mode = force_power_mode;
 			if (power_mode == 0x2) /* ULP */
 				regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_PMP_CLK, 0x1C);
 			else
@@ -1119,8 +1111,7 @@ int wcd_usbss_audio_config(bool enable, enum wcd_usbss_config_type config_type,
 			regmap_update_bits(wcd_usbss_ctxt_->regmap,
 					WCD_USBSS_USB_SS_CNTL, 0x07, power_mode);
 			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_PMP_EN, 0x0);
-			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_LIN_EN, 0xB2);
-			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_SW_CTRL_1, 0x90);
+			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_LIN_EN, 0x00);
 		}
 		break;
 	default:
@@ -1245,8 +1236,11 @@ int wcd_usbss_switch_update(enum wcd_usbss_cable_types ctype,
 			regmap_update_bits(wcd_usbss_ctxt_->regmap,
 				WCD_USBSS_USB_SS_CNTL, 0x07, 0x01);
 			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_PMP_EN, 0xF);
-			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_SW_CTRL_1, 0x9E);
-			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_LIN_EN, 0x02);
+			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_SW_CTRL_1, 0x00);
+			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_LIN_EN, 0xC4);
+			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_SW_LIN_CTRL_1, 0x01);
+			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_DC_TRIMCODE_2, 0x3C);
+			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_DC_TRIMCODE_3, 0x0F);
 			if (wcd_usbss_ctxt_->version == WCD_USBSS_2_0)
 				regmap_update_bits(wcd_usbss_ctxt_->regmap,
 						WCD_USBSS_PMP_OUT1, 0x40, 0x40);
@@ -1331,8 +1325,11 @@ int wcd_usbss_switch_update(enum wcd_usbss_cable_types ctype,
 			regmap_update_bits(wcd_usbss_ctxt_->regmap,
 				WCD_USBSS_USB_SS_CNTL, 0x07, 0x01);
 			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_PMP_EN, 0xF);
-			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_SW_CTRL_1, 0x9E);
-			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_LIN_EN, 0x02);
+			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_SW_CTRL_1, 0x00);
+			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_EXT_LIN_EN, 0xC4);
+			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_SW_LIN_CTRL_1, 0x01);
+			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_DC_TRIMCODE_2, 0x3C);
+			regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_DC_TRIMCODE_3, 0x0F);
 			if (wcd_usbss_ctxt_->version == WCD_USBSS_2_0)
 				regmap_update_bits(wcd_usbss_ctxt_->regmap,
 						WCD_USBSS_PMP_OUT1, 0x40, 0x40);
@@ -1826,14 +1823,6 @@ static int wcd_usbss_probe(struct i2c_client *i2c)
 		regmap_update_bits(priv->regmap, WCD_USBSS_MG2_EN, 0x2, 0x0);
 	}
 	priv->version = ver;
-
-	/* SET LINIERIZER TAP registers to default to gaurantee */
-	/* good THD+N and intermodulation performance. */
-
-	regmap_write(priv->regmap, WCD_USBSS_EXT_SW_CTRL_1, 0x0);
-	regmap_write(priv->regmap, WCD_USBSS_SW_TAP_GND_L_LSB, 0x0);
-	regmap_write(priv->regmap, WCD_USBSS_SW_TAP_GND_R_LSB, 0x0);
-	regmap_write(priv->regmap, WCD_USBSS_FUNCTION_ENABLE, 0x05);
 
 	devm_regmap_qti_debugfs_register(priv->dev, priv->regmap);
 

@@ -19,6 +19,7 @@ enum bc_hboost_event {
 	VMAX_CLAMP,
 };
 
+void set_board_temp(int board_temp);
 #if IS_ENABLED(CONFIG_QTI_BATTERY_CHARGER)
 int qti_battery_charger_get_prop(const char *name,
 				enum battery_charger_prop prop_id, int *val);

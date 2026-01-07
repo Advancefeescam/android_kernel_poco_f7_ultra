@@ -1,14 +1,3 @@
-load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load(
-    "//build:msm_kernel_extensions.bzl",
-    "define_extras",
-    "get_build_config_fragments",
-    "get_dtb_list",
-    "get_dtbo_list",
-    "get_dtstree",
-    "get_gki_ramdisk_prebuilt_binary",
-    "get_vendor_ramdisk_binaries",
-)
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load(
     "//build/kernel/kleaf:kernel.bzl",
@@ -24,12 +13,21 @@ load(
     "super_image",
     "unsparsed_image",
 )
-load(":avb_boot_img.bzl", "avb_sign_boot_image")
-load(":image_opts.bzl", "boot_image_opts")
-load(":modules_unprotected.bzl", "get_unprotected_vendor_modules_list")
-load(":msm_abl.bzl", "define_abl_dist")
+load(
+    "//build:msm_kernel_extensions.bzl",
+    "define_extras",
+    "get_build_config_fragments",
+    "get_dtb_list",
+    "get_dtbo_list",
+    "get_dtstree",
+    "get_gki_ramdisk_prebuilt_binary",
+    "get_vendor_ramdisk_binaries",
+)
 load(":msm_common.bzl", "define_top_level_config", "gen_config_without_source_lines", "get_out_dir")
 load(":msm_dtc.bzl", "define_dtc_dist")
+load(":msm_abl.bzl", "define_abl_dist")
+load(":avb_boot_img.bzl", "avb_sign_boot_image")
+load(":image_opts.bzl", "boot_image_opts")
 load(":target_variants.bzl", "la_variants")
 
 def _define_build_config(
@@ -134,7 +132,6 @@ EOF
 
 def _define_kernel_build(
         target,
-        msm_target,
         base_kernel,
         in_tree_module_list,
         dtb_list,
@@ -168,7 +165,6 @@ def _define_kernel_build(
         outs = out_list,
         build_config = ":{}_build_config".format(target),
         dtstree = dtstree,
-        page_size = "4k",
         base_kernel = base_kernel,
         kmi_symbol_list = "android/abi_gki_aarch64_qcom" if define_abi_targets else None,
         additional_kmi_symbol_lists = ["{}_all_kmi_symbol_lists".format(base_kernel)] if define_abi_targets else None,
@@ -299,7 +295,7 @@ def _define_image_build(
     native.filegroup(
         name = "{}_system_dlkm_image_file".format(target),
         srcs = ["{}_images".format(base_kernel)],
-        output_group = "system_dlkm.flatten.ext4.img",
+        output_group = "system_dlkm.ext4.img",
     )
 
     native.filegroup(
@@ -371,10 +367,6 @@ def _define_kernel_dist(
         "{}_avb_sign_boot_image".format(target),
         ":{}_system_dlkm_module_blocklist".format(target),
     ])
-
-    vendor_unprotected_dlkm = " ".join(get_unprotected_vendor_modules_list(msm_target))
-    if vendor_unprotected_dlkm:
-        msm_dist_targets.extend(["{}_vendor_dlkm_module_unprotectedlist".format(target)])
 
     board_cmdline_extras = " ".join(boot_image_opts.board_kernel_cmdline_extras)
     if board_cmdline_extras:
@@ -476,17 +468,6 @@ def define_msm_la(
     vendor_ramdisk_binaries = get_vendor_ramdisk_binaries(target)
     gki_ramdisk_prebuilt_binary = get_gki_ramdisk_prebuilt_binary()
     build_config_fragments = get_build_config_fragments(msm_target)
-    vendor_dlkm_module_unprotected_list = get_unprotected_vendor_modules_list(msm_target)
-
-    vendor_unprotected_dlkm = " ".join(vendor_dlkm_module_unprotected_list)
-    if vendor_unprotected_dlkm:
-        write_file(
-            name = "{}_vendor_dlkm_module_unprotectedlist".format(target),
-            out = "{}/vendor_dlkm.modules.unprotectedlist".format(target),
-            content = [vendor_unprotected_dlkm, ""],
-        )
-
-    in_tree_module_list += vendor_dlkm_module_unprotected_list
 
     _define_build_config(
         msm_target,
@@ -498,7 +479,6 @@ def define_msm_la(
 
     _define_kernel_build(
         target,
-        msm_target,
         base_kernel,
         in_tree_module_list,
         dtb_list,

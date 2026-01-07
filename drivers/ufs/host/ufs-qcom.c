@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013-2022, Linux Foundation. All rights reserved.
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/acpi.h>
@@ -466,8 +466,6 @@ static int ufs_qcom_get_pwr_dev_param(struct ufs_qcom_dev_params *qcom_param,
 	int min_dev_gear;
 	bool is_dev_sup_hs = false;
 	bool is_qcom_max_hs = false;
-	struct ufs_qcom_host *host =
-		container_of(qcom_param, struct ufs_qcom_host, host_pwr_cap);
 
 	if (dev_max->pwr_rx == FAST_MODE)
 		is_dev_sup_hs = true;
@@ -538,12 +536,6 @@ static int ufs_qcom_get_pwr_dev_param(struct ufs_qcom_dev_params *qcom_param,
 		agreed_pwr->gear_rx = agreed_pwr->gear_tx = min_dev_gear;
 	else
 		agreed_pwr->gear_rx = agreed_pwr->gear_tx = min_qcom_gear;
-
-	if (host->cap_hs_gear_limit && is_qcom_max_hs) {
-		dev_info(host->hba->dev, "Gear limit active: setting to UFS_HS_G1\n");
-		agreed_pwr->gear_rx = agreed_pwr->gear_tx =
-			min_qcom_gear = UFS_HS_G1;
-	}
 
 	agreed_pwr->hs_rate = qcom_param->hs_rate;
 	return 0;
@@ -2446,13 +2438,17 @@ ufshcd_is_valid_pm_lvl(enum ufs_pm_level lvl)
 	return lvl >= 0 && lvl < UFS_PM_LVL_MAX;
 }
 
-static void ufs_qcom_parse_pm_levels(struct ufs_hba *hba)
+static void ufshcd_parse_pm_levels(struct ufs_hba *hba)
 {
 	struct device *dev = hba->dev;
 	struct device_node *np = dev->of_node;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	enum ufs_pm_level rpm_lvl = UFS_PM_LVL_MAX, spm_lvl = UFS_PM_LVL_MAX;
 
 	if (!np)
+		return;
+
+	if (host->is_dt_pm_level_read)
 		return;
 
 	if (!of_property_read_u32(np, "rpm-level", &rpm_lvl) &&
@@ -2461,7 +2457,7 @@ static void ufs_qcom_parse_pm_levels(struct ufs_hba *hba)
 	if (!of_property_read_u32(np, "spm-level", &spm_lvl) &&
 		ufshcd_is_valid_pm_lvl(spm_lvl))
 		hba->spm_lvl = spm_lvl;
-
+	host->is_dt_pm_level_read = true;
 }
 
 static void ufs_qcom_override_pa_tx_hsg1_sync_len(struct ufs_hba *hba)
@@ -2501,6 +2497,8 @@ static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_PA_TX_HSG1_SYNC_LENGTH)
 		ufs_qcom_override_pa_tx_hsg1_sync_len(hba);
+
+	ufshcd_parse_pm_levels(hba);
 
 	if (hba->dev_info.wmanufacturerid == UFS_VENDOR_MICRON)
 		hba->dev_quirks |= UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM;
@@ -2612,7 +2610,6 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 	if (!host->disable_lpm) {
 		hba->caps |= UFSHCD_CAP_CLK_GATING |
 			UFSHCD_CAP_HIBERN8_WITH_CLK_GATING |
-			UFSHCD_CAP_CLK_SCALING |
 			UFSHCD_CAP_AUTO_BKOPS_SUSPEND |
 			UFSHCD_CAP_AGGR_POWER_COLLAPSE |
 			UFSHCD_CAP_WB_WITH_CLK_SCALING;
@@ -3415,6 +3412,21 @@ static void ufs_qcom_storage_boost_param_init(struct ufs_hba *hba)
 	host->max_boost_thres = NUM_REQS_HIGH_THRESH;
 }
 
+static void ufs_qcom_parse_pm_level(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
+
+	if (np) {
+		if (of_property_read_u32(np, "rpm-level",
+					 &hba->rpm_lvl))
+			hba->rpm_lvl = -1;
+		if (of_property_read_u32(np, "spm-level",
+					 &hba->spm_lvl))
+			hba->spm_lvl = -1;
+	}
+}
+
 /* Returns the max mitigation level supported */
 static int ufs_qcom_get_max_therm_state(struct thermal_cooling_device *tcd,
 				  unsigned long *data)
@@ -4100,7 +4112,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	if (err)
 		goto out_disable_parent_vreg;
 
-	ufs_qcom_parse_pm_levels(hba);
+	ufs_qcom_parse_pm_level(hba);
 	ufs_qcom_parse_g4_workaround_flag(host);
 	ufs_qcom_parse_lpm(host);
 	if (host->disable_lpm)
@@ -5912,34 +5924,6 @@ static ssize_t boost_monitor_timer_ms_show(struct device *dev,
 
 static DEVICE_ATTR_RW(boost_monitor_timer_ms);
 
-static ssize_t cap_hs_gear_limit_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct ufs_hba *hba = dev_get_drvdata(dev);
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-
-	return scnprintf(buf, PAGE_SIZE, "%d\n", !!host->cap_hs_gear_limit);
-}
-
-static ssize_t cap_hs_gear_limit_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct ufs_hba *hba = dev_get_drvdata(dev);
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	bool value;
-
-	if (!capable(CAP_SYS_ADMIN))
-		return -EACCES;
-
-	if (kstrtobool(buf, &value))
-		return -EINVAL;
-
-	host->cap_hs_gear_limit = !!value;
-	return count;
-}
-
-static DEVICE_ATTR_RW(cap_hs_gear_limit);
-
 static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_err_state.attr,
 	&dev_attr_power_mode.attr,
@@ -5954,7 +5938,6 @@ static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_boost_min_threshold.attr,
 	&dev_attr_boost_max_threshold.attr,
 	&dev_attr_boost_monitor_timer_ms.attr,
-	&dev_attr_cap_hs_gear_limit.attr,
 	NULL
 };
 

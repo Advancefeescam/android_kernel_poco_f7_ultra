@@ -10,7 +10,6 @@
 
 #include "compiler.h"
 #include "crt.h"
-#include "std.h"
 
 /* Syscalls for s390:
  *   - registers are 64-bit

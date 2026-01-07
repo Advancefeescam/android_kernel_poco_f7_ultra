@@ -9,7 +9,6 @@
 #include <fcntl.h>
 #include <linux/memfd.h>
 #include <sched.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -1568,11 +1567,6 @@ static void test_share_fork(char *banner, char *b_suffix)
 	close(fd);
 }
 
-static bool pid_ns_supported(void)
-{
-	return access("/proc/self/ns/pid", F_OK) == 0;
-}
-
 int main(int argc, char **argv)
 {
 	pid_t pid;
@@ -1607,12 +1601,8 @@ int main(int argc, char **argv)
 	test_seal_grow();
 	test_seal_resize();
 
-	if (pid_ns_supported()) {
-		test_sysctl_simple();
-		test_sysctl_nested();
-	} else {
-		printf("PID namespaces are not supported; skipping sysctl tests\n");
-	}
+	test_sysctl_simple();
+	test_sysctl_nested();
 
 	test_share_dup("SHARE-DUP", "");
 	test_share_mmap("SHARE-MMAP", "");

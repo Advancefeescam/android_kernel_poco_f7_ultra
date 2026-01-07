@@ -84,15 +84,11 @@
 
 #define __exit          __section(".exit.text") __exitused __cold notrace
 
-#ifdef CONFIG_MEMORY_HOTPLUG
-#define __meminit
-#define __meminitdata
-#define __meminitconst
-#else
-#define __meminit	__init
-#define __meminitdata	__initdata
-#define __meminitconst	__initconst
-#endif
+/* Used for MEMORY_HOTPLUG */
+#define __meminit        __section(".meminit.text") __cold notrace \
+						  __latent_entropy
+#define __meminitdata    __section(".meminit.data")
+#define __meminitconst   __section(".meminit.rodata")
 
 /* For assembly routines */
 #define __HEAD		.section	".head.text","ax"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright (c) 2022-2023,2025, Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
 
 import argparse
 import errno
@@ -12,7 +12,6 @@ import sys
 import subprocess
 
 HOST_TARGETS = ["dtc"]
-PHONY_TARGETS = ["16k"]
 DEFAULT_SKIP_LIST = ["abi"]
 MSM_EXTENSIONS = "build/msm_kernel_extensions.bzl"
 ABL_EXTENSIONS = "build/abl_extensions.bzl"
@@ -138,18 +137,18 @@ class BazelBuilder:
                     sys.exit(1)
 
                 skip_list_re = [
-                    re.compile(r"//{}:{}[^-]*_.*_{}_dist".format(self.kernel_dir, t, s))
+                    re.compile(r"//{}:{}_.*_{}_dist".format(self.kernel_dir, t, s))
                     for s in self.skip_list
                 ]
-                query = 'filter("{}[^-]*_.*_dist$", attr(generator_function, define_msm_platforms, {}/...))'.format(
+                query = 'filter("{}_.*_dist$", attr(generator_function, define_msm_platforms, {}/...))'.format(
                     t, self.kernel_dir
                 )
             else:
                 skip_list_re = [
-                    re.compile(r"//{}:{}[^-]*_{}_{}_dist".format(self.kernel_dir, t, v, s))
+                    re.compile(r"//{}:{}_{}_{}_dist".format(self.kernel_dir, t, v, s))
                     for s in self.skip_list
                 ]
-                query = 'filter("{}[^-]*_{}.*_dist$", attr(generator_function, define_msm_platforms, {}/...))'.format(
+                query = 'filter("{}_{}.*_dist$", attr(generator_function, define_msm_platforms, {}/...))'.format(
                     t, v, self.kernel_dir
                 )
 
@@ -190,7 +189,7 @@ class BazelBuilder:
 
                 if v == "ALL":
                     real_variant = re.search(
-                        r"//{}:[^_]*_([^_]+)_".format(self.kernel_dir), label
+                        r"//{}:{}_([^_]+)_".format(self.kernel_dir, t), label
                     ).group(1)
                 else:
                     real_variant = v
@@ -308,10 +307,8 @@ class BazelBuilder:
                         sys.exit(1)
             else:
                 logging.info('Re-entering this function; Hence instrumentation is already done')
-            cmdline = [self.bazel_bin, "--max_idle_secs=%s" % (os.environ.get("IDLE_TIMEOUT")), self.bazel_cache, bazel_subcommand]
-        else:
-            cmdline = [self.bazel_bin, self.bazel_cache, bazel_subcommand]
         logging.info('targets = "%s"', [t.bazel_label for t in targets])
+        cmdline = [self.bazel_bin, self.bazel_cache, bazel_subcommand]
         if extra_options:
             cmdline.extend(extra_options)
         cmdline.extend([t.bazel_label for t in targets])
@@ -343,15 +340,9 @@ class BazelBuilder:
             # Set the output directory based on if it's a host target
             if any(
                 re.match(r"//{}:.*_{}_dist".format(self.kernel_dir, h), target.bazel_label)
-                for h in HOST_TARGETS
+                    for h in HOST_TARGETS
             ):
                 out_dir = target.get_out_dir("host")
-            elif any(
-                re.match(r"//{}:.*{}.*_dist".format(self.kernel_dir, t), target.bazel_label)
-                for t in PHONY_TARGETS
-            ):
-                out_dir = target.get_out_dir() + "16k"
-                out_dir = os.path.join(out_dir, "dist")
             else:
                 out_dir = target.get_out_dir("dist")
             self.bazel(
@@ -391,18 +382,17 @@ class BazelBuilder:
             "--ignore_missing_projects",
             "--incompatible_sandbox_hermetic_tmp=false",
             "--nozstd_dwarf_compression",
+            "--allow_undeclared_modules",
+        ])
+
+        factory_build = os.environ.get('FACTORY_BUILD')
+        logging.info("--define=FACTORY_BUILD=%s", factory_build)
+        self.user_opts.extend([
+            "--define=FACTORY_BUILD={}".format(factory_build),
         ])
 
         if self.dry_run:
             self.user_opts.append("--nobuild")
-
-        # List of files to avoid symbolic link creation
-        avoid_symlink_files = [
-        "drivers/block/zram/zcomp.h",
-        "drivers/block/zram/zram_drv.h",
-        "include/linux/zsmalloc.h",
-        "include/linux/ieee80211.h",
-        ]
 
         try:
             if self.gki_headers:
@@ -413,12 +403,8 @@ class BazelBuilder:
                 msm_d = os.path.join(self.workspace, "msm-kernel")
                 for f in gki_files:
                     if ".h" in f:
-                        f=f.strip()
-                        if f in avoid_symlink_files:
-                            logging.info('Skipping symbolic link creation for %s', f)
-                            continue
-
                         logging.info('GKI header file...%s', f)
+                        f=f.strip()
                         common_f = os.path.join(common_d, f)
                         msm_f = os.path.join(msm_d, f)
                         if os.path.exists(msm_f):

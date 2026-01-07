@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/seq_file.h>
@@ -344,7 +344,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
-
 	/*
 	 * For higher capacity worth I/O tasks, stop the search
 	 * at the end of higher capacity cluster(s).
@@ -382,7 +381,7 @@ retry:
 		int best_idle_cpu_cluster = -1;
 		int target_cpu_cluster = -1;
 		int this_complex_idle = 0;
-		int best_complex_idle = 0;
+		int best_complex_idle = 0;	
 		int cluster_id;
 
 		target_max_spare_cap = 0;
@@ -398,7 +397,7 @@ retry:
 			cpumask_and(&visit_cpus, p->cpus_ptr, &cpu_array[order_index][cluster]);
 			cluster_id = cpu_cluster(
 					cpumask_first(&cpu_array[order_index][cluster]))->id;
-		}
+		}	
 
 		if (visited_clusters[cluster_id])
 			continue;
@@ -565,7 +564,7 @@ retry:
 			 && (cpu_rq(prev_cpu)->nr_running < DIRE_STRAITS_PREV_NR_LIMIT))
 			cpumask_set_cpu(prev_cpu, candidates);
 		else if (least_nr_cpu != -1)
-			cpumask_set_cpu(least_nr_cpu, candidates);
+			cpumask_set_cpu(least_nr_cpu, candidates);		
 	}
 
 out:
@@ -582,7 +581,6 @@ out:
 		*force_energy_eval = true;
 		goto retry;
 	}
-
 	trace_sched_find_best_target(p, min_task_util, start_cpu, cpumask_bits(candidates)[0],
 			     most_spare_cap_cpu, order_index, end_index,
 			     fbt_env->skip_cpu, task_on_rq_queued(p), least_nr_cpu,
@@ -913,22 +911,8 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		(pipeline_cpu != -1) &&
 		cpumask_test_cpu(pipeline_cpu, p->cpus_ptr) &&
 		cpu_active(pipeline_cpu) &&
-		!cpu_halted(pipeline_cpu)) {
-		/*
-		 * A situation of target pipeline cpu already running a pipeline
-		 * task can only happen because of pipeline cpu swapping(i.e 'p'
-		 * is already a pipeline task running on pipeline cpu.
-		 * 'find_heaviest_topapp' where a task is evaluated as pipeline
-		 * (i.e 'p' might not be running on pipeline cpu) always ensures no
-		 * two task gets same pipeline cpu and thus we never enter hit this
-		 * condition.
-		 *
-		 * Thus if we are here that means prev_cpu of 'p' is definitely a
-		 * pipeline cpu.
-		 */
-		if (walt_pipeline_low_latency_task(cpu_rq(pipeline_cpu)->curr))
-			pipeline_cpu = prev_cpu;
-
+		!cpu_halted(pipeline_cpu) &&	
+		!walt_pipeline_low_latency_task(cpu_rq(pipeline_cpu)->curr)) {
 		best_energy_cpu = pipeline_cpu;
 		fbt_env.fastpath = PIPELINE_FASTPATH;
 		goto out;
@@ -1144,7 +1128,7 @@ static void binder_set_priority_hook(void *data,
 
 	if (task && ((task_in_related_thread_group(current) &&
 			task->group_leader->prio < MAX_RT_PRIO) ||
-			(walt_get_mvp_task_prio(current) == WALT_LL_MVP) ||
+			(walt_get_mvp_task_prio(current) == WALT_LL_PIPE_MVP) ||
 			(current->group_leader->prio < MAX_RT_PRIO &&
 			task_in_related_thread_group(task))))
 		wts->low_latency |= WALT_LOW_LATENCY_BINDER_BIT;
@@ -1184,11 +1168,10 @@ static void binder_restore_priority_hook(void *data,
  */
 int walt_get_mvp_task_prio(struct task_struct *p)
 {
-	if (walt_pipeline_low_latency_task(p))
-		return WALT_PIPELINE_MVP;
-
-	if (walt_procfs_low_latency_task(p))
-		return WALT_LL_MVP;
+	if (walt_procfs_low_latency_task(p) ||
+			(pipeline_in_progress() &&
+			 walt_pipeline_low_latency_task(p)))
+		return WALT_LL_PIPE_MVP;
 
 	if (per_task_boost(p) == TASK_BOOST_STRICT_MAX)
 		return WALT_TASK_BOOST_MVP;
@@ -1209,9 +1192,6 @@ static inline unsigned int walt_cfs_mvp_task_limit(struct task_struct *p)
 	/* Binder MVP tasks are high prio but have only single slice */
 	if (wts->mvp_prio == WALT_BINDER_MVP)
 		return WALT_MVP_SLICE;
-
-	if (wts->mvp_prio == WALT_PIPELINE_MVP)
-		return 2 * WALT_MVP_LIMIT;
 
 	return WALT_MVP_LIMIT;
 }
@@ -1304,7 +1284,7 @@ static void walt_cfs_account_mvp_runtime(struct rq *rq, struct task_struct *curr
 		slice = 0;
 
 	/* slice is not expired */
-	if (slice < ((wts->mvp_prio == WALT_PIPELINE_MVP) ? WALT_MVP_LIMIT : WALT_MVP_SLICE))
+	if (slice < WALT_MVP_SLICE)
 		return;
 
 	wts->sum_exec_snapshot_for_slice = curr->se.sum_exec_runtime;
@@ -1445,8 +1425,7 @@ static void walt_cfs_check_preempt_wakeup(void *unused, struct rq *rq, struct ta
 	 */
 	skip_mvp = wrq->skip_mvp;
 	walt_cfs_account_mvp_runtime(rq, c);
-	resched = (skip_mvp != wrq->skip_mvp) || (wrq->mvp_tasks.next != &wts_c->mvp_list) ||
-			(wts_p->mvp_prio > wts_c->mvp_prio);
+	resched = (skip_mvp != wrq->skip_mvp) || (wrq->mvp_tasks.next != &wts_c->mvp_list);
 
 	/*
 	 * current is no longer eligible to run. It must have been
@@ -1516,10 +1495,8 @@ static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct 
 	*repick = true;
 
 	/* Mark arrival of MVP task */
-	if (!wrq->mvp_arrival_time) {
-		update_rq_clock(rq);
+	if (!wrq->mvp_arrival_time)
 		wrq->mvp_arrival_time = rq->clock;
-	}
 
 	if (simple) {
 		for_each_sched_entity((*se)) {

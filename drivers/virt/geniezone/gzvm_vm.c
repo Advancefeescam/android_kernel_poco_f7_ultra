@@ -4,7 +4,6 @@
  */
 
 #include <linux/anon_inodes.h>
-#include <linux/debugfs.h>
 #include <linux/file.h>
 #include <linux/kdev_t.h>
 #include <linux/mm.h>
@@ -12,11 +11,14 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/soc/mediatek/gzvm_drv.h>
+#include <linux/debugfs.h>
 #include <trace/hooks/gzvm.h>
 #include "gzvm_common.h"
 
 static DEFINE_MUTEX(gzvm_list_lock);
 static LIST_HEAD(gzvm_list);
+
+static struct dentry *gzvm_debugfs_dir;
 
 int gzvm_gfn_to_hva_memslot(struct gzvm_memslot *memslot, u64 gfn,
 			    u64 *hva_memslot)
@@ -361,15 +363,14 @@ static void gzvm_destroy_vm(struct gzvm *gzvm)
 
 	gzvm_vm_irqfd_release(gzvm);
 	gzvm_destroy_vcpus(gzvm);
-	gzvm_arch_destroy_vm(gzvm->vm_id, gzvm->gzvm_drv->destroy_batch_pages);
+	gzvm_arch_destroy_vm(gzvm->vm_id);
 
 	mutex_lock(&gzvm_list_lock);
 	list_del(&gzvm->vm_list);
 	mutex_unlock(&gzvm_list_lock);
 
 	if (gzvm->demand_page_buffer) {
-		allocated_size = GZVM_BLOCK_BASED_DEMAND_PAGE_SIZE / PAGE_SIZE *
-				 sizeof(u64);
+		allocated_size = GZVM_BLOCK_BASED_DEMAND_PAGE_SIZE / PAGE_SIZE * sizeof(u64);
 		free_pages_exact(gzvm->demand_page_buffer, allocated_size);
 	}
 
@@ -400,20 +401,18 @@ static const struct file_operations gzvm_vm_fops = {
 };
 
 /**
- * setup_vm_demand_paging() - Query hypervisor suitable demand page size and set
+ * setup_vm_demand_paging - Query hypervisor suitable demand page size and set
  * @vm: gzvm instance for setting up demand page size
  *
  * Return: void
  */
 static void setup_vm_demand_paging(struct gzvm *vm)
 {
+	u32 buf_size = GZVM_BLOCK_BASED_DEMAND_PAGE_SIZE / PAGE_SIZE * sizeof(u64);
 	struct gzvm_enable_cap cap = {0};
-	u32 buf_size;
 	void *buffer;
 	int ret;
 
-	buf_size = (GZVM_BLOCK_BASED_DEMAND_PAGE_SIZE / PAGE_SIZE) *
-		    sizeof(pte_t);
 	mutex_init(&vm->demand_paging_lock);
 	buffer = alloc_pages_exact(buf_size, GFP_KERNEL);
 	if (!buffer) {
@@ -518,10 +517,8 @@ static int gzvm_create_vm_debugfs(struct gzvm *vm)
 	struct dentry *dent;
 	char dir_name[GZVM_MAX_DEBUGFS_DIR_NAME_SIZE];
 
-	if (!vm->gzvm_drv->gzvm_debugfs_dir) {
-		pr_warn("VM debugfs directory is not exist\n");
+	if (!gzvm_debugfs_dir)
 		return -EFAULT;
-	}
 
 	if (vm->debug_dir) {
 		pr_warn("VM debugfs directory is duplicated\n");
@@ -530,13 +527,13 @@ static int gzvm_create_vm_debugfs(struct gzvm *vm)
 
 	snprintf(dir_name, sizeof(dir_name), "%d-%d", task_pid_nr(current), vm->vm_id);
 
-	dent = debugfs_lookup(dir_name, vm->gzvm_drv->gzvm_debugfs_dir);
+	dent = debugfs_lookup(dir_name, gzvm_debugfs_dir);
 	if (dent) {
 		pr_warn("Debugfs directory is duplicated\n");
 		dput(dent);
 		return 0;
 	}
-	dent = debugfs_create_dir(dir_name, vm->gzvm_drv->gzvm_debugfs_dir);
+	dent = debugfs_create_dir(dir_name, gzvm_debugfs_dir);
 	vm->debug_dir = dent;
 
 	debugfs_create_file("protected_shared_mem", 0444, dent, vm, &shared_mem_fops);
@@ -575,7 +572,7 @@ static int enable_idle_support(struct gzvm *vm)
 	return ret;
 }
 
-static struct gzvm *gzvm_create_vm(struct gzvm_driver *drv, unsigned long vm_type)
+static struct gzvm *gzvm_create_vm(unsigned long vm_type)
 {
 	int ret;
 	struct gzvm *gzvm;
@@ -590,7 +587,6 @@ static struct gzvm *gzvm_create_vm(struct gzvm_driver *drv, unsigned long vm_typ
 		return ERR_PTR(ret);
 	}
 
-	gzvm->gzvm_drv = drv;
 	gzvm->vm_id = ret;
 	gzvm->mm = current->mm;
 	mutex_init(&gzvm->lock);
@@ -630,19 +626,50 @@ static struct gzvm *gzvm_create_vm(struct gzvm_driver *drv, unsigned long vm_typ
 
 /**
  * gzvm_dev_ioctl_create_vm - Create vm fd
- * @vm_type: VM type. Only supports Linux VM now
- * @drv: GenieZone driver info to be stored in struct gzvm for future usage
+ * @vm_type: VM type. Only supports Linux VM now.
  *
  * Return: fd of vm, negative if error
  */
-int gzvm_dev_ioctl_create_vm(struct gzvm_driver *drv, unsigned long vm_type)
+int gzvm_dev_ioctl_create_vm(unsigned long vm_type)
 {
 	struct gzvm *gzvm;
 
-	gzvm = gzvm_create_vm(drv, vm_type);
+	gzvm = gzvm_create_vm(vm_type);
 	if (IS_ERR(gzvm))
 		return PTR_ERR(gzvm);
 
 	return anon_inode_getfd("gzvm-vm", &gzvm_vm_fops, gzvm,
 			       O_RDWR | O_CLOEXEC);
+}
+
+void gzvm_destroy_all_vms(void)
+{
+	struct gzvm *gzvm, *tmp;
+
+	mutex_lock(&gzvm_list_lock);
+	if (list_empty(&gzvm_list))
+		goto out;
+
+	list_for_each_entry_safe(gzvm, tmp, &gzvm_list, vm_list)
+		gzvm_destroy_vm(gzvm);
+
+out:
+	mutex_unlock(&gzvm_list_lock);
+}
+
+int gzvm_drv_debug_init(void)
+{
+	if (!debugfs_initialized())
+		return 0;
+
+	if (!gzvm_debugfs_dir && !debugfs_lookup("gzvm", gzvm_debugfs_dir))
+		gzvm_debugfs_dir = debugfs_create_dir("gzvm", NULL);
+
+	return 0;
+}
+
+void gzvm_drv_debug_exit(void)
+{
+	if (gzvm_debugfs_dir && debugfs_lookup("gzvm", gzvm_debugfs_dir))
+		debugfs_remove_recursive(gzvm_debugfs_dir);
 }

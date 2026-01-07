@@ -1157,7 +1157,6 @@ cpt:
 	}
 
 	rvu_program_channels(rvu);
-	cgx_start_linkup(rvu);
 
 	err = rvu_mcs_init(rvu);
 	if (err) {

@@ -58,9 +58,9 @@
   gov_attr_set_get
   gpiod_to_chip
   have_governor_per_policy
+  __icmp_send
   i2c_smbus_read_word_data
   i2c_smbus_write_word_data
-  __icmp_send
   igrab
   iio_channel_get
   iio_channel_release
@@ -328,6 +328,7 @@
   __traceiter_block_rq_issue
   __traceiter_block_rq_merge
   __traceiter_block_rq_requeue
+  __traceiter_android_vh_check_set_ioprio
   __traceiter_mm_vmscan_kswapd_wake
   __traceiter_net_dev_queue
   __traceiter_net_dev_xmit
@@ -340,6 +341,20 @@
   __traceiter_sched_stat_wait
   __traceiter_sched_waking
   __traceiter_task_rename
+  __traceiter_android_vh_lru_gen_add_folio_skip
+  __traceiter_android_vh_lru_gen_del_folio_skip
+  __traceiter_android_vh_evict_folios_bypass
+  __traceiter_android_vh_keep_reclaimed_folio
+  __traceiter_android_vh_clear_reclaimed_folio
+  __traceiter_android_vh_filemap_get_folio
+  __traceiter_android_vh_filemap_pages
+  __traceiter_android_rvh_kswapd_shrink_node
+  __traceiter_android_rvh_perform_reclaim
+  __traceiter_android_rvh_do_madvise_bypass
+  __traceiter_android_vh_folio_add_lru_folio_activate
+  __traceiter_android_vh_filemap_fault_pre_folio_locked
+  __traceiter_android_vh_filemap_folio_mapped
+  __traceiter_android_vh_folio_remove_rmap_ptes
   __tracepoint_android_rvh_post_init_entity_util_avg
   __tracepoint_android_rvh_rtmutex_force_update
   __tracepoint_android_rvh_set_cpus_allowed_comm
@@ -476,6 +491,7 @@
   __tracepoint_block_rq_issue
   __tracepoint_block_rq_merge
   __tracepoint_block_rq_requeue
+  __tracepoint_android_vh_check_set_ioprio
   __tracepoint_mm_vmscan_kswapd_wake
   __tracepoint_net_dev_queue
   __tracepoint_net_dev_xmit
@@ -488,6 +504,20 @@
   __tracepoint_sched_stat_wait
   __tracepoint_sched_waking
   __tracepoint_task_rename
+  __tracepoint_android_vh_lru_gen_add_folio_skip
+  __tracepoint_android_vh_lru_gen_del_folio_skip
+  __tracepoint_android_vh_evict_folios_bypass
+  __tracepoint_android_vh_keep_reclaimed_folio
+  __tracepoint_android_vh_clear_reclaimed_folio
+  __tracepoint_android_vh_filemap_get_folio
+  __tracepoint_android_vh_filemap_pages
+  __tracepoint_android_rvh_kswapd_shrink_node
+  __tracepoint_android_rvh_perform_reclaim
+  __tracepoint_android_rvh_do_madvise_bypass
+  __tracepoint_android_vh_folio_add_lru_folio_activate
+  __tracepoint_android_vh_filemap_fault_pre_folio_locked
+  __tracepoint_android_vh_filemap_folio_mapped
+  __tracepoint_android_vh_folio_remove_rmap_ptes
   folio_total_mapcount
   page_mapping
   __trace_puts
@@ -514,11 +544,9 @@
   vfs_path_lookup
   vfs_rename
   vfs_rmdir
-  vfs_splice_read
   vfs_statfs
   vfs_unlink
   __vmalloc_array
-  vma_set_file
   wait_for_completion_io_timeout
   wait_for_completion_killable_timeout
   wakeup_source_remove
@@ -537,3 +565,5 @@
   zstd_init_cctx
   zstd_dctx_workspace_bound
   zstd_init_dctx
+  isolate_folio
+  reclaim_pages

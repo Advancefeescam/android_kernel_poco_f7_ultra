@@ -126,15 +126,18 @@ static struct thermal_trip *thermal_of_trips_init(struct device_node *np, int *n
 	struct device_node *trips;
 	int ret, count;
 
-	*ntrips = 0;
-	
 	trips = of_get_child_by_name(np, "trips");
-	if (!trips)
-		return NULL;
+	if (!trips) {
+		pr_err("Failed to find 'trips' node\n");
+		return ERR_PTR(-EINVAL);
+	}
 
 	count = of_get_child_count(trips);
-	if (!count)
-		return NULL;
+	if (!count) {
+		pr_err("No trip point defined\n");
+		ret = -EINVAL;
+		goto out_of_node_put;
+	}
 
 	tt = kzalloc(sizeof(*tt) * count, GFP_KERNEL);
 	if (!tt) {
@@ -157,6 +160,7 @@ static struct thermal_trip *thermal_of_trips_init(struct device_node *np, int *n
 
 out_kfree:
 	kfree(tt);
+	*ntrips = 0;
 out_of_node_put:
 	of_node_put(trips);
 
@@ -203,7 +207,6 @@ static struct device_node *of_thermal_zone_find(struct device_node *sensor, int 
 				goto out;
 			}
 
-			of_node_put(sensor_specs.np);
 			if ((sensor == sensor_specs.np) && id == (sensor_specs.args_count ?
 								  sensor_specs.args[0] : 0)) {
 				pr_debug("sensor %pOFn id=%d belongs to %pOFn\n", sensor, id, child);
@@ -495,13 +498,10 @@ static struct thermal_zone_device *thermal_of_zone_register(struct device_node *
 
 	trips = thermal_of_trips_init(np, &ntrips);
 	if (IS_ERR(trips)) {
-		pr_err("Failed to parse trip points for %pOFn id=%d\n", sensor, id);
+		pr_err("Failed to find trip points for %pOFn id=%d\n", sensor, id);
 		ret = PTR_ERR(trips);
 		goto out_kfree_of_ops;
 	}
-
-	if (!trips)
-		pr_info("No trip points found for %pOFn id=%d\n", sensor, id);
 
 	ret = thermal_of_monitor_init(np, &delay, &pdelay);
 	if (ret) {

@@ -23,7 +23,6 @@
 #include <linux/rw_hint.h>
 #include <trace/events/writeback.h>
 #include "internal.h"
-#include <trace/hooks/syscall_check.h>
 
 #undef CREATE_TRACE_POINTS
 #include <trace/hooks/vmscan.h>
@@ -287,7 +286,6 @@ static struct inode *alloc_inode(struct super_block *sb)
 void __destroy_inode(struct inode *inode)
 {
 	BUG_ON(inode_has_buffers(inode));
-	trace_android_vh_destroy_inode(inode);
 	inode_detach_wb(inode);
 	security_inode_free(inode);
 	fsnotify_inode_delete(inode);
@@ -599,7 +597,6 @@ void dump_mapping(const struct address_space *mapping)
 	struct hlist_node *dentry_first;
 	struct dentry *dentry_ptr;
 	struct dentry dentry;
-	char fname[64] = {};
 	unsigned long ino;
 
 	/*
@@ -635,14 +632,11 @@ void dump_mapping(const struct address_space *mapping)
 		return;
 	}
 
-	if (strncpy_from_kernel_nofault(fname, dentry.d_name.name, 63) < 0)
-		strscpy(fname, "<invalid>", 63);
 	/*
-	 * Even if strncpy_from_kernel_nofault() succeeded,
-	 * the fname could be unreliable
+	 * if dentry is corrupted, the %pd handler may still crash,
+	 * but it's unlikely that we reach here with a corrupt mapping
 	 */
-	pr_warn("aops:%ps ino:%lx dentry name(?):\"%s\"\n",
-		a_ops, ino, fname);
+	pr_warn("aops:%ps ino:%lx dentry name:\"%pd\"\n", a_ops, ino, &dentry);
 }
 
 void clear_inode(struct inode *inode)

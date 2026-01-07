@@ -1125,8 +1125,6 @@ static void hid_apply_multiplier(struct hid_device *hid,
 	while (multiplier_collection->parent_idx != -1 &&
 	       multiplier_collection->type != HID_COLLECTION_LOGICAL)
 		multiplier_collection = &hid->collection[multiplier_collection->parent_idx];
-	if (multiplier_collection->type != HID_COLLECTION_LOGICAL)
-		multiplier_collection = NULL;
 
 	effective_multiplier = hid_calculate_multiplier(hid, multiplier);
 
@@ -2609,10 +2607,9 @@ static bool hid_check_device_match(struct hid_device *hdev,
 	/*
 	 * hid-generic implements .match(), so we must be dealing with a
 	 * different HID driver here, and can simply check if
-	 * hid_ignore_special_drivers or HID_QUIRK_IGNORE_SPECIAL_DRIVER
-	 * are set or not.
+	 * hid_ignore_special_drivers is set or not.
 	 */
-	return !hid_ignore_special_drivers && !(hdev->quirks & HID_QUIRK_IGNORE_SPECIAL_DRIVER);
+	return !hid_ignore_special_drivers;
 }
 
 static int __hid_device_probe(struct hid_device *hdev, struct hid_driver *hdrv)

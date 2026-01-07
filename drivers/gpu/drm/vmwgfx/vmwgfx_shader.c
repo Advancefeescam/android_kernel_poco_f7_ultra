@@ -896,8 +896,7 @@ int vmw_compat_shader_add(struct vmw_private *dev_priv,
 		.busy_domain = VMW_BO_DOMAIN_SYS,
 		.bo_type = ttm_bo_type_device,
 		.size = size,
-		.pin = true,
-		.keep_resv = true,
+		.pin = true
 	};
 
 	if (!vmw_shader_id_ok(user_key, shader_type))
@@ -906,6 +905,10 @@ int vmw_compat_shader_add(struct vmw_private *dev_priv,
 	ret = vmw_bo_create(dev_priv, &bo_params, &buf);
 	if (unlikely(ret != 0))
 		goto out;
+
+	ret = ttm_bo_reserve(&buf->tbo, false, true, NULL);
+	if (unlikely(ret != 0))
+		goto no_reserve;
 
 	/* Map and copy shader bytecode. */
 	ret = ttm_bo_kmap(&buf->tbo, 0, PFN_UP(size), &map);

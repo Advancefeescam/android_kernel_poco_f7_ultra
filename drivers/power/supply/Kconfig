@@ -978,4 +978,10 @@ config CHARGER_QCOM_SMB2
 
 source "drivers/power/supply/qcom/Kconfig"
 
+config CHARGE_PARTITION
+	tristate "charge partition"
+	depends on SCSI
+	help
+	  charge partition write/read in kernel.
+
 endif # POWER_SUPPLY

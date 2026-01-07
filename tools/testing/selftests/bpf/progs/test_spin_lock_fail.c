@@ -28,8 +28,8 @@ struct {
 	},
 };
 
-static struct bpf_spin_lock lockA SEC(".data.A");
-static struct bpf_spin_lock lockB SEC(".data.B");
+SEC(".data.A") struct bpf_spin_lock lockA;
+SEC(".data.B") struct bpf_spin_lock lockB;
 
 SEC("?tc")
 int lock_id_kptr_preserve(void *ctx)

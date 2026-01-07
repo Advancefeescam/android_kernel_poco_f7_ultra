@@ -1195,8 +1195,7 @@ sclp_reboot_event(struct notifier_block *this, unsigned long event, void *ptr)
 }
 
 static struct notifier_block sclp_reboot_notifier = {
-	.notifier_call = sclp_reboot_event,
-	.priority      = INT_MIN,
+	.notifier_call = sclp_reboot_event
 };
 
 static ssize_t con_pages_show(struct device_driver *dev, char *buf)

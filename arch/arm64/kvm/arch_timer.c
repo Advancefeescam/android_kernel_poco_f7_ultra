@@ -207,7 +207,8 @@ void get_timer_map(struct kvm_vcpu *vcpu, struct timer_map *map)
 
 static inline bool userspace_irqchip(struct kvm *kvm)
 {
-	return unlikely(!irqchip_in_kernel(kvm));
+	return static_branch_unlikely(&userspace_irqchip_in_use) &&
+		unlikely(!irqchip_in_kernel(kvm));
 }
 
 static void soft_timer_start(struct hrtimer *hrt, u64 ns)

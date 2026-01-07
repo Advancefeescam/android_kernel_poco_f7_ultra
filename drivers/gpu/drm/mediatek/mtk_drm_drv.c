@@ -378,10 +378,8 @@ static bool mtk_drm_get_all_drm_priv(struct device *dev)
 		if (all_drm_priv[cnt] && all_drm_priv[cnt]->mtk_drm_bound)
 			cnt++;
 
-		if (cnt == MAX_CRTC) {
-			of_node_put(node);
+		if (cnt == MAX_CRTC)
 			break;
-		}
 	}
 
 	if (drm_priv->data->mmsys_dev_num == cnt) {
@@ -633,8 +631,6 @@ err_deinit:
 err_free:
 	private->drm = NULL;
 	drm_dev_put(drm);
-	for (i = 0; i < private->data->mmsys_dev_num; i++)
-		private->all_drm_private[i]->drm = NULL;
 	return ret;
 }
 

@@ -306,9 +306,6 @@ static int smmu_alloc_l2_strtab(struct hyp_arm_smmu_v3_device *smmu, u32 idx)
 
 	WRITE_ONCE(smmu->strtab_base[idx], l2ptr | span);
 
-	if (!(smmu->features & ARM_SMMU_FEAT_COHERENCY))
-		kvm_flush_dcache_to_poc(&smmu->strtab_base[idx], STRTAB_L1_DESC_DWORDS << 3);
-
 	return 0;
 }
 
@@ -450,46 +447,6 @@ static int smmu_init_cmdq(struct hyp_arm_smmu_v3_device *smmu)
 	return 0;
 }
 
-/*
- * Event q support is optional and managed by the kernel,
- * However, it must set in a shared state so it can't be donated
- * to the hypervisor later.
- * This relies on the ARM_SMMU_EVTQ_BASE can't be changed after
- * de-privilege.
- */
-static int smmu_init_evtq(struct hyp_arm_smmu_v3_device *smmu)
-{
-	u64 evtq_base, evtq_pfn;
-	size_t evtq_nr_entries, evtq_size, evtq_nr_pages;
-	void *evtq_va, *evtq_end;
-	size_t i;
-	int ret;
-
-	evtq_base = readq_relaxed(smmu->base + ARM_SMMU_EVTQ_BASE);
-	if (!evtq_base)
-		return 0;
-
-	if (evtq_base & ~(Q_BASE_RWA | Q_BASE_ADDR_MASK | Q_BASE_LOG2SIZE))
-		return -EINVAL;
-
-	evtq_nr_entries = 1 << (evtq_base & Q_BASE_LOG2SIZE);
-	evtq_size = evtq_nr_entries * EVTQ_ENT_DWORDS * 8;
-	evtq_nr_pages = PAGE_ALIGN(evtq_size) >> PAGE_SHIFT;
-
-	evtq_pfn = PAGE_ALIGN(evtq_base & Q_BASE_ADDR_MASK) >> PAGE_SHIFT;
-
-	for (i = 0 ; i < evtq_nr_pages ; ++i) {
-		ret = __pkvm_host_share_hyp(evtq_pfn + i);
-		if (ret)
-			return ret;
-	}
-
-	evtq_va = hyp_phys_to_virt(evtq_pfn << PAGE_SHIFT);
-	evtq_end = hyp_phys_to_virt((evtq_pfn + evtq_nr_pages) << PAGE_SHIFT);
-
-	return hyp_pin_shared_mem(evtq_va, evtq_end);
-}
-
 static int smmu_init_strtab(struct hyp_arm_smmu_v3_device *smmu)
 {
 	u64 strtab_base;
@@ -533,7 +490,7 @@ static int smmu_init_strtab(struct hyp_arm_smmu_v3_device *smmu)
 	}
 
 	strtab_base &= STRTAB_BASE_ADDR_MASK;
-	smmu->strtab_base = smmu_take_pages(strtab_base, PAGE_ALIGN(strtab_size));
+	smmu->strtab_base = smmu_take_pages(strtab_base, strtab_size);
 	if (!smmu->strtab_base)
 		return -EINVAL;
 
@@ -781,10 +738,6 @@ static int smmu_init_device(struct hyp_arm_smmu_v3_device *smmu)
 		return ret;
 
 	ret = smmu_init_cmdq(smmu);
-	if (ret)
-		return ret;
-
-	ret = smmu_init_evtq(smmu);
 	if (ret)
 		return ret;
 
@@ -1491,14 +1444,8 @@ static phys_addr_t smmu_iova_to_phys(struct kvm_hyp_iommu_domain *domain,
 static size_t smmu_pgsize_idmap(size_t size, u64 paddr)
 {
 	size_t pgsizes;
-	size_t pgsize_bitmask;
-
-	if (PAGE_SIZE == SZ_4K) {
-		pgsize_bitmask = PAGE_SIZE | (PAGE_SIZE * PTRS_PER_PTE) |
-				 (PAGE_SIZE * PTRS_PER_PTE * PTRS_PER_PTE);
-	} else {
-		pgsize_bitmask = PAGE_SIZE | (PAGE_SIZE * PTRS_PER_PTE);
-	}
+	const size_t pgsize_bitmask = PAGE_SIZE | (PAGE_SIZE * PTRS_PER_PTE) |
+				      (PAGE_SIZE * PTRS_PER_PTE * PTRS_PER_PTE);
 
 	/* All page sizes that fit the size */
 	pgsizes = pgsize_bitmask & GENMASK_ULL(__fls(size), 0);

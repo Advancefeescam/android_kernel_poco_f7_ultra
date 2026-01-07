@@ -532,15 +532,11 @@ struct inode *ntfs_iget5(struct super_block *sb, const struct MFT_REF *ref,
 	if (inode->i_state & I_NEW)
 		inode = ntfs_read_mft(inode, name, ref);
 	else if (ref->seq != ntfs_i(inode)->mi.mrec->seq) {
-		/*
-		 * Sequence number is not expected.
-		 * Looks like inode was reused but caller uses the old reference
-		 */
-		iput(inode);
-		inode = ERR_PTR(-ESTALE);
+		/* Inode overlaps? */
+		_ntfs_bad_inode(inode);
 	}
 
-	if (IS_ERR(inode))
+	if (IS_ERR(inode) && name)
 		ntfs_set_state(sb->s_fs_info, NTFS_DIRTY_ERROR);
 
 	return inode;
@@ -604,8 +600,7 @@ static noinline int ntfs_get_block_vbo(struct inode *inode, u64 vbo,
 
 	bytes = ((u64)len << cluster_bits) - off;
 
-	if (lcn >= sbi->used.bitmap.nbits) {
-		/* This case includes resident/compressed/sparse. */
+	if (lcn == SPARSE_LCN) {
 		if (!create) {
 			if (bh->b_size > bytes)
 				bh->b_size = bytes;
@@ -1704,10 +1699,7 @@ out6:
 	attr = ni_find_attr(ni, NULL, NULL, ATTR_EA, NULL, 0, NULL, NULL);
 	if (attr && attr->non_res) {
 		/* Delete ATTR_EA, if non-resident. */
-		struct runs_tree run;
-		run_init(&run);
-		attr_set_size(ni, ATTR_EA, NULL, 0, &run, 0, NULL, false, NULL);
-		run_close(&run);
+		attr_set_size(ni, ATTR_EA, NULL, 0, NULL, 0, NULL, false, NULL);
 	}
 
 	if (rp_inserted)

@@ -77,7 +77,6 @@ unsigned long huge_zero_pfn __read_mostly = ~0UL;
 unsigned long huge_anon_orders_always __read_mostly;
 unsigned long huge_anon_orders_madvise __read_mostly;
 unsigned long huge_anon_orders_inherit __read_mostly;
-static bool anon_orders_configured __initdata;
 
 unsigned long __thp_vma_allowable_orders(struct vm_area_struct *vma,
 					 unsigned long vm_flags,
@@ -98,7 +97,18 @@ unsigned long __thp_vma_allowable_orders(struct vm_area_struct *vma,
 	if (!vma->vm_mm)		/* vdso */
 		return 0;
 
-	if (thp_disabled_by_hw() || vma_thp_disabled(vma, vm_flags))
+	/*
+	 * Explicitly disabled through madvise or prctl, or some
+	 * architectures may disable THP for some mappings, for
+	 * example, s390 kvm.
+	 * */
+	if ((vm_flags & VM_NOHUGEPAGE) ||
+	    test_bit(MMF_DISABLE_THP, &vma->vm_mm->flags))
+		return 0;
+	/*
+	 * If the hardware/firmware marked hugepage support disabled.
+	 */
+	if (transparent_hugepage_flags & (1 << TRANSPARENT_HUGEPAGE_UNSUPPORTED))
 		return 0;
 
 	/* khugepaged doesn't collapse DAX vma, but page fault is fine. */
@@ -626,8 +636,7 @@ static int __init hugepage_init_sysfs(struct kobject **hugepage_kobj)
 	 * disable all other sizes. powerpc's PMD_ORDER isn't a compile-time
 	 * constant so we have to do this here.
 	 */
-	if (!anon_orders_configured)
-		huge_anon_orders_inherit = BIT(PMD_ORDER);
+	huge_anon_orders_inherit = BIT(PMD_ORDER);
 
 	*hugepage_kobj = kobject_create_and_add("transparent_hugepage", mm_kobj);
 	if (unlikely(!*hugepage_kobj)) {
@@ -789,100 +798,6 @@ out:
 	return ret;
 }
 __setup("transparent_hugepage=", setup_transparent_hugepage);
-
-static inline int get_order_from_str(const char *size_str)
-{
-	unsigned long size;
-	char *endptr;
-	int order;
-
-	size = memparse(size_str, &endptr);
-
-	if (!is_power_of_2(size))
-		goto err;
-	order = get_order(size);
-	if (BIT(order) & ~THP_ORDERS_ALL_ANON)
-		goto err;
-
-	return order;
-err:
-	pr_err("invalid size %s in thp_anon boot parameter\n", size_str);
-	return -EINVAL;
-}
-
-static char str_dup[PAGE_SIZE] __initdata;
-static int __init setup_thp_anon(char *str)
-{
-	char *token, *range, *policy, *subtoken;
-	unsigned long always, inherit, madvise;
-	char *start_size, *end_size;
-	int start, end, nr;
-	char *p;
-
-	if (!str || strlen(str) + 1 > PAGE_SIZE)
-		goto err;
-	strcpy(str_dup, str);
-
-	always = huge_anon_orders_always;
-	madvise = huge_anon_orders_madvise;
-	inherit = huge_anon_orders_inherit;
-	p = str_dup;
-	while ((token = strsep(&p, ";")) != NULL) {
-		range = strsep(&token, ":");
-		policy = token;
-
-		if (!policy)
-			goto err;
-
-		while ((subtoken = strsep(&range, ",")) != NULL) {
-			if (strchr(subtoken, '-')) {
-				start_size = strsep(&subtoken, "-");
-				end_size = subtoken;
-
-				start = get_order_from_str(start_size);
-				end = get_order_from_str(end_size);
-			} else {
-				start = end = get_order_from_str(subtoken);
-			}
-
-			if (start < 0 || end < 0 || start > end)
-				goto err;
-
-			nr = end - start + 1;
-			if (!strcmp(policy, "always")) {
-				bitmap_set(&always, start, nr);
-				bitmap_clear(&inherit, start, nr);
-				bitmap_clear(&madvise, start, nr);
-			} else if (!strcmp(policy, "madvise")) {
-				bitmap_set(&madvise, start, nr);
-				bitmap_clear(&inherit, start, nr);
-				bitmap_clear(&always, start, nr);
-			} else if (!strcmp(policy, "inherit")) {
-				bitmap_set(&inherit, start, nr);
-				bitmap_clear(&madvise, start, nr);
-				bitmap_clear(&always, start, nr);
-			} else if (!strcmp(policy, "never")) {
-				bitmap_clear(&inherit, start, nr);
-				bitmap_clear(&madvise, start, nr);
-				bitmap_clear(&always, start, nr);
-			} else {
-				pr_err("invalid policy %s in thp_anon boot parameter\n", policy);
-				goto err;
-			}
-		}
-	}
-
-	huge_anon_orders_always = always;
-	huge_anon_orders_madvise = madvise;
-	huge_anon_orders_inherit = inherit;
-	anon_orders_configured = true;
-	return 1;
-
-err:
-	pr_warn("thp_anon=%s: error parsing string, ignoring setting\n", str);
-	return 0;
-}
-__setup("thp_anon=", setup_thp_anon);
 
 pmd_t maybe_pmd_mkwrite(pmd_t pmd, struct vm_area_struct *vma)
 {
@@ -2777,27 +2692,6 @@ static void __split_huge_pmd_locked(struct vm_area_struct *vma, pmd_t *pmd,
 	pmd_populate(mm, pmd, pgtable);
 }
 
-void split_huge_pmd_locked(struct vm_area_struct *vma, unsigned long address,
-			   pmd_t *pmd, bool freeze, struct folio *folio)
-{
-	VM_WARN_ON_ONCE(folio && !folio_test_pmd_mappable(folio));
-	VM_WARN_ON_ONCE(!IS_ALIGNED(address, HPAGE_PMD_SIZE));
-	VM_WARN_ON_ONCE(folio && !folio_test_locked(folio));
-	VM_BUG_ON(freeze && !folio);
-
-	/*
-	 * When the caller requests to set up a migration entry, we
-	 * require a folio to check the PMD against. Otherwise, there
-	 * is a risk of replacing the wrong folio.
-	 */
-	if (pmd_trans_huge(*pmd) || pmd_devmap(*pmd) ||
-	    is_pmd_migration_entry(*pmd)) {
-		if (folio && folio != page_folio(pmd_page(*pmd)))
-			return;
-		__split_huge_pmd_locked(vma, pmd, address, freeze);
-	}
-}
-
 void __split_huge_pmd(struct vm_area_struct *vma, pmd_t *pmd,
 		unsigned long address, bool freeze, struct folio *folio)
 {
@@ -2809,7 +2703,26 @@ void __split_huge_pmd(struct vm_area_struct *vma, pmd_t *pmd,
 				(address & HPAGE_PMD_MASK) + HPAGE_PMD_SIZE);
 	mmu_notifier_invalidate_range_start(&range);
 	ptl = pmd_lock(vma->vm_mm, pmd);
-	split_huge_pmd_locked(vma, range.start, pmd, freeze, folio);
+
+	/*
+	 * If caller asks to setup a migration entry, we need a folio to check
+	 * pmd against. Otherwise we can end up replacing wrong folio.
+	 */
+	VM_BUG_ON(freeze && !folio);
+	VM_WARN_ON_ONCE(folio && !folio_test_locked(folio));
+
+	if (pmd_trans_huge(*pmd) || pmd_devmap(*pmd) ||
+	    is_pmd_migration_entry(*pmd)) {
+		/*
+		 * It's safe to call pmd_page when folio is set because it's
+		 * guaranteed that pmd is present.
+		 */
+		if (folio && folio != page_folio(pmd_page(*pmd)))
+			goto out;
+		__split_huge_pmd_locked(vma, pmd, range.start, freeze);
+	}
+
+out:
 	spin_unlock(ptl);
 	mmu_notifier_invalidate_range_end(&range);
 }
@@ -2876,81 +2789,6 @@ static void unmap_folio(struct folio *folio)
 		try_to_migrate(folio, ttu_flags);
 	else
 		try_to_unmap(folio, ttu_flags | TTU_IGNORE_MLOCK);
-}
-
-static bool __discard_anon_folio_pmd_locked(struct vm_area_struct *vma,
-					    unsigned long addr, pmd_t *pmdp,
-					    struct folio *folio)
-{
-	struct mm_struct *mm = vma->vm_mm;
-	int ref_count, map_count;
-	pmd_t orig_pmd = *pmdp;
-
-	if (pmd_dirty(orig_pmd))
-		folio_set_dirty(folio);
-	if (folio_test_dirty(folio)) {
-		folio_set_swapbacked(folio);
-		return false;
-	}
-
-	orig_pmd = pmdp_huge_clear_flush(vma, addr, pmdp);
-
-	/*
-	 * Syncing against concurrent GUP-fast:
-	 * - clear PMD; barrier; read refcount
-	 * - inc refcount; barrier; read PMD
-	 */
-	smp_mb();
-
-	ref_count = folio_ref_count(folio);
-	map_count = folio_mapcount(folio);
-
-	/*
-	 * Order reads for folio refcount and dirty flag
-	 * (see comments in __remove_mapping()).
-	 */
-	smp_rmb();
-
-	/*
-	 * If the folio or its PMD is redirtied at this point, or if there
-	 * are unexpected references, we will give up to discard this folio
-	 * and remap it.
-	 *
-	 * The only folio refs must be one from isolation plus the rmap(s).
-	 */
-	if (pmd_dirty(orig_pmd))
-		folio_set_dirty(folio);
-	if (folio_test_dirty(folio)) {
-		folio_set_swapbacked(folio);
-		set_pmd_at(mm, addr, pmdp, orig_pmd);
-		return false;
-	}
-
-	if (ref_count != map_count + 1) {
-		set_pmd_at(mm, addr, pmdp, orig_pmd);
-		return false;
-	}
-
-	folio_remove_rmap_pmd(folio, pmd_page(orig_pmd), vma);
-	zap_deposited_table(mm, pmdp);
-	add_mm_counter(mm, MM_ANONPAGES, -HPAGE_PMD_NR);
-	if (vma->vm_flags & VM_LOCKED)
-		mlock_drain_local();
-	folio_put(folio);
-
-	return true;
-}
-
-bool unmap_huge_pmd_locked(struct vm_area_struct *vma, unsigned long addr,
-			   pmd_t *pmdp, struct folio *folio)
-{
-	VM_WARN_ON_FOLIO(!folio_test_pmd_mappable(folio), folio);
-	VM_WARN_ON_FOLIO(!folio_test_locked(folio), folio);
-	VM_WARN_ON_FOLIO(!folio_test_anon(folio), folio);
-	VM_WARN_ON_FOLIO(folio_test_swapbacked(folio), folio);
-	VM_WARN_ON_ONCE(!IS_ALIGNED(addr, HPAGE_PMD_SIZE));
-
-	return __discard_anon_folio_pmd_locked(vma, addr, pmdp, folio);
 }
 
 static void remap_page(struct folio *folio, unsigned long nr)
@@ -3493,7 +3331,7 @@ int split_huge_page_to_list(struct page *page, struct list_head *list)
 	/* Prevent deferred_split_scan() touching ->_refcount */
 	spin_lock(&ds_queue->split_queue_lock);
 	if (folio_order(folio) > 1 &&
-	    !list_empty(&folio->_deferred_list)) {
+		    !list_empty(&folio->_deferred_list)) {
 		ds_queue->split_queue_len--;
 		list_del_init(&folio->_deferred_list);
 	}

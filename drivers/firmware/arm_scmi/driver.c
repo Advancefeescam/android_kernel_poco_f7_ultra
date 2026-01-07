@@ -859,11 +859,6 @@ static inline void scmi_xfer_command_release(struct scmi_info *info,
 static inline void scmi_clear_channel(struct scmi_info *info,
 				      struct scmi_chan_info *cinfo)
 {
-	if (!cinfo->is_p2a) {
-		dev_warn(cinfo->dev, "Invalid clear on A2P channel !\n");
-		return;
-	}
-
 	if (info->desc->ops->clear_channel)
 		info->desc->ops->clear_channel(cinfo);
 }
@@ -2355,7 +2350,6 @@ static int scmi_chan_setup(struct scmi_info *info, struct device_node *of_node,
 	if (!cinfo)
 		return -ENOMEM;
 
-	cinfo->is_p2a = !tx;
 	cinfo->rx_timeout_ms = info->max_rx_timeout_ms;
 
 	/* Create a unique name for this transport device */
@@ -2640,8 +2634,10 @@ static struct scmi_debug_info *scmi_debugfs_common_setup(struct scmi_info *info)
 	dbg->top_dentry = top_dentry;
 
 	if (devm_add_action_or_reset(info->dev,
-				     scmi_debugfs_common_cleanup, dbg))
+				     scmi_debugfs_common_cleanup, dbg)) {
+		scmi_debugfs_common_cleanup(dbg);
 		return NULL;
+	}
 
 	return dbg;
 }

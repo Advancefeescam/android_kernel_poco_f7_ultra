@@ -25,7 +25,6 @@
 #include "xfs_error.h"
 #include "xfs_ioctl.h"
 #include "xfs_xattr.h"
-#include "xfs_file.h"
 
 #include <linux/posix_acl.h>
 #include <linux/security.h>

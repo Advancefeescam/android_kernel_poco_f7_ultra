@@ -1640,8 +1640,8 @@ EXPORT_SYMBOL(block_invalidate_folio);
  * block_dirty_folio() via private_lock.  try_to_free_buffers
  * is already excluded via the folio lock.
  */
-struct buffer_head *folio_create_empty_buffers(struct folio *folio,
-		unsigned long blocksize, unsigned long b_state)
+void folio_create_empty_buffers(struct folio *folio, unsigned long blocksize,
+				unsigned long b_state)
 {
 	struct buffer_head *bh, *head, *tail;
 
@@ -1667,8 +1667,6 @@ struct buffer_head *folio_create_empty_buffers(struct folio *folio,
 	}
 	folio_attach_private(folio, head);
 	spin_unlock(&folio->mapping->private_lock);
-
-	return head;
 }
 EXPORT_SYMBOL(folio_create_empty_buffers);
 
@@ -1770,15 +1768,13 @@ static struct buffer_head *folio_create_buffers(struct folio *folio,
 						struct inode *inode,
 						unsigned int b_state)
 {
-	struct buffer_head *bh;
-
 	BUG_ON(!folio_test_locked(folio));
 
-	bh = folio_buffers(folio);
-	if (!bh)
-		bh = folio_create_empty_buffers(folio,
-				1 << READ_ONCE(inode->i_blkbits), b_state);
-	return bh;
+	if (!folio_buffers(folio))
+		folio_create_empty_buffers(folio,
+					   1 << READ_ONCE(inode->i_blkbits),
+					   b_state);
+	return folio_buffers(folio);
 }
 
 /*
@@ -2684,8 +2680,10 @@ int block_truncate_page(struct address_space *mapping,
 		return PTR_ERR(folio);
 
 	bh = folio_buffers(folio);
-	if (!bh)
-		bh = folio_create_empty_buffers(folio, blocksize, 0);
+	if (!bh) {
+		folio_create_empty_buffers(folio, blocksize, 0);
+		bh = folio_buffers(folio);
+	}
 
 	/* Find the buffer that contains "offset" */
 	offset = offset_in_folio(folio, from);

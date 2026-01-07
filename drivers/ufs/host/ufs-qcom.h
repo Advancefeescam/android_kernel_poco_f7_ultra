@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef UFS_QCOM_H_
@@ -496,6 +496,16 @@ struct ufs_qcom_dev_params {
 	u32 desired_working_mode;
 };
 
+#ifdef CONFIG_MI_UFS_MODULE
+struct ufs_uic_stats {
+	u32 pa_err_cnt_total;
+	u32 pa_err_cnt[UFS_EC_PA_MAX];
+	u32 dl_err_cnt_total;
+	u32 dl_err_cnt[UFS_EC_DL_MAX];
+	u32 dme_err_cnt;
+};
+#endif
+
 struct ufs_qcom_host {
 	/*
 	 * Set this capability if host controller supports the QUniPro mode
@@ -532,6 +542,9 @@ struct ufs_qcom_host {
 	struct ufs_hba *hba;
 	struct ufs_qcom_bus_vote bus_vote;
 	struct ufs_pa_layer_attr dev_req_params;
+#ifdef CONFIG_MI_UFS_MODULE
+	struct ufs_uic_stats ufs_stats;
+#endif
 	struct clk *rx_l0_sync_clk;
 	struct clk *tx_l0_sync_clk;
 	struct clk *rx_l1_sync_clk;
@@ -575,6 +588,7 @@ struct ufs_qcom_host {
 	struct ufs_vreg *vccq_proxy_client;
 	bool work_pending;
 	bool bypass_g4_cfgready;
+	bool is_dt_pm_level_read;
 	bool is_phy_pwr_on;
 	/* Protect the usage of is_phy_pwr_on against racing */
 	struct mutex phy_mutex;
@@ -618,7 +632,6 @@ struct ufs_qcom_host {
 	bool irq_affinity_support;
 	bool esi_enabled;
 	bool enforce_high_irq_cpus;
-	bool cap_hs_gear_limit;
 
 	bool bypass_pbl_rst_wa;
 	atomic_t cqhp_update_pending;

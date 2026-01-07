@@ -85,15 +85,17 @@ static int intel_eth_plat_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	plat_dat = devm_stmmac_probe_config_dt(pdev, stmmac_res.mac);
+	plat_dat = stmmac_probe_config_dt(pdev, stmmac_res.mac);
 	if (IS_ERR(plat_dat)) {
 		dev_err(&pdev->dev, "dt configuration failed\n");
 		return PTR_ERR(plat_dat);
 	}
 
 	dwmac = devm_kzalloc(&pdev->dev, sizeof(*dwmac), GFP_KERNEL);
-	if (!dwmac)
-		return -ENOMEM;
+	if (!dwmac) {
+		ret = -ENOMEM;
+		goto err_remove_config_dt;
+	}
 
 	dwmac->dev = &pdev->dev;
 	dwmac->tx_clk = NULL;
@@ -108,15 +110,12 @@ static int intel_eth_plat_probe(struct platform_device *pdev)
 		/* Enable TX clock */
 		if (dwmac->data->tx_clk_en) {
 			dwmac->tx_clk = devm_clk_get(&pdev->dev, "tx_clk");
-			if (IS_ERR(dwmac->tx_clk))
-				return PTR_ERR(dwmac->tx_clk);
-
-			ret = clk_prepare_enable(dwmac->tx_clk);
-			if (ret) {
-				dev_err(&pdev->dev,
-					"Failed to enable tx_clk\n");
-				return ret;
+			if (IS_ERR(dwmac->tx_clk)) {
+				ret = PTR_ERR(dwmac->tx_clk);
+				goto err_remove_config_dt;
 			}
+
+			clk_prepare_enable(dwmac->tx_clk);
 
 			/* Check and configure TX clock rate */
 			rate = clk_get_rate(dwmac->tx_clk);
@@ -127,7 +126,7 @@ static int intel_eth_plat_probe(struct platform_device *pdev)
 				if (ret) {
 					dev_err(&pdev->dev,
 						"Failed to set tx_clk\n");
-					goto err_tx_clk_disable;
+					goto err_remove_config_dt;
 				}
 			}
 		}
@@ -141,7 +140,7 @@ static int intel_eth_plat_probe(struct platform_device *pdev)
 			if (ret) {
 				dev_err(&pdev->dev,
 					"Failed to set clk_ptp_ref\n");
-				goto err_tx_clk_disable;
+				goto err_remove_config_dt;
 			}
 		}
 	}
@@ -157,14 +156,16 @@ static int intel_eth_plat_probe(struct platform_device *pdev)
 	}
 
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
-	if (ret)
-		goto err_tx_clk_disable;
+	if (ret) {
+		clk_disable_unprepare(dwmac->tx_clk);
+		goto err_remove_config_dt;
+	}
 
 	return 0;
 
-err_tx_clk_disable:
-	if (dwmac->data->tx_clk_en)
-		clk_disable_unprepare(dwmac->tx_clk);
+err_remove_config_dt:
+	stmmac_remove_config_dt(pdev, plat_dat);
+
 	return ret;
 }
 
@@ -173,8 +174,7 @@ static void intel_eth_plat_remove(struct platform_device *pdev)
 	struct intel_dwmac *dwmac = get_stmmac_bsp_priv(&pdev->dev);
 
 	stmmac_pltfr_remove(pdev);
-	if (dwmac->data->tx_clk_en)
-		clk_disable_unprepare(dwmac->tx_clk);
+	clk_disable_unprepare(dwmac->tx_clk);
 }
 
 static struct platform_driver intel_eth_plat_driver = {

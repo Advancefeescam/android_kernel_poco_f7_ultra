@@ -34,6 +34,19 @@ void walt_config(void)
 	sysctl_sched_coloc_busy_hyst_max_ms = 5000;
 	sched_ravg_window = DEFAULT_SCHED_RAVG_WINDOW;
 	sysctl_input_boost_ms = 40;
+//MIUI ADD: Performance_BoostFramework
+	sysctl_powerkey_input_boost_ms = 40;
+	sysctl_powerkey_sched_boost_on_input = true;
+
+	for (i = 0; i < WALT_NR_CPUS; i++)
+		sysctl_powerkey_input_boost_freq[i] = 0;
+
+	sysctl_volkey_input_boost_ms = 40;
+	sysctl_volkey_sched_boost_on_input = true;
+
+	for (i = 0; i < WALT_NR_CPUS; i++)
+		sysctl_volkey_input_boost_freq[i] = 0;
+//END Performance_BoostFramework
 	sysctl_sched_min_task_util_for_boost = 51;
 	sysctl_sched_min_task_util_for_uclamp = 51;
 	sysctl_sched_min_task_util_for_colocation = 35;
@@ -108,7 +121,6 @@ void walt_config(void)
 	sysctl_pipeline_non_special_task_util_thres = 200;
 	sysctl_pipeline_pin_thres_low_pct = 50;
 	sysctl_pipeline_pin_thres_high_pct = 60;
-	pipeline_swap_util_th = 0;
 
 	/* Initialize smart freq configurations */
 	smart_freq_init(name);
@@ -199,7 +211,7 @@ void walt_config(void)
 				&pipeline_sync_cpus, &cpu_array[0][3]);
 		}
 
-	} else if (!strcmp(name, "TUNA") || !strcmp(name, "TUNA7") || !strcmp(name, "TUNAP")) {
+	} else if (!strcmp(name, "TUNA")) {
 		soc_feat_set(SOC_ENABLE_SILVER_RT_SPREAD_BIT);
 		soc_feat_set(SOC_ENABLE_BOOST_TO_NEXT_CLUSTER_BIT);
 		soc_feat_set(SOC_ENABLE_FORCE_SPECIAL_PIPELINE_PINNING);
@@ -216,7 +228,6 @@ void walt_config(void)
 			cpumask_or(&pipeline_sync_cpus,
 				&pipeline_sync_cpus, &cpu_array[0][3]);
 		}
-		pipeline_swap_util_th = 100;
 
 		/*
 		 * Trailblazer settings
@@ -226,12 +237,6 @@ void walt_config(void)
 		trailblazer_floor_freq[2] = 1000000;
 		debugfs_walt_features |= WALT_FEAT_TRAILBLAZER_BIT;
 
-		/*
-		 * Do not put the whole cluster at Fmin during thermal halt condition.
-		 */
-		soc_feat_unset(SOC_ENABLE_THERMAL_HALT_LOW_FREQ_BIT);
-
-		sysctl_sched_suppress_region2 = 1;
 	} else if (!strcmp(name, "KERA")) {
 		soc_sched_lib_name_capacity = 3;
 		/*
@@ -240,12 +245,6 @@ void walt_config(void)
 		trailblazer_floor_freq[0] = 1000000;
 		trailblazer_floor_freq[1] = 1000000;
 		debugfs_walt_features |= WALT_FEAT_TRAILBLAZER_BIT;
-		pipeline_swap_util_th = 100;
-
-		/*
-		 * Do not put the whole cluster at Fmin during thermal halt condition.
-		 */
-		soc_feat_unset(SOC_ENABLE_THERMAL_HALT_LOW_FREQ_BIT);
 
 	}
 }

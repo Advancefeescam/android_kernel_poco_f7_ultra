@@ -88,7 +88,9 @@
 #define USB_HSPHY_1P8_HPM_LOAD			19000	/* uA */
 
 #define USB_HSPHY_VDD_HPM_LOAD			30000	/* uA */
+#define DISPLAY_ID				"p17_dummy_amoled_dsc_vid"
 
+static bool panel_info = true;
 
 /* struct hs_phy_priv_data - target specific private data */
 struct hs_phy_priv_data {
@@ -144,6 +146,43 @@ struct msm_hsphy {
 	u8			param_ovrd3;
 	const struct hs_phy_priv_data *phy_priv_data;
 };
+
+static char __chg_cmdline[1024];
+static char *chg_cmdline = __chg_cmdline;
+
+const char *chg_get_cmd(void)
+{
+	struct device_node * of_chosen = NULL;
+	char *bootargs = NULL;
+
+	if (__chg_cmdline[0] != 0)
+		return chg_cmdline;
+
+	of_chosen = of_find_node_by_path("/chosen");
+	if (of_chosen) {
+		bootargs = (char *)of_get_property(
+					of_chosen, "bootargs", NULL);
+		if (!bootargs)
+			pr_err("%s: failed to get bootargs\n", __func__);
+		else {
+			strncpy(__chg_cmdline, bootargs, 1024);
+			pr_err("%s: bootargs: %s\n", __func__, bootargs);
+		}
+	} else
+		pr_err("%s: failed to get /chosen \n", __func__);
+
+	return chg_cmdline;
+}
+
+static void get_panel_info(void)
+{
+	char *rootfsmtd_ptr = NULL;
+
+	rootfsmtd_ptr = strstr(chg_get_cmd(), DISPLAY_ID);
+	if (rootfsmtd_ptr) {
+		panel_info = false;
+	}
+}
 
 static void msm_hsphy_enable_clocks(struct msm_hsphy *phy, bool on)
 {
@@ -920,14 +959,25 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		}
 	}
 
+	get_panel_info(); //get_panel_info
+	pr_err("panel_info=%d\n", panel_info);
+
 	phy->phy_reset = devm_reset_control_get(dev, "phy_reset");
 	if (IS_ERR(phy->phy_reset))
 		return PTR_ERR(phy->phy_reset);
 
-	phy->param_override_seq_cnt = of_property_count_elems_of_size(
-					dev->of_node,
-					"qcom,param-override-seq",
-					sizeof(*phy->param_override_seq));
+
+	if (panel_info) {
+		phy->param_override_seq_cnt = of_property_count_elems_of_size(
+						dev->of_node,
+						"qcom,param-override-seq",
+						sizeof(*phy->param_override_seq));
+	} else {
+		phy->param_override_seq_cnt = of_property_count_elems_of_size(
+						dev->of_node,
+						"qcom,param-override-seq-no-panel",
+						sizeof(*phy->param_override_seq));
+	}
 	if (phy->param_override_seq_cnt > 0) {
 		phy->param_override_seq = devm_kcalloc(dev,
 					phy->param_override_seq_cnt,
@@ -941,10 +991,17 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 
-		ret = of_property_read_u32_array(dev->of_node,
+		if (panel_info) {
+			ret = of_property_read_u32_array(dev->of_node,
 				"qcom,param-override-seq",
 				phy->param_override_seq,
 				phy->param_override_seq_cnt);
+		} else {
+			ret = of_property_read_u32_array(dev->of_node,
+				"qcom,param-override-seq-no-panel",
+				phy->param_override_seq,
+				phy->param_override_seq_cnt);
+		}
 		if (ret) {
 			dev_err(dev, "qcom,param-override-seq read failed %d\n",
 				ret);

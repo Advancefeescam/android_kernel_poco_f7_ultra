@@ -211,15 +211,6 @@ config QCOM_MDT_LOADER
 	tristate
 	select QCOM_SCM
 
-config MSM_POWER_STATE
-	tristate "Power State driver support for Deep Sleep and Hibernate"
-	help
-	  This option enables Power State Driver which is the kernel component
-	  for supporting deep sleep and hibernate. Create a power_state device
-	  node for user space communication. User space client can open device
-	  node for communication required for handling deep sleep and hibernate
-	  modes.
-
 config QCOM_OCMEM
 	tristate "Qualcomm On Chip Memory (OCMEM) driver"
 	depends on ARCH_QCOM
@@ -583,8 +574,8 @@ config QCOM_WDOG_BITE_EARLY_PANIC
 config QCOM_WATCHDOG_BARK_TIME
 	depends on QCOM_WDT_CORE
 	int "Qualcomm Technologies, Inc. Watchdog bark time in ms"
-	default 11000
-	range 11000 11000
+	default 20000
+	range 11000 20000
 	help
 	  The amount of time, in milliseconds, that should elapse after
 	  a watchdog timer reset before a bark interrupt is sent from the
@@ -593,8 +584,8 @@ config QCOM_WATCHDOG_BARK_TIME
 config QCOM_WATCHDOG_PET_TIME
 	depends on QCOM_WDT_CORE
 	int "Qualcomm Technologies, Inc. Watchdog pet time in ms"
-	default 9360
-	range 9360 9360
+	default 15000
+	range 9360 15000
 	help
 	  The amount of time, in milliseconds, that should elapse before
 	  a watchdog pet is initiated to reset the watchdog timer to 0.
@@ -695,15 +686,6 @@ config QCOM_ADSP_SLEEPMON
 	   activity notifications from these userspace clients, the driver
 	   detects and logs sleep violations from ADSP subsystem. The driver
 	   uses master stats from ADSP subsystem stored in SMEM.
-
-config USB_BAM
-        tristate "USB BAM Driver"
-	depends on SPS && USB_GADGET
-        help
-          Enabling this option adds USB BAM Driver.
-          USB BAM driver was added to supports Smart Peripheral Subsystem
-          Peripheral-to-Peripheral transfers between the USB and other
-          peripheral.
 
 config QCOM_CPU_VENDOR_HOOKS
         tristate "QTI Vendor Hooks Support"
@@ -1220,21 +1202,9 @@ config QTI_DMOF_SCMI
 	  It is intended to be used by clients familiar with
 	  Memcpy Optimization Feature on Qualcomm Technologies, Inc. SOCs.
 
-config QCOM_PMIC_ECID
-	tristate "QCOM PMIC ECID driver"
-	help
-	  This driver provides information on PMIC chipset ECID (Exclusive Chip Identifier).
-	  This driver reads the chipset ECID details from the respective address and
-	  exposes the details via sysfs interface.
-	  This helps in identification of PMIC part information.
-
-config QTI_HW_KEY_MANAGER_V1
-	tristate "Enable QTI Hardware Key Manager v1 for storage encryption"
-	default n
-	help
-	 Say 'Y' to enable the hardware key manager v1 driver used to operate
-	 and access key manager hardware block. This is used to interface with
-	 HWKM hardware to perform key operations from the kernel which will
-	 be used for storage encryption.
-
+config RUST_DETECTION
+        tristate "support lc audio detection"
+        default n
+        help
+                Say Y here to support lc audio class.
 endmenu

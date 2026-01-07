@@ -3620,24 +3620,36 @@ static bool dct_ecc_enabled(struct amd64_pvt *pvt)
 
 static bool umc_ecc_enabled(struct amd64_pvt *pvt)
 {
+	u8 umc_en_mask = 0, ecc_en_mask = 0;
+	u16 nid = pvt->mc_node_id;
 	struct amd64_umc *umc;
-	bool ecc_en = false;
-	int i;
+	u8 ecc_en = 0, i;
 
-	/* Check whether at least one UMC is enabled: */
 	for_each_umc(i) {
 		umc = &pvt->umc[i];
 
-		if (umc->sdp_ctrl & UMC_SDP_INIT &&
-		    umc->umc_cap_hi & UMC_ECC_ENABLED) {
-			ecc_en = true;
-			break;
-		}
+		/* Only check enabled UMCs. */
+		if (!(umc->sdp_ctrl & UMC_SDP_INIT))
+			continue;
+
+		umc_en_mask |= BIT(i);
+
+		if (umc->umc_cap_hi & UMC_ECC_ENABLED)
+			ecc_en_mask |= BIT(i);
 	}
 
-	edac_dbg(3, "Node %d: DRAM ECC %s.\n", pvt->mc_node_id, (ecc_en ? "enabled" : "disabled"));
+	/* Check whether at least one UMC is enabled: */
+	if (umc_en_mask)
+		ecc_en = umc_en_mask == ecc_en_mask;
+	else
+		edac_dbg(0, "Node %d: No enabled UMCs.\n", nid);
 
-	return ecc_en;
+	edac_dbg(3, "Node %d: DRAM ECC %s.\n", nid, (ecc_en ? "enabled" : "disabled"));
+
+	if (!ecc_en)
+		return false;
+	else
+		return true;
 }
 
 static inline void

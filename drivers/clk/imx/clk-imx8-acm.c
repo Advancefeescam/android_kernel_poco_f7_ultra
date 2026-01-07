@@ -289,9 +289,9 @@ static int clk_imx_acm_attach_pm_domains(struct device *dev,
 							 DL_FLAG_STATELESS |
 							 DL_FLAG_PM_RUNTIME |
 							 DL_FLAG_RPM_ACTIVE);
-		if (!dev_pm->pd_dev_link[i]) {
+		if (IS_ERR(dev_pm->pd_dev_link[i])) {
 			dev_pm_domain_detach(dev_pm->pd_dev[i], false);
-			ret = -EINVAL;
+			ret = PTR_ERR(dev_pm->pd_dev_link[i]);
 			goto detach_pm;
 		}
 	}

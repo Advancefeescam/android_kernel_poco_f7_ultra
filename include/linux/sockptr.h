@@ -77,9 +77,7 @@ static inline int copy_safe_from_sockptr(void *dst, size_t ksize,
 {
 	if (optlen < ksize)
 		return -EINVAL;
-	if (copy_from_sockptr(dst, optval, ksize))
-		return -EFAULT;
-	return 0;
+	return copy_from_sockptr(dst, optval, ksize);
 }
 
 static inline int copy_to_sockptr_offset(sockptr_t dst, size_t offset,

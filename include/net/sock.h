@@ -914,8 +914,6 @@ static inline void sk_add_bind2_node(struct sock *sk, struct hlist_head *list)
 	hlist_for_each_entry(__sk, list, sk_bind_node)
 #define sk_for_each_bound_bhash2(__sk, list) \
 	hlist_for_each_entry(__sk, list, sk_bind2_node)
-#define sk_for_each_bound_safe(__sk, tmp, list) \
-	hlist_for_each_entry_safe(__sk, tmp, list, sk_bind_node)
 
 /**
  * sk_for_each_entry_offset_rcu - iterate over a list at a given struct offset
@@ -1647,7 +1645,7 @@ static inline bool sk_wmem_schedule(struct sock *sk, int size)
 }
 
 static inline bool
-__sk_rmem_schedule(struct sock *sk, int size, bool pfmemalloc)
+sk_rmem_schedule(struct sock *sk, struct sk_buff *skb, int size)
 {
 	int delta;
 
@@ -1655,13 +1653,7 @@ __sk_rmem_schedule(struct sock *sk, int size, bool pfmemalloc)
 		return true;
 	delta = size - sk->sk_forward_alloc;
 	return delta <= 0 || __sk_mem_schedule(sk, delta, SK_MEM_RECV) ||
-	       pfmemalloc;
-}
-
-static inline bool
-sk_rmem_schedule(struct sock *sk, struct sk_buff *skb, int size)
-{
-	return __sk_rmem_schedule(sk, size, skb_pfmemalloc(skb));
+		skb_pfmemalloc(skb);
 }
 
 static inline int sk_unused_reserved_mem(const struct sock *sk)
@@ -2852,11 +2844,6 @@ static inline bool sk_is_udp(const struct sock *sk)
 static inline bool sk_is_stream_unix(const struct sock *sk)
 {
 	return sk->sk_family == AF_UNIX && sk->sk_type == SOCK_STREAM;
-}
-
-static inline bool sk_is_vsock(const struct sock *sk)
-{
-	return sk->sk_family == AF_VSOCK;
 }
 
 /**

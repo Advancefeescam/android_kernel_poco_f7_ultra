@@ -2313,7 +2313,7 @@ static int cdrom_ioctl_media_changed(struct cdrom_device_info *cdi,
 		return -EINVAL;
 
 	/* Prevent arg from speculatively bypassing the length check */
-	arg = array_index_nospec(arg, cdi->capacity);
+	barrier_nospec();
 
 	info = kmalloc(sizeof(*info), GFP_KERNEL);
 	if (!info)

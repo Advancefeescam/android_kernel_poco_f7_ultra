@@ -635,11 +635,8 @@ static int stm32_pwm_probe(struct platform_device *pdev)
 	priv->chip.npwm = stm32_pwm_detect_channels(priv, &num_enabled);
 
 	/* Initialize clock refcount to number of enabled PWM channels. */
-	for (i = 0; i < num_enabled; i++) {
-		ret = clk_enable(priv->clk);
-		if (ret)
-			return ret;
-	}
+	for (i = 0; i < num_enabled; i++)
+		clk_enable(priv->clk);
 
 	ret = devm_pwmchip_add(dev, &priv->chip);
 	if (ret < 0)

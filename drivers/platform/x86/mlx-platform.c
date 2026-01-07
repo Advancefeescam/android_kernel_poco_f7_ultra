@@ -6237,7 +6237,6 @@ fail_pci_set_dma_mask:
 fail_pci_request_regions:
 	pci_disable_device(pci_dev);
 fail_pci_enable_device:
-	pci_dev_put(pci_dev);
 	return err;
 }
 
@@ -6248,7 +6247,6 @@ mlxplat_pci_fpga_device_exit(struct pci_dev *pci_bridge,
 	iounmap(pci_bridge_addr);
 	pci_release_regions(pci_bridge);
 	pci_disable_device(pci_bridge);
-	pci_dev_put(pci_bridge);
 }
 
 static int

@@ -283,24 +283,22 @@ static void __init x86_flattree_get_config(void)
 	u32 size, map_len;
 	void *dt;
 
-	if (initial_dtb) {
-		map_len = max(PAGE_SIZE - (initial_dtb & ~PAGE_MASK), (u64)128);
+	if (!initial_dtb)
+		return;
 
-		dt = early_memremap(initial_dtb, map_len);
-		size = fdt_totalsize(dt);
-		if (map_len < size) {
-			early_memunmap(dt, map_len);
-			dt = early_memremap(initial_dtb, size);
-			map_len = size;
-		}
+	map_len = max(PAGE_SIZE - (initial_dtb & ~PAGE_MASK), (u64)128);
 
-		early_init_dt_verify(dt, __pa(dt));
+	dt = early_memremap(initial_dtb, map_len);
+	size = fdt_totalsize(dt);
+	if (map_len < size) {
+		early_memunmap(dt, map_len);
+		dt = early_memremap(initial_dtb, size);
+		map_len = size;
 	}
 
+	early_init_dt_verify(dt);
 	unflatten_and_copy_device_tree();
-
-	if (initial_dtb)
-		early_memunmap(dt, map_len);
+	early_memunmap(dt, map_len);
 }
 #else
 static inline void x86_flattree_get_config(void) { }

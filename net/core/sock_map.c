@@ -156,7 +156,6 @@ static void sock_map_del_link(struct sock *sk,
 				verdict_stop = true;
 			list_del(&link->list);
 			sk_psock_free_link(link);
-			break;
 		}
 	}
 	spin_unlock_bh(&psock->link_lock);
@@ -409,11 +408,12 @@ static void *sock_map_lookup_sys(struct bpf_map *map, void *key)
 static int __sock_map_delete(struct bpf_stab *stab, struct sock *sk_test,
 			     struct sock **psk)
 {
-	struct sock *sk = NULL;
+	struct sock *sk;
 	int err = 0;
 
 	spin_lock_bh(&stab->lock);
-	if (!sk_test || sk_test == *psk)
+	sk = *psk;
+	if (!sk_test || sk_test == sk)
 		sk = xchg(psk, NULL);
 
 	if (likely(sk))
@@ -644,8 +644,6 @@ BPF_CALL_4(bpf_sk_redirect_map, struct sk_buff *, skb,
 	sk = __sock_map_lookup_elem(map, key);
 	if (unlikely(!sk || !sock_map_redirect_allowed(sk)))
 		return SK_DROP;
-	if ((flags & BPF_F_INGRESS) && sk_is_vsock(sk))
-		return SK_DROP;
 
 	skb_bpf_set_redir(skb, sk, flags & BPF_F_INGRESS);
 	return SK_PASS;
@@ -673,8 +671,6 @@ BPF_CALL_4(bpf_msg_redirect_map, struct sk_msg *, msg,
 	if (unlikely(!sk || !sock_map_redirect_allowed(sk)))
 		return SK_DROP;
 	if (!(flags & BPF_F_INGRESS) && !sk_is_tcp(sk))
-		return SK_DROP;
-	if (sk_is_vsock(sk))
 		return SK_DROP;
 
 	msg->flags = flags;
@@ -1250,8 +1246,6 @@ BPF_CALL_4(bpf_sk_redirect_hash, struct sk_buff *, skb,
 	sk = __sock_hash_lookup_elem(map, key);
 	if (unlikely(!sk || !sock_map_redirect_allowed(sk)))
 		return SK_DROP;
-	if ((flags & BPF_F_INGRESS) && sk_is_vsock(sk))
-		return SK_DROP;
 
 	skb_bpf_set_redir(skb, sk, flags & BPF_F_INGRESS);
 	return SK_PASS;
@@ -1279,8 +1273,6 @@ BPF_CALL_4(bpf_msg_redirect_hash, struct sk_msg *, msg,
 	if (unlikely(!sk || !sock_map_redirect_allowed(sk)))
 		return SK_DROP;
 	if (!(flags & BPF_F_INGRESS) && !sk_is_tcp(sk))
-		return SK_DROP;
-	if (sk_is_vsock(sk))
 		return SK_DROP;
 
 	msg->flags = flags;

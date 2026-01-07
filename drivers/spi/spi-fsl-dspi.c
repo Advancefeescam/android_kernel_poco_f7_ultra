@@ -1008,7 +1008,6 @@ static int dspi_setup(struct spi_device *spi)
 	u32 cs_sck_delay = 0, sck_cs_delay = 0;
 	struct fsl_dspi_platform_data *pdata;
 	unsigned char pasc = 0, asc = 0;
-	struct gpio_desc *gpio_cs;
 	struct chip_data *chip;
 	unsigned long clkrate;
 	bool cs = true;
@@ -1074,10 +1073,7 @@ static int dspi_setup(struct spi_device *spi)
 			chip->ctar_val |= SPI_CTAR_LSBFE;
 	}
 
-	gpio_cs = spi_get_csgpiod(spi, 0);
-	if (gpio_cs)
-		gpiod_direction_output(gpio_cs, false);
-
+	gpiod_direction_output(spi_get_csgpiod(spi, 0), false);
 	dspi_deassert_cs(spi, &cs);
 
 	spi_set_ctldata(spi, chip);

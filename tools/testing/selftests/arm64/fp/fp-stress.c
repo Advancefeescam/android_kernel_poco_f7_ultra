@@ -79,7 +79,7 @@ static void child_start(struct child_data *child, const char *program)
 		 */
 		ret = dup2(pipefd[1], 1);
 		if (ret == -1) {
-			printf("dup2() %d\n", errno);
+			fprintf(stderr, "dup2() %d\n", errno);
 			exit(EXIT_FAILURE);
 		}
 
@@ -89,7 +89,7 @@ static void child_start(struct child_data *child, const char *program)
 		 */
 		ret = dup2(startup_pipe[0], 3);
 		if (ret == -1) {
-			printf("dup2() %d\n", errno);
+			fprintf(stderr, "dup2() %d\n", errno);
 			exit(EXIT_FAILURE);
 		}
 
@@ -107,15 +107,16 @@ static void child_start(struct child_data *child, const char *program)
 		 */
 		ret = read(3, &i, sizeof(i));
 		if (ret < 0)
-			printf("read(startp pipe) failed: %s (%d)\n",
-			       strerror(errno), errno);
+			fprintf(stderr, "read(startp pipe) failed: %s (%d)\n",
+				strerror(errno), errno);
 		if (ret > 0)
-			printf("%d bytes of data on startup pipe\n", ret);
+			fprintf(stderr, "%d bytes of data on startup pipe\n",
+				ret);
 		close(3);
 
 		ret = execl(program, program, NULL);
-		printf("execl(%s) failed: %d (%s)\n",
-		       program, errno, strerror(errno));
+		fprintf(stderr, "execl(%s) failed: %d (%s)\n",
+			program, errno, strerror(errno));
 
 		exit(EXIT_FAILURE);
 	} else {

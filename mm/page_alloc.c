@@ -415,30 +415,6 @@ static inline int pfn_to_bitidx(const struct page *page, unsigned long pfn)
 	return (pfn >> pageblock_order) * NR_PAGEBLOCK_BITS;
 }
 
-int set_reclaim_params(int wmark_scale_factor, int swappiness)
-{
-	if (wmark_scale_factor > 3000 || wmark_scale_factor < 1)
-		return -EINVAL;
-
-	if (swappiness > 200 || swappiness < 0)
-		return -EINVAL;
-
-	WRITE_ONCE(vm_swappiness, swappiness);
-	WRITE_ONCE(watermark_scale_factor, wmark_scale_factor);
-
-	setup_per_zone_wmarks();
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(set_reclaim_params);
-
-void get_reclaim_params(int *wmark_scale_factor, int *swappiness)
-{
-	*wmark_scale_factor = watermark_scale_factor;
-	*swappiness = vm_swappiness;
-}
-EXPORT_SYMBOL_GPL(get_reclaim_params);
-
 /**
  * get_pfnblock_flags_mask - Return the requested group of flags for the pageblock_nr_pages block of pages
  * @page: The page within the block of interest
@@ -887,13 +863,6 @@ static inline void __free_one_page(struct page *page,
 	struct page *buddy;
 	bool to_tail;
 	int max_order = zone_max_order(zone);
-	bool bypass = false;
-
-	trace_android_vh_free_one_page_bypass(page, zone, order,
-		migratetype, (int)fpi_flags, &bypass);
-
-	if (bypass)
-		return;
 
 	VM_BUG_ON(!zone_is_initialized(zone));
 	VM_BUG_ON_PAGE(page->flags & PAGE_FLAGS_CHECK_AT_PREP, page);
@@ -1211,26 +1180,11 @@ static __always_inline bool free_pages_prepare(struct page *page,
 	int bad = 0;
 	bool skip_kasan_poison = should_skip_kasan_poison(page, fpi_flags);
 	bool init = want_init_on_free();
-	struct folio *folio = page_folio(page);
 
 	VM_BUG_ON_PAGE(PageTail(page), page);
 
 	trace_mm_page_free(page, order);
 	kmsan_free_page(page, order);
-
-	/*
-	 * In rare cases, when truncation or holepunching raced with
-	 * munlock after VM_LOCKED was cleared, Mlocked may still be
-	 * found set here.  This does not indicate a problem, unless
-	 * "unevictable_pgs_cleared" appears worryingly large.
-	 */
-	if (unlikely(folio_test_mlocked(folio))) {
-		long nr_pages = folio_nr_pages(folio);
-
-		__folio_clear_mlocked(folio);
-		zone_stat_mod_folio(folio, NR_MLOCK, -nr_pages);
-		count_vm_events(UNEVICTABLE_PGCLEARED, nr_pages);
-	}
 
 	if (unlikely(PageHWPoison(page)) && !order) {
 		/*
@@ -1310,11 +1264,8 @@ static __always_inline bool free_pages_prepare(struct page *page,
 		if (kasan_has_integrated_init())
 			init = false;
 	}
-	if (init) {
-		trace_android_vh_free_pages_prepare_init(page, 1 << order, &init);
-		if (init)
-			kernel_init_pages(page, 1 << order);
-	}
+	if (init)
+		kernel_init_pages(page, 1 << order);
 
 	/*
 	 * arch_free_page() can make the page's contents inaccessible.  s390
@@ -1603,11 +1554,8 @@ static void check_new_page_bad(struct page *page)
  */
 static int check_new_page(struct page *page)
 {
-	unsigned long check_flags = PAGE_FLAGS_CHECK_AT_PREP|__PG_HWPOISON;
-
-	trace_android_vh_check_new_page(&check_flags);
-
-	if (likely(page_expected_state(page, check_flags)))
+	if (likely(page_expected_state(page,
+				PAGE_FLAGS_CHECK_AT_PREP|__PG_HWPOISON)))
 		return 0;
 
 	check_new_page_bad(page);
@@ -1659,13 +1607,10 @@ static inline bool should_skip_init(gfp_t flags)
 inline void post_alloc_hook(struct page *page, unsigned int order,
 				gfp_t gfp_flags)
 {
-	int i;
-	bool zero_tags;
 	bool init = !want_init_on_free() && want_init_on_alloc(gfp_flags) &&
 			!should_skip_init(gfp_flags);
-
-	trace_android_vh_post_alloc_hook(page, order, &init);
-	zero_tags = init && (gfp_flags & __GFP_ZEROTAGS);
+	bool zero_tags = init && (gfp_flags & __GFP_ZEROTAGS);
+	int i;
 
 	set_page_private(page, 0);
 	set_page_refcounted(page);
@@ -2292,11 +2237,7 @@ static __always_inline struct page *
 __rmqueue(struct zone *zone, unsigned int order, int migratetype,
 						unsigned int alloc_flags)
 {
-	struct page *page = NULL;
-
-	trace_android_vh_rmqueue_smallest_bypass(&page, zone, order, migratetype);
-	if (page)
-		return page;
+	struct page *page;
 
 	if (IS_ENABLED(CONFIG_CMA)) {
 		/*
@@ -2679,7 +2620,6 @@ void free_unref_page_list(struct list_head *list)
 	struct zone *locked_zone = NULL;
 	int batch_count = 0;
 	int migratetype;
-	bool skip_free = false;
 
 	/* Prepare pages for freeing */
 	list_for_each_entry_safe(page, next, list, lru) {
@@ -2700,10 +2640,6 @@ void free_unref_page_list(struct list_head *list)
 			continue;
 		}
 	}
-
-	trace_android_vh_free_unref_page_list_bypass(list, &skip_free);
-	if (skip_free)
-		return;
 
 	list_for_each_entry_safe(page, next, list, lru) {
 		struct zone *zone = page_zone(page);
@@ -2896,12 +2832,12 @@ struct page *rmqueue_buddy(struct zone *preferred_zone, struct zone *zone,
 				page = __rmqueue(zone, order, migratetype,
 						 alloc_flags);
 			/*
-			 * If the allocation fails, allow OOM handling and
-			 * order-0 (atomic) allocs access to HIGHATOMIC
-			 * reserves as failing now is worse than failing a
-			 * high-order atomic allocation in the future.
+			 * If the allocation fails, allow OOM handling access
+			 * to HIGHATOMIC reserves as failing now is worse than
+			 * failing a high-order atomic allocation in the
+			 * future.
 			 */
-			if (!page && (alloc_flags & (ALLOC_OOM|ALLOC_NON_BLOCK)))
+			if (!page && (alloc_flags & ALLOC_OOM))
 				page = __rmqueue_smallest(zone, order, MIGRATE_HIGHATOMIC);
 
 			if (!page) {
@@ -3060,8 +2996,6 @@ struct page *rmqueue(struct zone *preferred_zone,
 
 	page = rmqueue_buddy(preferred_zone, zone, order, alloc_flags,
 							migratetype);
-	trace_android_vh_rmqueue(preferred_zone, zone, order,
-			gfp_flags, alloc_flags, migratetype);
 
 out:
 	/* Separate test+clear to avoid unnecessary atomics */
@@ -3210,7 +3144,6 @@ static inline bool zone_watermark_fast(struct zone *z, unsigned int order,
 				unsigned int alloc_flags, gfp_t gfp_mask)
 {
 	long free_pages;
-	bool is_watermark_ok = false;
 
 	if (!zone_is_suitable(z, order))
 		return false;
@@ -3233,10 +3166,6 @@ static inline bool zone_watermark_fast(struct zone *z, unsigned int order,
 		if (usable_free > mark + z->lowmem_reserve[highest_zoneidx])
 			return true;
 	}
-
-	trace_android_vh_watermark_fast_ok(order, gfp_mask, &is_watermark_ok);
-	if (is_watermark_ok)
-		return true;
 
 	if (__zone_watermark_ok(z, order, mark, highest_zoneidx, alloc_flags,
 					free_pages))
@@ -3927,6 +3856,7 @@ __perform_reclaim(gfp_t gfp_mask, unsigned int order,
 {
 	unsigned int noreclaim_flag;
 	unsigned long progress;
+	bool skip = false;
 
 	cond_resched();
 
@@ -3935,9 +3865,14 @@ __perform_reclaim(gfp_t gfp_mask, unsigned int order,
 	fs_reclaim_acquire(gfp_mask);
 	noreclaim_flag = memalloc_noreclaim_save();
 
+	trace_android_rvh_perform_reclaim(order, gfp_mask, ac->nodemask,
+					  &progress, &skip);
+	if (skip)
+		goto out;
+
 	progress = try_to_free_pages(ac->zonelist, order, gfp_mask,
 								ac->nodemask);
-
+out:
 	memalloc_noreclaim_restore(noreclaim_flag);
 	fs_reclaim_release(gfp_mask);
 
@@ -4654,8 +4589,7 @@ unsigned long __alloc_pages_bulk(gfp_t gfp, int preferred_nid,
 	gfp = alloc_gfp;
 
 	/* Find an allowed local zone that meets the low watermark. */
-	z = ac.preferred_zoneref;
-	for_next_zone_zonelist_nodemask(zone, z, ac.highest_zoneidx, ac.nodemask) {
+	for_each_zone_zonelist_nodemask(zone, z, ac.zonelist, ac.highest_zoneidx, ac.nodemask) {
 		unsigned long mark;
 
 		if (cpusets_enabled() && (alloc_flags & ALLOC_CPUSET) &&
@@ -6395,14 +6329,9 @@ static void alloc_contig_dump_pages(struct list_head *page_list)
 	}
 }
 
-/*
- * [start, end) must belong to a single zone.
- * @migratetype: using migratetype to filter the type of migration in
- *		trace_mm_alloc_contig_migrate_range_info.
- */
+/* [start, end) must belong to a single zone. */
 int __alloc_contig_migrate_range(struct compact_control *cc,
-					unsigned long start, unsigned long end,
-					int migratetype)
+					unsigned long start, unsigned long end)
 {
 	/* This function is based on compact_zone() from compaction.c. */
 	unsigned int nr_reclaimed;
@@ -6414,10 +6343,6 @@ int __alloc_contig_migrate_range(struct compact_control *cc,
 		.nid = zone_to_nid(cc->zone),
 		.gfp_mask = GFP_USER | __GFP_MOVABLE | __GFP_RETRY_MAYFAIL,
 	};
-	struct page *page;
-	unsigned long total_mapped = 0;
-	unsigned long total_migrated = 0;
-	unsigned long total_reclaimed = 0;
 
 	if (cc->gfp_mask & __GFP_NORETRY)
 		max_tries = 1;
@@ -6446,17 +6371,8 @@ int __alloc_contig_migrate_range(struct compact_control *cc,
 							&cc->migratepages);
 		cc->nr_migratepages -= nr_reclaimed;
 
-		if (trace_mm_alloc_contig_migrate_range_info_enabled()) {
-			total_reclaimed += nr_reclaimed;
-			list_for_each_entry(page, &cc->migratepages, lru)
-				total_mapped += page_mapcount(page);
-		}
-
 		ret = migrate_pages(&cc->migratepages, alloc_migration_target,
 			NULL, (unsigned long)&mtc, cc->mode, MR_CONTIG_RANGE, NULL);
-
-		if (trace_mm_alloc_contig_migrate_range_info_enabled() && !ret)
-			total_migrated += cc->nr_migratepages;
 
 		/*
 		 * On -ENOMEM, migrate_pages() bails out right away. It is pointless
@@ -6480,13 +6396,9 @@ int __alloc_contig_migrate_range(struct compact_control *cc,
 			}
 		}
 		putback_movable_pages(&cc->migratepages);
+		return ret;
 	}
-
-	trace_mm_alloc_contig_migrate_range_info(start, end, migratetype,
-						 total_migrated,
-						 total_reclaimed,
-						 total_mapped);
-	return (ret < 0) ? ret : 0;
+	return 0;
 }
 
 /**
@@ -6570,7 +6482,7 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 	 * allocated.  So, if we fall through be sure to clear ret so that
 	 * -EBUSY is not accidentally used or returned to caller.
 	 */
-	ret = __alloc_contig_migrate_range(&cc, start, end, migratetype);
+	ret = __alloc_contig_migrate_range(&cc, start, end);
 	if (ret && (ret != -EBUSY || (gfp_mask & __GFP_NORETRY)))
 		goto done;
 	ret = 0;
@@ -6775,28 +6687,6 @@ void zone_pcp_enable(struct zone *zone)
 	__zone_set_pageset_high_and_batch(zone, zone->pageset_high, zone->pageset_batch);
 	mutex_unlock(&pcp_batch_high_lock);
 }
-
-void all_pcp_disable(void)
-{
-	struct zone *zone;
-	mutex_lock(&pcp_batch_high_lock);
-
-	for_each_populated_zone(zone) {
-		__zone_set_pageset_high_and_batch(zone, 0, 1);
-		__drain_all_pages(zone, true);
-	}
-}
-EXPORT_SYMBOL(all_pcp_disable);
-
-void all_pcp_enable(void)
-{
-	struct zone *zone;
-	for_each_populated_zone(zone)
-		__zone_set_pageset_high_and_batch(zone, zone->pageset_high, zone->pageset_batch);
-
-	mutex_unlock(&pcp_batch_high_lock);
-}
-EXPORT_SYMBOL(all_pcp_enable);
 
 void zone_pcp_reset(struct zone *zone)
 {

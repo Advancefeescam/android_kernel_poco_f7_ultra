@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2009-2017, 2021 The Linux Foundation. All rights reserved.
  * Copyright (c) 2017-2019, Linaro Ltd.
- * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -59,7 +59,6 @@ enum {
 	HW_PLATFORM_SBC = 24,
 	HW_PLATFORM_ADP = 25,
 	HW_PLATFORM_HDK = 31,
-	HW_PLATFORM_IOT = 32,
 	HW_PLATFORM_ATP = 33,
 	HW_PLATFORM_IDP = 34,
 	HW_PLATFORM_CRD = 40,
@@ -86,7 +85,6 @@ static const char * const hw_platform[] = {
 	[HW_PLATFORM_SBC] = "SBC",
 	[HW_PLATFORM_ADP] = "ADP",
 	[HW_PLATFORM_HDK] = "HDK",
-	[HW_PLATFORM_IOT] = "IOT",
 	[HW_PLATFORM_ATP] = "ATP",
 	[HW_PLATFORM_IDP] = "IDP",
 	[HW_PLATFORM_CRD] = "CRD",
@@ -626,9 +624,6 @@ static const struct soc_id soc_id[] = {
 	{ qcom_board_id(SG_PARROT) },
 	{ qcom_board_id(SG_PARROTP) },
 	{ qcom_board_id(PARROTPRO) },
-	{ qcom_board_id(PARROTPROP) },
-	{ qcom_board_id(PARROTPROQ) },
-	{ qcom_board_id(PARROTLITE) },
 	{ qcom_board_id(RAVELIN) },
 	{ qcom_board_id(RAVELINP) },
 	{ qcom_board_id(SG_RAVELIN) },
@@ -642,10 +637,8 @@ static const struct soc_id soc_id[] = {
 	{ qcom_board_id(MONACOP) },
 	{ qcom_board_id(TUNA) },
 	{ qcom_board_id(TUNA7) },
-	{ qcom_board_id(TUNAP) },
 	{ qcom_board_id(KERA) },
 	{ qcom_board_id(KERAP) },
-	{ qcom_board_id(QCS610) },
 };
 
 static struct attribute *msm_custom_socinfo_attrs[MAX_SOCINFO_ATTRS];
@@ -1729,16 +1722,10 @@ static int qcom_socinfo_probe(struct platform_device *pdev)
 	qs->attr.revision = devm_kasprintf(&pdev->dev, GFP_KERNEL, "%u.%u",
 					   SOCINFO_MAJOR(le32_to_cpu(info->ver)),
 					   SOCINFO_MINOR(le32_to_cpu(info->ver)));
-	if (!qs->attr.soc_id || !qs->attr.revision)
-		return -ENOMEM;
-
-	if (offsetof(struct socinfo, serial_num) <= item_size) {
+	if (offsetof(struct socinfo, serial_num) <= item_size)
 		qs->attr.serial_number = devm_kasprintf(&pdev->dev, GFP_KERNEL,
 							"%u",
 							le32_to_cpu(info->serial_num));
-		if (!qs->attr.serial_number)
-			return -ENOMEM;
-	}
 
 	if (socinfo_format >= SOCINFO_VERSION(0, 16)) {
 		socinfo_enumerate_partinfo_details();

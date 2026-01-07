@@ -51,6 +51,15 @@ unsigned int sysctl_sched_wake_up_idle[2];
 unsigned int sysctl_input_boost_ms;
 unsigned int sysctl_input_boost_freq[WALT_NR_CPUS];
 unsigned int sysctl_sched_boost_on_input;
+//MIUI ADD: Performance_BoostFramework
+unsigned int sysctl_powerkey_input_boost_ms;
+unsigned int sysctl_powerkey_input_boost_freq[WALT_NR_CPUS];
+unsigned int sysctl_powerkey_sched_boost_on_input;
+
+unsigned int sysctl_volkey_input_boost_ms;
+unsigned int sysctl_volkey_input_boost_freq[WALT_NR_CPUS];
+unsigned int sysctl_volkey_sched_boost_on_input;
+//END Performance_BoostFramework
 unsigned int sysctl_sched_early_up[MAX_MARGIN_LEVELS];
 unsigned int sysctl_sched_early_down[MAX_MARGIN_LEVELS];
 
@@ -1047,10 +1056,15 @@ static int sched_sibling_cluster_handler(struct ctl_table *table, int write,
 				       loff_t *ppos)
 {
 	int ret = -EACCES, i = 0;
+	static bool initialized;
 	struct walt_sched_cluster *cluster;
+
+	if (write && initialized)
+		return ret;
 
 	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 	if (!ret && write) {
+		initialized = true;
 		for_each_sched_cluster(cluster)
 			cluster->sibling_cluster = sysctl_sched_sibling_cluster_map[i++];
 	}
@@ -1318,6 +1332,63 @@ static struct ctl_table smart_freq_cluster3[] = {
 };
 
 static struct ctl_table input_boost_sysctls[] = {
+//MIUI ADD: Performance_BoostFramework
+	{
+		.procname	= "powerkey_input_boost_ms",
+		.data		= &sysctl_powerkey_input_boost_ms,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= &one_hundred_thousand,
+	},
+	{
+		.procname	= "powerkey_input_boost_freq",
+		.data		= &sysctl_powerkey_input_boost_freq,
+		.maxlen		= sizeof(unsigned int) * 8,
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+	{
+		.procname	= "powerkey_sched_boost_on_input",
+		.data		= &sysctl_powerkey_sched_boost_on_input,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+
+	{
+		.procname	= "volkey_input_boost_ms",
+		.data		= &sysctl_volkey_input_boost_ms,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= &one_hundred_thousand,
+	},
+	{
+		.procname	= "volkey_input_boost_freq",
+		.data		= &sysctl_volkey_input_boost_freq,
+		.maxlen		= sizeof(unsigned int) * 8,
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+	{
+		.procname	= "volkey_sched_boost_on_input",
+		.data		= &sysctl_volkey_sched_boost_on_input,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+//END Performance_BoostFramework
 	{
 		.procname	= "input_boost_ms",
 		.data		= &sysctl_input_boost_ms,

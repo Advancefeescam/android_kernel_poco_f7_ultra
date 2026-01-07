@@ -190,8 +190,7 @@ int ssp_get(struct task_struct *target, const struct user_regset *regset,
 	struct fpu *fpu = &target->thread.fpu;
 	struct cet_user_state *cetregs;
 
-	if (!cpu_feature_enabled(X86_FEATURE_USER_SHSTK) ||
-	    !ssp_active(target, regset))
+	if (!cpu_feature_enabled(X86_FEATURE_USER_SHSTK))
 		return -ENODEV;
 
 	sync_fpstate(fpu);

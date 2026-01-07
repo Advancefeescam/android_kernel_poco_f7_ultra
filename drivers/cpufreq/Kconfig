@@ -149,6 +149,12 @@ config CPU_FREQ_GOV_USERSPACE
 
 	  If in doubt, say Y.
 
+config ARM_XIAOMI_CPUMAXFREQ
+	tristate "Xiaomi get cpumaxfreq"
+	default n
+	help
+	  Say 'm' here to support cpumaxfreq node
+
 config CPU_FREQ_GOV_ONDEMAND
 	tristate "'ondemand' cpufreq policy governor"
 	select CPU_FREQ_GOV_COMMON

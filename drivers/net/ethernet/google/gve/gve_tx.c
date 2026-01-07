@@ -777,11 +777,8 @@ int gve_xdp_xmit(struct net_device *dev, int n, struct xdp_frame **frames,
 	struct gve_tx_ring *tx;
 	int i, err = 0, qid;
 
-	if (unlikely(flags & ~XDP_XMIT_FLAGS_MASK) || !priv->xdp_prog)
+	if (unlikely(flags & ~XDP_XMIT_FLAGS_MASK))
 		return -EINVAL;
-
-	if (!gve_get_napi_enabled(priv))
-		return -ENETDOWN;
 
 	qid = gve_xdp_tx_queue_id(priv,
 				  smp_processor_id() % priv->num_xdp_queues);

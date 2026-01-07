@@ -141,8 +141,6 @@ static inline bool mapping_empty(struct address_space *mapping)
 	return xa_empty(&mapping->i_pages);
 }
 
-extern void _trace_android_rvh_mapping_shrinkable(bool *shrinkable);
-
 /*
  * mapping_shrinkable - test if page cache state allows inode reclaim
  * @mapping: the page cache mapping
@@ -167,11 +165,7 @@ extern void _trace_android_rvh_mapping_shrinkable(bool *shrinkable);
 static inline bool mapping_shrinkable(struct address_space *mapping)
 {
 	void *head;
-	bool shrinkable = false;
 
-	_trace_android_rvh_mapping_shrinkable(&shrinkable);
-	if (shrinkable)
-		return true;
 	/*
 	 * On highmem systems, there could be lowmem pressure from the
 	 * inodes before there is highmem pressure from the page
@@ -1169,7 +1163,6 @@ static inline void wait_on_page_locked(struct page *page)
 	folio_wait_locked(page_folio(page));
 }
 
-void folio_end_read(struct folio *folio, bool success);
 void wait_on_page_writeback(struct page *page);
 void folio_wait_writeback(struct folio *folio);
 int folio_wait_writeback_killable(struct folio *folio);

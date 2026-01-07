@@ -537,7 +537,7 @@ static unsigned long dsi_adjust_pclk_for_compression(const struct drm_display_mo
 
 	int new_htotal = mode->htotal - mode->hdisplay + new_hdisplay;
 
-	return mult_frac(mode->clock * 1000u, new_htotal, mode->htotal);
+	return new_htotal * mode->vtotal * drm_mode_vrefresh(mode);
 }
 
 static unsigned long dsi_get_pclk_rate(const struct drm_display_mode *mode,
@@ -545,7 +545,7 @@ static unsigned long dsi_get_pclk_rate(const struct drm_display_mode *mode,
 {
 	unsigned long pclk_rate;
 
-	pclk_rate = mode->clock * 1000u;
+	pclk_rate = mode->clock * 1000;
 
 	if (dsc)
 		pclk_rate = dsi_adjust_pclk_for_compression(mode, dsc);

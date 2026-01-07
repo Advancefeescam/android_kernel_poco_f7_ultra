@@ -1,9 +1,14 @@
+target_arch_map = {
+    "kunzite" : "parrot",
+}
+
 targets = [
     # keep sorted
     "monaco",
     "parrot",
     "pineapple",
     "sun",
+    "kunzite",
 ]
 
 la_variants = [
@@ -14,12 +19,9 @@ la_variants = [
 
 le_targets = [
     # keep sorted
-    "kera-le",
-    "qcs610",
     "sdxkova",
     "sdxkova.cpe.wkk",
     "sun-allyes",
-    "sun-le",
 ]
 
 le_variants = [
@@ -65,3 +67,9 @@ def get_all_non_la_variants():
 
 def get_all_variants():
     return get_all_la_variants() + get_all_le_variants() + get_all_vm_variants()
+
+def get_arch_of_target(target):
+    arch = target_arch_map.get(target)
+    if not arch:
+        arch = target
+    return arch

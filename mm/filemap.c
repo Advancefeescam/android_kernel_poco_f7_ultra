@@ -65,12 +65,6 @@
 
 #include "swap.h"
 
-void _trace_android_rvh_mapping_shrinkable(bool *shrinkable)
-{
-	trace_android_rvh_mapping_shrinkable(shrinkable);
-}
-EXPORT_SYMBOL_GPL(_trace_android_rvh_mapping_shrinkable);
-
 /*
  * Shared mappings implemented 30.11.1994. It's not fully working yet,
  * though.
@@ -1003,15 +997,8 @@ int filemap_add_folio(struct address_space *mapping, struct folio *folio,
 		 * get overwritten with something else, is a waste of memory.
 		 */
 		WARN_ON_ONCE(folio_test_active(folio));
-		if (!(gfp & __GFP_WRITE) && shadow) {
+		if (!(gfp & __GFP_WRITE) && shadow)
 			workingset_refault(folio, shadow);
-			trace_android_vh_refault_filemap_add_folio(folio, shadow, gfp, &ret);
-			if (unlikely(ret)) {
-				__filemap_remove_folio(folio, shadow);
-				__folio_clear_locked(folio);
-				return ret;
-			}
-		}
 		folio_add_lru(folio);
 	}
 	return ret;
@@ -1589,28 +1576,6 @@ void folio_unlock(struct folio *folio)
 EXPORT_SYMBOL(folio_unlock);
 
 /**
- * folio_end_read - End read on a folio.
- * @folio: The folio.
- * @success: True if all reads completed successfully.
- *
- * When all reads against a folio have completed, filesystems should
- * call this function to let the pagecache know that no more reads
- * are outstanding.  This will unlock the folio and wake up any thread
- * sleeping on the lock.  The folio will also be marked uptodate if all
- * reads succeeded.
- *
- * Context: May be called from interrupt or process context.  May not be
- * called from NMI context.
- */
-void folio_end_read(struct folio *folio, bool success)
-{
-	if (likely(success))
-		folio_mark_uptodate(folio);
-	folio_unlock(folio);
-}
-EXPORT_SYMBOL(folio_end_read);
-
-/**
  * folio_end_private_2 - Clear PG_private_2 and wake any waiters.
  * @folio: The folio.
  *
@@ -1952,6 +1917,7 @@ repeat:
 	folio = filemap_get_entry(mapping, index);
 	if (xa_is_value(folio))
 		folio = NULL;
+
 	trace_android_vh_filemap_get_folio(mapping, index, fgp_flags,
 					gfp, folio);
 	if (!folio)
@@ -2717,7 +2683,7 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
 	if (unlikely(!iov_iter_count(iter)))
 		return 0;
 
-	iov_iter_truncate(iter, inode->i_sb->s_maxbytes - iocb->ki_pos);
+	iov_iter_truncate(iter, inode->i_sb->s_maxbytes);
 	folio_batch_init(&fbatch);
 	trace_android_vh_filemap_read(filp, iocb->ki_pos, iov_iter_count(iter));
 
@@ -3097,7 +3063,7 @@ static inline loff_t folio_seek_hole_data(struct xa_state *xas,
 		if (ops->is_partially_uptodate(folio, offset, bsz) ==
 							seek_data)
 			break;
-		start = (start + bsz) & ~((u64)bsz - 1);
+		start = (start + bsz) & ~(bsz - 1);
 		offset += bsz;
 	} while (offset < folio_size(folio));
 unlock:
@@ -3322,11 +3288,6 @@ static struct file *do_async_mmap_readahead(struct vm_fault *vmf,
 	DEFINE_READAHEAD(ractl, file, ra, file->f_mapping, vmf->pgoff);
 	struct file *fpin = NULL;
 	unsigned int mmap_miss;
-	bool skip = false;
-
-	trace_android_vh_do_async_mmap_readahead(vmf, folio, &skip);
-	if (skip)
-		return fpin;
 
 	/* If we don't want any read-ahead, don't bother */
 	if (vmf->vma->vm_flags & VM_RAND_READ || !ra->ra_pages)
@@ -3425,6 +3386,8 @@ retry_find:
 			return VM_FAULT_OOM;
 		}
 	}
+
+	trace_android_vh_filemap_fault_pre_folio_locked(folio);
 
 	if (!lock_folio_maybe_drop_mmap(vmf, folio, &fpin))
 		goto out_retry;
@@ -3716,6 +3679,7 @@ vm_fault_t filemap_map_pages(struct vm_fault *vmf,
 		last_pgoff = xas.xa_index;
 		end = folio->index + folio_nr_pages(folio) - 1;
 		nr_pages = min(end, end_pgoff) - xas.xa_index + 1;
+		trace_android_vh_filemap_pages(folio);
 
 		if (!folio_test_large(folio))
 			ret |= filemap_map_order0_folio(vmf,
@@ -3726,6 +3690,7 @@ vm_fault_t filemap_map_pages(struct vm_fault *vmf,
 					nr_pages, &mmap_miss);
 
 		folio_unlock(folio);
+		trace_android_vh_filemap_folio_mapped(folio);
 		folio_put(folio);
 	} while ((folio = next_uptodate_folio(&xas, mapping, end_pgoff)) != NULL);
 	pte_unmap_unlock(vmf->pte, vmf->ptl);
@@ -4365,20 +4330,6 @@ resched:
 }
 
 /*
- * See mincore: reveal pagecache information only for files
- * that the calling process has write access to, or could (if
- * tried) open for writing.
- */
-static inline bool can_do_cachestat(struct file *f)
-{
-	if (f->f_mode & FMODE_WRITE)
-		return true;
-	if (inode_owner_or_capable(file_mnt_idmap(f), file_inode(f)))
-		return true;
-	return file_permission(f, MAY_WRITE) == 0;
-}
-
-/*
  * The cachestat(2) system call.
  *
  * cachestat() returns the page cache statistics of a file in the
@@ -4435,11 +4386,6 @@ SYSCALL_DEFINE4(cachestat, unsigned int, fd,
 	if (is_file_hugepages(f.file)) {
 		fdput(f);
 		return -EOPNOTSUPP;
-	}
-
-	if (!can_do_cachestat(f.file)) {
-		fdput(f);
-		return -EPERM;
 	}
 
 	if (flags != 0) {

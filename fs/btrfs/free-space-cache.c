@@ -3808,7 +3808,7 @@ next:
 		if (async && *total_trimmed)
 			break;
 
-		if (btrfs_trim_interrupted()) {
+		if (fatal_signal_pending(current)) {
 			ret = -ERESTARTSYS;
 			break;
 		}
@@ -3999,7 +3999,7 @@ next:
 		}
 		block_group->discard_cursor = start;
 
-		if (btrfs_trim_interrupted()) {
+		if (fatal_signal_pending(current)) {
 			if (start != offset)
 				reset_trimming_bitmap(ctl, offset);
 			ret = -ERESTARTSYS;

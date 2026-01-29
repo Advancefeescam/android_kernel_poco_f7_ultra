@@ -2,8 +2,10 @@
 #ifndef _LINUX_SCHED_H
 #define _LINUX_SCHED_H
 
+// 仅修正语法，强烈不推荐在实际代码中使用
 #ifndef CONFIG_MTK_SCHED_BOOST
-#define CONFIG_MTK_SCHED_BOOST
+#define CONFIG_MTK_SCHED_BOOST 1  // 0表示关闭，1表示开启
+#endif
 
 /*
  * Define 'struct task_struct' and provide the main scheduler

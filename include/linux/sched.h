@@ -2,6 +2,9 @@
 #ifndef _LINUX_SCHED_H
 #define _LINUX_SCHED_H
 
+#ifndef CONFIG_MTK_SCHED_BOOST
+#define CONFIG_MTK_SCHED_BOOST
+
 /*
  * Define 'struct task_struct' and provide the main scheduler
  * APIs (schedule(), wakeup variants, etc.)

@@ -1,0 +1,27 @@
+name: Build Kernel Monitor Mode
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v3
+
+      - name: Install Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc libssl-dev libncurses5-dev git python2 gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Build Kernel
+        run: |
+          export ARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          
+          # تفعيل وضع المراقبة في ملف الإعدادات
+          sed -i 's/# CONFIG_CFG80211 is not set/CONFIG_CFG80211=y/g' arch/arm64/configs/dandelion_user_defconfig
+          echo "CONFIG_MAC80211=y" >> arch/arm64/configs/dandelion_user_defconfig
+          
+          make dandelion_user_defconfig
+          make -j$(nproc)

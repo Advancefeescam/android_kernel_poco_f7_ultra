@@ -234,3 +234,4 @@
 | popsicle-w-oss | Xiaomi 17 / Xiaomi 17 Pro / Xiaomi 17 Pro Max | Android W | release-w-qcom-sm8850 |[popsicle-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/popsicle-w-oss) |
 | spring-v-oss | Redmi 15 5G / Redmi Note 15R / POCO M7 Plus 5G | Android V | LA.VENDOR.14.3.1.r1-03700-MANNAR.QSSI15.0-1.107589.1.111280.1 |[spring-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/spring-v-oss) |
 | tornado-v-oss | Redmi 15C 5G / POCO C85 5G / REDMI 15C 5G / REDMI 15R 5G | Android V | alps-release-t0.mp1.tc8sp2-V1.281.1 |[tornado-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tornado-v-oss) |
+| dash-w-oss | REDMI Turbo 5 Max | Android W | base-v-t-alps-release-v0.mp1.rc-V13.94 |[dash-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dash-w-oss) |

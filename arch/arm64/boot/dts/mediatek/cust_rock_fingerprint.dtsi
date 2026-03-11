@@ -1,0 +1,89 @@
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* add goodix fingerprint start*/
+
+&spi3 {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fpc_tee@0 {
+		compatible = "goodix,goodix-fp";
+		reg = <0>;
+		fpc,enable-wakeup;
+		spi-max-frequency = <10000000>;
+		netlink-event = <30>;
+		status = "okay";
+	};
+};
+
+&goodix_fp {
+	fpc,gpio_irq = <&pio 0 0>;
+	pinctrl-names = "default","reset_high","reset_low","spi_mode","avdd_en_high","avdd_en_low";
+	pinctrl-0 = <&fingerprint_default>;
+	pinctrl-1 = <&fingerprint_reset_high>;
+	pinctrl-2 = <&fingerprint_reset_low>;
+	pinctrl-3 = <&fingerprint_spi_mode>;
+	pinctrl-4 = <&fingerprint_avdd_high>;
+	pinctrl-5 = <&fingerprint_avdd_low>;
+	status = "okay";
+};
+
+&pio {
+	fingerprint_default: state_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};
+	fingerprint_reset_high: state_reset_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO108__FUNC_GPIO108>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fingerprint_reset_low: state_reset_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO108__FUNC_GPIO108>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fingerprint_spi_mode:spi_mode{
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO42__FUNC_SPI3_CLK>,
+				<PINMUX_GPIO43__FUNC_SPI3_CSB>,
+				<PINMUX_GPIO44__FUNC_SPI3_MO>,
+				<PINMUX_GPIO45__FUNC_SPI3_MI>;
+			drive-strength = <2>;
+		};
+	};
+	fingerprint_avdd_high: state_avdd_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO106__FUNC_GPIO106>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fingerprint_avdd_low: state_avdd_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO106__FUNC_GPIO106>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+/* add goodix fingerprint end*/
+

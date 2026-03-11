@@ -497,4 +497,11 @@ source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/habanalabs/Kconfig"
 source "drivers/misc/uacce/Kconfig"
+source "drivers/misc/hqsysfs/Kconfig"
+#M6 code for AW86224_HAPTIC by dongfeiju at 20220923 start
+source "drivers/misc/aw86224_haptic/Kconfig"
+#M6 code for AW86224_HAPTIC by dongfeiju at 20220923 end
+#Huaqin modify for HQ-194052  by xukai at 2021/03/09 start
+source "drivers/misc/mi-memory/Kconfig"
+#Huaqin modify for HQ-194052  by xukai at 2022/03/09 end
 endmenu

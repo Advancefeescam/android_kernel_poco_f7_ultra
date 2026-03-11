@@ -103,8 +103,12 @@ obj-$(CONFIG_LEDS_MTK)			+= leds-mtk.o
 obj-$(CONFIG_LEDS_MTK_PWM)		+= leds-mtk-pwm.o
 obj-$(CONFIG_LEDS_MTK_DISP)		+= leds-mtk-disp.o
 
+obj-$(CONFIG_KTD3136_SUPPORT) += ktd3136_bl.o
+obj-$(CONFIG_LM3697_SUPPORT) += lm3697_bl.o
+lm3697_bl-y += ti-lmu-backlight-core.o ti-lmu-backlight-data.o
+
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/flashlight
-subdir-ccflags-y += -I$(srctree)/drivers/power/supply
+subdir-ccflags-y += -I$(srctree)/drivers/power/supply-$(BUILD_TARGET_PRODUCT)
 
 # LED SPI Drivers
 obj-$(CONFIG_LEDS_CR0014114)		+= leds-cr0014114.o

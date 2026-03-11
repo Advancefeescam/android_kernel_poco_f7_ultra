@@ -452,5 +452,31 @@ struct scp_sub_feature_tb sensor_type_table[NUM_SENSOR_TYPE] = {
 		.freq    = 0,
 		.enable  = 0,
 	},
+	/* Huaqin add for HQ-193977 by baoguangxiu at 2022/04/14 start */
+	#ifdef PROJECT_ROCK
+	{
+		.feature = SAR_ALGO_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = SAR_ALGO_1_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	#endif
+	#ifdef PROJECT_DIAMOND
+	{
+		.feature = SAR_ALGO_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = SAR_ALGO_1_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	#endif
+	/* Huaqin add for HQ-193977 by baoguangxiu at 2022/04/14 end */
 };
 

@@ -222,6 +222,11 @@ source "drivers/tee/Kconfig"
 
 source "drivers/mux/Kconfig"
 
+
+#L19 code for HQ-161421 by zhangkaiming at 2021/10/25 start
+source "drivers/switch/Kconfig"
+#L19 code for HQ-161421 by zhangkaiming at 2021/10/25 end
+
 source "drivers/opp/Kconfig"
 
 source "drivers/visorbus/Kconfig"

@@ -17,8 +17,28 @@ struct GPIO_PINCTRL gpio_pinctrl_list_cam[
 	{"ldo_vcama_0"},
 	{"ldo_vcama1_1"},
 	{"ldo_vcama1_0"},
+#ifdef PROJECT_ROCK
+	{"ldo_vcamaf_1"},
+	{"ldo_vcamaf_0"},
+#endif
+#ifdef PROJECT_DIAMOND
+	{"ldo_vcamaf_1"},
+	{"ldo_vcamaf_0"},
+#endif
 	{"ldo_vcamd_1"},
 	{"ldo_vcamd_0"},
+#ifdef PROJECT_ROCK
+    /*L19A code for HQ-199297 by luling at 2022/5/9 start */
+	{"ldo_vcamd1_1"},
+	{"ldo_vcamd1_0"},
+    /*L19A code for HQ-199297 by luling at 2022/5/9 end */
+#endif
+#ifdef PROJECT_DIAMOND
+    /*M6 code*/
+	{"ldo_vcamd1_1"},
+	{"ldo_vcamd1_0"},
+    /*M6 code*/
+#endif
 	{"ldo_vcamio_1"},
 	{"ldo_vcamio_0"},
 };

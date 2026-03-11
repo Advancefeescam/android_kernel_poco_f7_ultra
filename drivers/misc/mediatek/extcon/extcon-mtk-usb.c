@@ -21,6 +21,8 @@
 #include <linux/proc_fs.h>
 
 #include "extcon-mtk-usb.h"
+#include "charger_class.h"
+#include "bq2589x_reg.h"
 
 #if IS_ENABLED(CONFIG_TCPC_CLASS)
 #include "tcpm.h"
@@ -80,7 +82,7 @@ static void mtk_usb_extcon_update_role(struct work_struct *work)
 	kfree(role);
 }
 
-static int mtk_usb_extcon_set_role(struct mtk_extcon_info *extcon,
+int mtk_usb_extcon_set_role(struct mtk_extcon_info *extcon,
 						unsigned int role)
 {
 	struct usb_role_info *role_info;
@@ -89,6 +91,11 @@ static int mtk_usb_extcon_set_role(struct mtk_extcon_info *extcon,
 	role_info = kzalloc(sizeof(*role_info), GFP_ATOMIC);
 	if (!role_info)
 		return -ENOMEM;
+
+	if (!extcon) {
+		printk("extcon is null, skip !!!\n");
+		return -EINVAL;
+	}
 
 	INIT_DELAYED_WORK(&role_info->dwork, mtk_usb_extcon_update_role);
 
@@ -99,6 +106,7 @@ static int mtk_usb_extcon_set_role(struct mtk_extcon_info *extcon,
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_usb_extcon_set_role);
 
 static bool usb_is_online(struct mtk_extcon_info *extcon)
 {
@@ -168,7 +176,17 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 	int ret = 0;
 	struct device *dev = extcon->dev;
 
+/*m6 charge add code start*/
+#ifdef PROJECT_DIAMOND
+	extcon->usb_psy = devm_power_supply_get_by_phandle(dev, "usb");
+	if (IS_ERR_OR_NULL(extcon->usb_psy)) {
+		extcon->usb_psy = power_supply_get_by_name("usb");
+		pr_err("wmz: by_phandle is null\n");
+	} 
+#else
 	extcon->usb_psy = devm_power_supply_get_by_phandle(dev, "charger");
+#endif
+/*m6 charge add code start*/
 	if (IS_ERR_OR_NULL(extcon->usb_psy)) {
 		dev_err(dev, "fail to get usb_psy\n");
 		return -EINVAL;
@@ -245,6 +263,9 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 	struct device *dev = extcon->dev;
 	bool vbus_on;
 
+	struct bq2589x *bq;
+	bq = power_supply_get_drvdata(extcon->usb_psy);
+
 	switch (event) {
 	case TCP_NOTIFY_SOURCE_VBUS:
 		dev_info(dev, "source vbus = %dmv\n",
@@ -314,6 +335,8 @@ static int mtk_usb_extcon_tcpc_init(struct mtk_extcon_info *extcon)
 		dev_err(extcon->dev, "get tcpc device fail\n");
 		return -ENODEV;
 	}
+
+	dev_err(extcon->dev, "linson tcpc name = %s\n", tcpc_name);
 
 	extcon->tcpc_nb.notifier_call = mtk_extcon_tcpc_notifier;
 	ret = register_tcp_dev_notifier(tcpc_dev, &extcon->tcpc_nb,
@@ -462,6 +485,9 @@ static int mtk_usb_extcon_procfs_init(struct mtk_extcon_info *extcon)
 }
 #endif
 
+struct mtk_extcon_info *extcon_usb;
+EXPORT_SYMBOL(extcon_usb);
+
 static int mtk_usb_extcon_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -555,6 +581,10 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 #endif
 
 	platform_set_drvdata(pdev, extcon);
+
+	extcon_usb = extcon;
+
+	printk("%s: done!", __func__);
 
 	return 0;
 }

@@ -14,7 +14,12 @@
 /* A hardware display blank change occurred */
 #define MTK_DISP_EARLY_EVENT_BLANK	0x00
 #define MTK_DISP_EVENT_BLANK		0x01
-
+/*L19A code for HQ-221066 by zhangkexin at 2022/07/27 start*/
+#if (defined CONFIG_MI_ESD_SUPPORT)&&(defined PROJECT_ROCK)
+#define MTK_DISP_ESD_EVENT_SUSPEND	0x02
+#define MTK_DISP_ESD_EVENT_RESUME	0x03
+#endif
+/*L19A code for HQ-221066 by zhangkexin at 2022/07/27 end*/
 enum {
 	/* disp power on */
 	MTK_DISP_BLANK_UNBLANK,

@@ -83,9 +83,16 @@ const struct flashlight_device_id flashlight_id[] = {
 	{0, 0, 0, "flashlights-lm3642", 0, 0},
 };
 #else
+#ifdef PROJECT_DIAMOND
+const struct flashlight_device_id flashlight_id[] = {
+        {0, 0, 0, "flashlights-lm3601", 0, 0},
+};
+#else
 const struct flashlight_device_id flashlight_id[] = {
 	/* {TYPE, CT, PART, "NAME", CHANNEL, DECOUPLE} */
-	{0, 0, 0, "flashlights-none", -1, 0},
+//L19A code for HQ-199297 by wangqiang at 2022.05.18 start.
+	{0, 0, 0, "flashlights_led191", 0, 1},
+//L19A code for HQ-199297 by wangqiang at 2022.05.18 end.
 	{0, 1, 0, "flashlights-none", -1, 0},
 	{1, 0, 0, "flashlights-none", -1, 0},
 	{1, 1, 0, "flashlights-none", -1, 0},
@@ -94,6 +101,7 @@ const struct flashlight_device_id flashlight_id[] = {
 	{1, 0, 1, "flashlights-none", -1, 0},
 	{1, 1, 1, "flashlights-none", -1, 0},
 };
+#endif
 #endif
 
 const int flashlight_device_num =

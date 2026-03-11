@@ -17,6 +17,13 @@
 #include <linux/string.h>
 #include <leds-mtk.h>
 
+#ifdef CONFIG_LM3697_SUPPORT
+#include <linux/mfd/ti-lmu-backlight.h>
+#endif
+
+#ifdef CONFIG_KTD3136_SUPPORT
+#include <linux/mfd/ktd3136.h>
+#endif
 
 /****************************************************************************
  * variables
@@ -197,7 +204,6 @@ static int brightness_maptolevel(struct led_conf_info *led_conf, int brightness)
 static int mtk_set_hw_brightness(struct mt_led_data *led_dat,
 				int brightness)
 {
-
 	pr_debug("set hw brightness: %d -> %d", led_dat->hw_brightness, brightness);
 
 	brightness = min(brightness, led_dat->conf.limit_hw_brightness);
@@ -206,6 +212,18 @@ static int mtk_set_hw_brightness(struct mt_led_data *led_dat,
 
 	if (led_dat->mtk_hw_brightness_set(led_dat, brightness) >= 0) {
 		led_dat->hw_brightness = brightness;
+#ifdef PROJECT_ROCK
+		if(1 == get_backlight_id()) {
+		printk("[%s]: backlight is ktd3137 contrl! level=%d\n",__func__, brightness);
+			lm3697_set_brightness(brightness);
+			printk("[%s]: backlight is lm3697 contrl! level=%d\n",__func__, brightness);
+		} else if(24 == get_backlight_id()){
+			ktd3137_brightness_set(brightness);
+			printk("[%s]: backlight is ktd3137 contrl! level=%d\n",__func__, brightness);
+		} else {
+			printk("[%s]: backlight IC is broken\n",__func__);
+		}
+#endif
 #ifdef CONFIG_LEDS_MT_BRIGHTNESS_HW_CHANGED
 		mt_leds_notify_brightness_hw_changed(&led_dat->conf, brightness);
 #endif
@@ -421,6 +439,15 @@ int mt_leds_classdev_register(struct device *parent,
 
 	mtk_set_hw_brightness(led_dat,
 		brightness_maptolevel(&led_dat->conf, led_dat->last_brightness));
+
+	/*L19A code for HQ-220829 by chenzimo at 2022/7/12 start*/
+	#ifdef PROJECT_ROCK
+	mutex_lock(&led_dat->led_access);
+	led_dat->last_hw_brightness = led_dat->conf.cdev.brightness;
+	pr_info("last_hw_brightness = %d\n", led_dat->last_hw_brightness);
+	mutex_unlock(&led_dat->led_access);
+	#endif
+	/*L19A code for HQ-220829 by chenzimo at 2022/7/12 end*/
 
 	pr_info("%s devm_led_classdev_register end! ", led_dat->conf.cdev.name);
 

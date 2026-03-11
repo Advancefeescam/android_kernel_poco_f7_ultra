@@ -31,6 +31,14 @@
 #define MTK_FILL_MIPI_IMPEDANCE
 #endif
 
+/*M6 code for HQ-248555 by zhengjie at 2022/11/3 start*/
+/*L19A code for HQ-194729 by zhangkexin at 2022/05/06 start*/
+#if (defined CONFIG_MI_ESD_SUPPORT) && ((defined PROJECT_ROCK) || (defined PROJECT_DIAMOND))
+extern atomic_t is_lcm_inited_esd;
+extern atomic_t lcm_valid_irq;
+#endif
+/*L19A code for HQ-194729 by zhangkexin at 2022/05/06 end*/
+/*M6 code for HQ-248555 by zhengjie at 2022/11/3 end*/
 struct device;
 struct device_node;
 struct drm_crtc;
@@ -49,6 +57,26 @@ struct mtk_fake_eng_reg {
 	unsigned int CG_bit;
 	bool share_port;
 };
+
+#ifdef PROJECT_ROCK
+/*L19A code for HQ-194099 by zhangkexin at 2022/05/07 start*/
+struct fb_lcd_wp_para {
+	int white_point_x;
+	int white_point_y;
+	int white_point_l;
+};
+/*L19A code for HQ-194099 by zhangkexin at 2022/05/07 end*/
+#endif
+
+#ifdef PROJECT_DIAMOND
+/*M6 code for HQ-246310 by yuyang at 2022/10/01 start*/
+struct fb_lcd_wp_para {
+	int white_point_x;
+	int white_point_y;
+	int white_point_l;
+};
+/*M6 code for HQ-246310 by yuyang at 2022/10/01 end*/
+#endif
 
 struct mtk_fake_eng_data {
 	int fake_eng_num;
@@ -312,6 +340,12 @@ extern struct platform_driver mtk_mmlsys_bypass_driver;
 extern struct mtk_drm_disp_sec_cb disp_sec_cb;
 extern struct mtk_drm_disp_mtee_cb disp_mtee_cb;
 
+#ifdef PROJECT_ROCK
+/*L19A code for HQ-194827 by chenzimo at 2022/5/25 start*/
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
+/*L19A code for HQ-194827 by chenzimo at 2022/5/25 end*/
+#endif
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);
 void drm_trigger_repaint(enum DRM_REPAINT_TYPE type,

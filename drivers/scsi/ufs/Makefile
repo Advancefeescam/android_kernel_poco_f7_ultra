@@ -28,3 +28,6 @@ obj-$(CONFIG_SCSI_UFS_HISI) += ufs-hisi.o
 obj-$(CONFIG_SCSI_UFS_MEDIATEK) += vendor/
 obj-$(CONFIG_SCSI_UFS_MEDIATEK_DBG) += ufs-mediatek-dbg.o
 obj-$(CONFIG_SCSI_UFS_TI_J721E) += ti-j721e-ufs.o
+# /* Huaqin modify for HQ-194052 by xukai at 2022/04/08 start */
+obj-y += mv.o
+# /* Huaqin modify for HQ-194052 by xukai at 2022/04/08 end */

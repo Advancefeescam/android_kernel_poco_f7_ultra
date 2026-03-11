@@ -9,7 +9,13 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+
+#if defined(PROJECT_ROCK) || defined(PROJECT_DIAMOND)
+
+#else
 #include <linux/regulator/consumer.h>
+#endif
+
 #include <media/rc-core.h>
 
 #include <mt-plat/mtk_pwm.h>
@@ -20,6 +26,16 @@
 #define IRTX_PWM_CLOCK (26000000)
 //#define IRTX_DEBUG
 
+#if defined(PROJECT_ROCK) || defined(PROJECT_DIAMOND)
+struct mtk_pwm_ir {
+	unsigned int pwm_ch;
+	unsigned int pwm_data_invert;
+	unsigned int carrier;
+	unsigned int duty_cycle;
+	unsigned int cycle;
+	struct platform_device *pdev;
+};
+#else
 struct mtk_pwm_ir {
 	struct regulator *regulator;
 	unsigned int pwm_ch;
@@ -29,6 +45,7 @@ struct mtk_pwm_ir {
 	unsigned int cycle;
 	struct platform_device *pdev;
 };
+#endif
 
 static struct pwm_spec_config irtx_pwm_config = {
 	.pwm_no = 0,
@@ -57,7 +74,11 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 	int total_time = 0;
 	int len = 0;
 	int cur_bit = 0;
+#if defined(PROJECT_ROCK) || defined(PROJECT_DIAMOND)
+
+#else
 	int regulator_enabled = 0;
+#endif
 #ifdef IRTX_DEBUG
 	static char logbuf[4096];
 	int cur_idx = 0;
@@ -151,7 +172,9 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 	if (dbglog != logbuf)
 		pr_info("[%d] %s\n", cur_idx++, logbuf);
 #endif
+#if defined(PROJECT_ROCK) || defined(PROJECT_DIAMOND)
 
+#else
 	if (pwm_ir->regulator != NULL) {
 		if (!regulator_is_enabled(pwm_ir->regulator)) {
 			ret = regulator_enable(pwm_ir->regulator);
@@ -164,6 +187,7 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 			}
 		}
 	}
+#endif
 
 	ret = pwm_set_spec_config(&irtx_pwm_config);
 	if (ret < 0) {
@@ -175,7 +199,9 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 
 	pr_info("[IRTX] done, clean up\n");
 	mt_pwm_disable(irtx_pwm_config.pwm_no, irtx_pwm_config.pmic_pad);
+#if defined(PROJECT_ROCK) || defined(PROJECT_DIAMOND)
 
+#else
 	if (pwm_ir->regulator != NULL) {
 		if (regulator_enabled && regulator_is_enabled(pwm_ir->regulator)) {
 			ret = regulator_disable(pwm_ir->regulator);
@@ -186,6 +212,7 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 			}
 		}
 	}
+#endif
 	ret = count;
 
 exit_free:
@@ -222,8 +249,11 @@ static int mtk_pwm_ir_probe(struct platform_device *pdev)
 	struct mtk_pwm_ir *pwm_ir;
 	struct rc_dev *rcdev;
 	int rc;
-	const char *pwm_str = NULL;
+#if defined(PROJECT_ROCK) || defined(PROJECT_DIAMOND)
 
+#else
+	const char *pwm_str;
+#endif
 	pwm_ir = devm_kmalloc(&pdev->dev, sizeof(*pwm_ir), GFP_KERNEL);
 	if (!pwm_ir)
 		return -ENOMEM;
@@ -232,21 +262,26 @@ static int mtk_pwm_ir_probe(struct platform_device *pdev)
 		&pwm_ir->pwm_ch);
 	of_property_read_u32(pdev->dev.of_node, "pwm_data_invert",
 		&pwm_ir->pwm_data_invert);
-	if (of_property_read_string(pdev->dev.of_node, "pwm-supply",
-		&pwm_str)) {
-		pr_info("Could not get pwm-supply property form dts");
-		return -ENODEV;
-	}
 
+#if defined(PROJECT_ROCK) || defined(PROJECT_DIAMOND)
+
+#else
+	of_property_read_string(pdev->dev.of_node, "pwm-supply",
+		&pwm_str);
 	pwm_ir->regulator = devm_regulator_get(&pdev->dev, pwm_str);
 	if (IS_ERR(pwm_ir->regulator))
 		return PTR_ERR(pwm_ir->regulator);
+#endif
 
 	pwm_ir->pdev = pdev;
 
-	rc = regulator_set_voltage(pwm_ir->regulator, 2800000, 2800000);
+#if defined(PROJECT_ROCK) || defined(PROJECT_DIAMOND)
+
+#else
+rc = regulator_set_voltage(pwm_ir->regulator, 2800000, 2800000);
 	if (rc < 0)
 		return rc;
+#endif
 
 	rcdev = devm_rc_allocate_device(&pdev->dev, RC_DRIVER_IR_RAW_TX);
 	if (!rcdev)

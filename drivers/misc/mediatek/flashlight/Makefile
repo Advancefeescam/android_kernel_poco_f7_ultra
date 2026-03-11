@@ -8,6 +8,11 @@ flashlight-y += flashlight-device.o
 obj-$(CONFIG_MTK_FLASHLIGHT)             += flashlight.o
 obj-$(CONFIG_MTK_V4L2_FLASHLIGHT)        += mtk-composite.o
 obj-$(CONFIG_MTK_FLASHLIGHT_LED191)      += flashlights-led191.o
+#L19A code for HQ-199297 by wangqiang at 2022.05.18 start.
+flashlights-led191-obj := flashlights-led191.o
+#L19A code for HQ-199297 by wangqiang at 2022.05.18 end.
+obj-$(CONFIG_MTK_FLASHLIGHT_LM3601)      += flashlights-lm3601.o
+flashlights-lm3601-obj += flashlights-lm3601.o
 obj-$(CONFIG_MTK_FLASHLIGHT_LM3642)      += flashlights-lm3642.o
 obj-$(CONFIG_MTK_FLASHLIGHT_LM3643)      += flashlights-lm3643.o
 obj-$(CONFIG_MTK_FLASHLIGHT_LM3644)      += flashlights-lm3644.o

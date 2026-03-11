@@ -109,6 +109,16 @@ enum scp_sensor_id {
 	GYRO_SECONDARY_FEATURE_ID,
 	FLICKER_REAR_FEATURE_ID,
 	RGBW_REAR_FEATURE_ID,
+	/* Huaqin add for HQ-193977 by baoguangxiu at 2022/04/14 start */
+	#ifdef PROJECT_ROCK
+	SAR_ALGO_ID,
+	SAR_ALGO_1_ID,
+	#endif
+	/* Huaqin add for HQ-193977 by baoguangxiu at 2022/04/14 end */
+	#ifdef PROJECT_DIAMOND
+	SAR_ALGO_ID,
+	SAR_ALGO_1_ID,
+	#endif
 	NUM_SENSOR_TYPE,
 };
 

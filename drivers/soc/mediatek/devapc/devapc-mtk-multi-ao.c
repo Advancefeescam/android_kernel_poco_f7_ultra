@@ -949,7 +949,9 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	}
 
 	/* Severity level */
-	if (dbg_stat->enable_KE && (ret_cb != DEVAPC_NOT_KE)) {
+	/* L19A code for L19A-17 by liunianliang at 2022/04/26 start */
+	if (dbg_stat->enable_KE && (ret_cb != DEVAPC_NOT_KE) && (!(strncmp(vio_master, "APMCU_READ", 10)))) {
+	/* L19A code for L19A-17 by liunianliang at 2022/04/26 end */
 		pr_info(PFX "Device APC Violation Issue/%s", dispatch_key);
 		BUG_ON(id != INFRA_SUBSYS_CONN);
 
@@ -1163,7 +1165,10 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	/* It's an abnormal status */
 	pr_info(PFX "WARNING: Abnormal Status\n");
 	print_vio_mask_sta(false);
-	BUG_ON(1);
+	/* L19A code for L19A-17 by liunianliang at 2022/04/26 start */
+	if(!(strncmp(vio_master, "APMCU_READ", 10)))
+		BUG_ON(1);
+	/* L19A code for L19A-17 by liunianliang at 2022/04/26 end */
 
 	spin_unlock_irqrestore(&devapc_lock, flags);
 	return IRQ_HANDLED;

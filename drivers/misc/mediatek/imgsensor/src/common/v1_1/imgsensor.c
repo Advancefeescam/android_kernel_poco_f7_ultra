@@ -56,6 +56,12 @@
 #endif
 
 #include "seninf_drv.h"
+#ifdef PROJECT_ROCK
+#include "smartldo/smartldo.h"
+#endif
+#ifdef PROJECT_DIAMOND
+#include "smartldo/smartldo.h"
+#endif
 
 static DEFINE_MUTEX(gimgsensor_mutex);
 static DEFINE_MUTEX(gimgsensor_open_mutex);
@@ -1804,7 +1810,7 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 		}
 		break;
 	case SENSOR_FEATURE_GET_PDAF_DATA:
-	case SENSOR_FEATURE_GET_4CELL_DATA:
+	// case SENSOR_FEATURE_GET_4CELL_DATA:
 		{
 #define PDAF_DATA_SIZE 4096
 			char *pPdaf_data = NULL;
@@ -1855,6 +1861,112 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 			*(pFeaturePara_64 + 1) = (uintptr_t) usr_ptr;
 		}
 		break;
+#ifdef PROJECT_ROCK
+	case SENSOR_FEATURE_GET_4CELL_DATA:
+		{
+#define FCELL_DATA_SIZE 8008
+			char *p4cell_data = NULL;
+			unsigned long long *pFeaturePara_64 =
+				(unsigned long long *)pFeaturePara;
+			usr_ptr =
+				(void *)(uintptr_t) (*(pFeaturePara_64 + 1));
+			buf_sz =
+				(kal_uint32) (*(pFeaturePara_64 + 2));
+
+			if (FeatureParaLen < 3 * sizeof(unsigned long long)) {
+				PK_PR_ERR("FeatureParaLen is too small %d\n", FeatureParaLen);
+				kfree(pFeaturePara);
+				return -EINVAL;
+			}
+			/* buffer size exam */
+			if (buf_sz > FCELL_DATA_SIZE) {
+				kfree(pFeaturePara);
+				PK_PR_ERR(
+				"buffer size (%u) can't larger than %d bytes\n",
+					  buf_sz, FCELL_DATA_SIZE);
+				return -EINVAL;
+			}
+
+			p4cell_data = kmalloc(
+				sizeof(char) * FCELL_DATA_SIZE, GFP_KERNEL);
+			if (p4cell_data == NULL) {
+				kfree(pFeaturePara);
+				PK_PR_ERR(" ioctl allocate mem failed\n");
+				return -ENOMEM;
+			}
+			memset(p4cell_data, 0x00, sizeof(char) * FCELL_DATA_SIZE);
+
+			if (pFeaturePara_64 != NULL)
+				*(pFeaturePara_64 + 1) = (uintptr_t) p4cell_data;
+
+
+			ret = imgsensor_sensor_feature_control(psensor,
+					pFeatureCtrl->FeatureId,
+					(unsigned char *)pFeaturePara,
+					(unsigned int *)&FeatureParaLen);
+
+			if (copy_to_user((void __user *)usr_ptr,
+					 (void *)p4cell_data, buf_sz)) {
+				PK_DBG("[CAMERA_HW]ERROR: copy_to_user fail\n");
+			}
+			kfree(p4cell_data);
+			*(pFeaturePara_64 + 1) = (uintptr_t) usr_ptr;
+		}
+		break;
+#endif
+#ifdef PROJECT_DIAMOND
+	case SENSOR_FEATURE_GET_4CELL_DATA:
+		{
+#define FCELL_DATA_SIZE 8008
+			char *p4cell_data = NULL;
+			unsigned long long *pFeaturePara_64 =
+				(unsigned long long *)pFeaturePara;
+			usr_ptr =
+				(void *)(uintptr_t) (*(pFeaturePara_64 + 1));
+			buf_sz =
+				(kal_uint32) (*(pFeaturePara_64 + 2));
+
+			if (FeatureParaLen < 3 * sizeof(unsigned long long)) {
+				PK_PR_ERR("FeatureParaLen is too small %d\n", FeatureParaLen);
+				kfree(pFeaturePara);
+				return -EINVAL;
+			}
+			/* buffer size exam */
+			if (buf_sz > FCELL_DATA_SIZE) {
+				kfree(pFeaturePara);
+				PK_PR_ERR(
+				"buffer size (%u) can't larger than %d bytes\n",
+					  buf_sz, FCELL_DATA_SIZE);
+				return -EINVAL;
+			}
+
+			p4cell_data = kmalloc(
+				sizeof(char) * FCELL_DATA_SIZE, GFP_KERNEL);
+			if (p4cell_data == NULL) {
+				kfree(pFeaturePara);
+				PK_PR_ERR(" ioctl allocate mem failed\n");
+				return -ENOMEM;
+			}
+			memset(p4cell_data, 0x00, sizeof(char) * FCELL_DATA_SIZE);
+
+			if (pFeaturePara_64 != NULL)
+				*(pFeaturePara_64 + 1) = (uintptr_t) p4cell_data;
+
+
+			ret = imgsensor_sensor_feature_control(psensor,
+					pFeatureCtrl->FeatureId,
+					(unsigned char *)pFeaturePara,
+					(unsigned int *)&FeatureParaLen);
+
+			if (copy_to_user((void __user *)usr_ptr,
+					 (void *)p4cell_data, buf_sz)) {
+				PK_DBG("[CAMERA_HW]ERROR: copy_to_user fail\n");
+			}
+			kfree(p4cell_data);
+			*(pFeaturePara_64 + 1) = (uintptr_t) usr_ptr;
+		}
+		break;
+#endif
 	case SENSOR_FEATURE_SET_LSC_TBL:
 		{
 #define LSC_TBL_DATA_SIZE 1024
@@ -2415,6 +2527,12 @@ static int imgsensor_probe(struct platform_device *pplatform_device)
 	phw->common.pplatform_device = pplatform_device;
 
 	imgsensor_hw_init(phw);
+#ifdef PROJECT_ROCK
+    smartldo_i2c_create();
+#endif
+#ifdef PROJECT_DIAMOND
+    smartldo_i2c_create();
+#endif
 	imgsensor_i2c_create();
 	imgsensor_proc_init();
 	imgsensor_init_sensor_list();
@@ -2429,7 +2547,12 @@ static int imgsensor_probe(struct platform_device *pplatform_device)
 static int imgsensor_remove(struct platform_device *pplatform_device)
 {
 	struct IMGSENSOR *pimgsensor = &gimgsensor;
-
+#ifdef PROJECT_ROCK
+    smartldo_i2c_delete();
+#endif
+#ifdef PROJECT_DIAMOND
+    smartldo_i2c_delete();
+#endif
 	imgsensor_i2c_delete();
 
 	/* Release char driver */

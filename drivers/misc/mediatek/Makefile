@@ -101,3 +101,7 @@ obj-$(CONFIG_MTK_GATE_IC) += gate_ic/
 obj-$(CONFIG_MTK_WIDEVINE_DRM) += widevine_drm/
 obj-$(CONFIG_INTERCONNECT_MTK_MMQOS_COMMON) += mmqos/
 obj-$(CONFIG_MTK_TIMER_ACCURACY_TEST) += timer/
+
+# Huaqin add for HQ-194055 by liuninaliang at 2022/04/07 start
+obj-$(CONFIG_SIMTRAY_STATUS) += simtray/
+# Huaqin add for HQ-194055 by liuninaliang at 2022/04/07 end

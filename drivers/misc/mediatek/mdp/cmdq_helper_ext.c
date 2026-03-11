@@ -4311,6 +4311,14 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 
 	status = cmdq_pkt_wait_complete(handle->pkt);
 
+	/*L19A code for HQ-230294 by liunianliang at 2022/08/16 start */
+	if (handle->pkt_rb)
+	{
+		CMDQ_LOG("[secFlow] wait for pkt_rb to complete\n");
+		status = cmdq_pkt_wait_complete(handle->pkt_rb);
+	}
+	/*L19A code for HQ-230294 by liunianliang at 2022/08/16 end */
+
 	if (handle->profile_exec) {
 		u32 *va = cmdq_pkt_get_perf_ret(handle->pkt);
 

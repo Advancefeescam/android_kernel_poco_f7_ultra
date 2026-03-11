@@ -39,6 +39,13 @@ struct mtk_dsi_driver_data {
 	const u32 reg_vm_cmd_data30_ofs;
 	s32 (*poll_for_idle)(struct mtk_dsi *dsi, struct cmdq_pkt *handle);
 	irqreturn_t (*irq_handler)(int irq, void *dev_id);
+	/*M6 code for HQ-248555 by zhengjie at 2022/11/3 start*/
+/*L19A code for HQ-194729 by zhangkexin at 2022/05/06 start*/
+#if (defined CONFIG_MI_ESD_SUPPORT) && ((defined PROJECT_ROCK) || (defined PROJECT_DIAMOND))
+	char *mi_esd_eint_compat;
+#endif
+/*L19A code for HQ-194729 by zhangkexin at 2022/05/06 end*/
+/*M6 code for HQ-248555 by zhengjie at 2022/11/3 end*/
 	char *esd_eint_compat;
 	bool support_shadow;
 	bool need_bypass_shadow;

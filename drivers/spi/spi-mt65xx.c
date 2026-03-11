@@ -19,6 +19,9 @@
 #include <linux/spi/spi.h>
 #include <linux/dma-mapping.h>
 #include <linux/pm_qos.h>
+#ifdef PROJECT_ROCK
+#include "../input/touchscreen/FT8722/focaltech_core.h"
+#endif
 
 #define SPI_CFG0_REG                      0x0000
 #define SPI_CFG1_REG                      0x0004
@@ -991,6 +994,15 @@ static int mtk_spi_probe(struct platform_device *pdev)
 		}
 	}
 
+/*BSP.TOUCH - 2021.03.29 -  Modified for compatibility start*/
+#ifdef PROJECT_ROCK
+#if FTS_TP_ADD
+		master->num_chipselect = mdata->pad_num; //add
+#endif
+#else
+	master->num_chipselect = mdata->pad_num; //add
+#endif
+/*BSP.TOUCH - 2021.03.29 -  Modified for compatibility end*/
 	platform_set_drvdata(pdev, master);
 	mdata->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(mdata->base)) {
@@ -1055,13 +1067,32 @@ static int mtk_spi_probe(struct platform_device *pdev)
 			goto err_put_master;
 		}
 
-		if (!master->cs_gpios && master->num_chipselect > 1) {
-			dev_err(&pdev->dev,
-				"cs_gpios not specified and num_chipselect > 1\n");
-			ret = -EINVAL;
-			goto err_put_master;
-		}
-
+/*BSP.TOUCH - 2021.03.29 -  Modified for compatibility start*/
+#ifdef PROJECT_ROCK
+	#if FTS_TP_ADD
+	/*		if (!master->cs_gpios && master->num_chipselect > 1) {
+				dev_err(&pdev->dev,
+					"cs_gpios not specified and num_chipselect > 1\n");
+				ret = -EINVAL;
+				goto err_disable_runtime_pm;
+			}*/
+	#else
+			if (!master->cs_gpios && master->num_chipselect > 1) {
+				dev_err(&pdev->dev,
+					"cs_gpios not specified and num_chipselect > 1\n");
+				ret = -EINVAL;
+				goto err_put_master;
+			}
+	#endif
+#else
+	/*if (!master->cs_gpios && master->num_chipselect > 1) {
+				dev_err(&pdev->dev,
+					"cs_gpios not specified and num_chipselect > 1\n");
+				ret = -EINVAL;
+				goto err_put_master;
+		}*/
+#endif
+/*BSP.TOUCH - 2021.03.29 -  Modified for compatibility end*/
 		if (master->cs_gpios) {
 			for (i = 0; i < master->num_chipselect; i++) {
 				ret = devm_gpio_request(&pdev->dev,

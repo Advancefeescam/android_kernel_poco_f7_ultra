@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Mi memory info
+#
+#L19A code for HQ-194052 by xukai at 20220517 start
+config MI_MEMORY_SYSFS
+	tristate "show memory info"
+	default m
+	help
+	  This adds support for mi memory info.
+#L19A code for HQ-194052 by xukai at 20220517 end

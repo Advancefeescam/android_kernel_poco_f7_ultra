@@ -47,6 +47,7 @@ def main(**args):
     kernel_defconfig = args["kernel_defconfig"]
     kernel_defconfig_overlays = args["kernel_defconfig_overlays"]
     kernel_build_config_overlays = args["kernel_build_config_overlays"]
+    project_config_overlays = args["project_build_config_overlays"]
     build_mode = args["build_mode"]
     abi_mode = args["abi_mode"]
     out_file = args["out_file"]
@@ -66,6 +67,12 @@ def main(**args):
     mode_config = ''
     if (build_mode == 'eng') or (build_mode == 'userdebug'):
         mode_config = '%s.config' % (build_mode)
+
+    project_config = ''
+    if project_config_overlays is not None:
+        project_config = project_config_overlays
+        print "get project overlay kernel config: " + project_config
+
     project_defconfig_name = ''
     if kernel_defconfig:
         project_defconfig_name = kernel_defconfig
@@ -90,6 +97,7 @@ def main(**args):
     if project_defconfig_name == 'gki_defconfig':
         build_config = 'build.config.mtk.aarch64'
         mode_config = ''
+        project_config = ''
     else:
         (special_defconfig, build_config, ext_modules) = get_config_in_defconfig(project_defconfig, os.path.basename(abs_kernel_dir))
     build_config = '%s/%s' % (abs_kernel_dir, build_config)
@@ -125,16 +133,17 @@ def main(**args):
     file_text.append("  KMI_SYMBOL_LIST_ADD_ONLY=1")
     file_text.append("  ADDITIONAL_KMI_SYMBOL_LISTS=\"${ADDITIONAL_KMI_SYMBOL_LISTS} android/abi_gki_aarch64\"")
     file_text.append("fi")
+    file_text.append("unset BUILD_NUMBER")
 
     all_defconfig = ''
     pre_defconfig_cmds = ''
     if not special_defconfig:
-        all_defconfig = '%s %s %s' % (project_defconfig_name, kernel_defconfig_overlays, mode_config)
+        all_defconfig = '%s %s %s %s' % (project_defconfig_name, kernel_defconfig_overlays, mode_config, project_config)
     else:
         # get relative path from {kernel dir} to curret working dir
         rel_kernel_path = 'REL_KERNEL_PATH=`./${KERNEL_DIR}/scripts/get_rel_path.sh ${ROOT_DIR} %s`' % (kernel_dir)
         file_text.append(rel_kernel_path)
-        all_defconfig = '%s ../../../${REL_KERNEL_PATH}/${OUT_DIR}/%s.config %s %s' % (special_defconfig, project, kernel_defconfig_overlays, mode_config)
+        all_defconfig = '%s ../../../${REL_KERNEL_PATH}/${OUT_DIR}/%s.config %s %s %s' % (special_defconfig, project, kernel_defconfig_overlays, mode_config, project_config)
         pre_defconfig_cmds = 'PRE_DEFCONFIG_CMDS=\"cp -p ${KERNEL_DIR}/%s/%s ${OUT_DIR}/%s.config\"' % (defconfig_dir, project_defconfig_name, project)
     all_defconfig = 'DEFCONFIG=\"%s\"' % (all_defconfig.strip())
     file_text.append(all_defconfig)
@@ -213,6 +222,7 @@ if __name__ == '__main__':
     parser.add_argument("--kernel-defconfig", dest="kernel_defconfig", help="special kernel project defconfig file.",default="")
     parser.add_argument("--kernel-defconfig-overlays", dest="kernel_defconfig_overlays", help="special kernel project overlay defconfig files.",default="")
     parser.add_argument("--kernel-build-config-overlays", dest="kernel_build_config_overlays", help="special kernel build config overlays files.",default="")
+    parser.add_argument("--project-config-overlays", dest="project_build_config_overlays", help="special project build config overlays files.",default="")
     parser.add_argument("-m","--build-mode", dest="build_mode", help="specify the build mode to build kernel.", default="user")
     parser.add_argument("--abi", dest="abi_mode", help="specify whether build.config is used to check ABI.", default="no")
     parser.add_argument("-o","--out-file", dest="out_file", help="specify the generated build.config file.", required=True)

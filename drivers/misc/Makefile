@@ -59,3 +59,11 @@ obj-$(CONFIG_XILINX_SDFEC)	+= xilinx_sdfec.o
 obj-$(CONFIG_HISI_HIKEY_USB)	+= hisi_hikey_usb.o
 obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
 obj-y				+= mediatek/
+obj-y                           += hqsysfs/
+#L19A code for HQ-194052 by xukai at 20220517 start
+obj-$(CONFIG_MI_MEMORY_SYSFS)	+= mi-memory/
+#L19A code for HQ-194052 by xukai at 20220517 end
+#M6 code for AW86224_HAPTIC by dongfeiju at 20220923 start
+obj-$(CONFIG_INPUT_AW86224_HAPTIC)	+= aw86224_haptic/
+#M6 code for AW86224_HAPTIC by dongfeiju at 20220923 end
+

@@ -20,6 +20,7 @@
 static struct platform_device *dramc_pdev;
 static struct platform_driver dramc_drv;
 
+
 static int mr4_v1_init(struct platform_device *pdev,
 	struct mr4_dev_t *mr4_dev_ptr)
 {
@@ -385,7 +386,6 @@ static int dramc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dramc_dev_ptr);
 	pr_info("%s: DRAM data type = %d\n", __func__,
 		mtk_dramc_get_ddr_type());
-
 	pr_info("%s: DRAM data rate = %d\n", __func__,
 		mtk_dramc_get_data_rate());
 	return ret;
@@ -631,8 +631,9 @@ unsigned int mtk_dramc_get_ddr_type(void)
 {
 	struct dramc_dev_t *dramc_dev_ptr;
 
-	if (!dramc_pdev)
+	if (!dramc_pdev) 
 		return 0;
+	
 	dramc_dev_ptr =
 		(struct dramc_dev_t *)platform_get_drvdata(dramc_pdev);
 

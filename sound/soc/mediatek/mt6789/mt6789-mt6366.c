@@ -22,6 +22,9 @@
 #endif
 
 #include "../common/mtk-sp-spk-amp.h"
+/* L19 code for HQ-157278 by zhangkaiming at 2021/9/30 start */
+#include "../../codecs/sia81xx/sia81xx_aux_dev_if.h"
+/* L19 code for HQ-157278 by zhangkaiming at 2021/9/30 end */
 
 /*
  * if need additional control for the ext spk amp that is connected
@@ -1197,7 +1200,12 @@ static int mt6789_mt6366_dev_probe(struct platform_device *pdev)
 #endif
 
 	card->dev = &pdev->dev;
-
+	/* L19 code for HQ-157278 by zhangkaiming at 2021/9/30 start */
+	ret = soc_aux_init_only_sia81xx(pdev, card);
+	if (ret)
+			dev_err(&pdev->dev, "%s soc_aux_init_only_sia81xx fail %d\n",
+					__func__, ret);
+	/* L19 code for HQ-157278 by zhangkaiming at 2021/9/30 end*/
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret)
 		dev_err(&pdev->dev, "%s snd_soc_register_card fail %d\n",

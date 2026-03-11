@@ -30,9 +30,9 @@ ccflags-y += -DMET_USER_EVENT_SUPPORT -DMTK_GPU_DVFS
 ccflags-y += -DGED_DVFS_DEBUG_BUF
 ccflags-y += -DMTK_GPU_BM_2
 
-ifeq ($(CONFIG_MTK_ENABLE_GMO), y)
+# L19A code for HQ-221249 by p-wuzhisen1 at 20220723 start
 ccflags-y += -DGED_BUFFER_LOG_DISABLE
-endif
+# L19A code for HQ-221249 by p-wuzhisen1 at 20220723 end
 
 ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
 ccflags-y += -DENABLE_COMMON_DVFS \

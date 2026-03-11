@@ -6,6 +6,18 @@ config LEDS_GPIO_REGISTER
 	  As this function is used by arch code it must not be compiled as a
 	  module.
 
+config KTD3136_SUPPORT
+	tristate "Kinetic KTD3136"
+	default n
+	help
+	  Say y here to support Kinetic backlight IC KTD3136.
+
+config LM3697_SUPPORT
+	tristate "TI LM3697"
+	default n
+	help
+	Say y here to support TI backlight IC LM3697.
+
 menuconfig NEW_LEDS
 	bool "LED Support"
 	help
@@ -895,7 +907,7 @@ config LEDS_SPI_BYTE
 config LEDS_TI_LMU_COMMON
 	tristate "LED driver for TI LMU"
 	depends on LEDS_CLASS
-	depends on REGMAP
+	select REGMAP
 	help
 	  Say Y to enable the LED driver for TI LMU devices.
 	  This supports common features between the TI LM3532, LM3631, LM3632,

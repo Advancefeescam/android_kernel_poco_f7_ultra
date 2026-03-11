@@ -1,0 +1,69 @@
+/*
+ * Copyright (c) 2022 MediaTek Inc.
+ */
+/********************************************
+ * HQ CHG DTSI File
+ ********************************************/
+
+&hq_batt_chg {
+    compatible = "hq,batt_chg";
+    status = "okay";
+
+    hq_chg,is_bringup = <0>;
+
+    /*-------------HQ CHG ext psy info-------------
+    hq_chg,sw_chg_num = <1>;
+    hq_chg,sw_chg_name = "bq25890_chg";
+    hq_chg,slave_chg_num = <2>;
+    hq_chg,slave_chg_name = "ln8000_slave_chg", "ln8000_slave_chg1";
+    hq_chg,fuel_gauge_name = "sm5602_fg"; */
+
+    /*-------------HQ CHG JEITA (unit:℃*10/mA/mV)-------------*/
+    hq_chg,jeita_enable = <1>;
+
+    hq_chg,jeita_temp_t0 = <100>;   //minus
+    hq_chg,jeita_temp_t1 = <0>;
+    hq_chg,jeita_temp_t2 = <50>;
+    hq_chg,jeita_temp_t3 = <100>;
+    hq_chg,jeita_temp_t4 = <150>;
+    hq_chg,jeita_temp_t5 = <350>;
+    hq_chg,jeita_temp_t6 = <480>;
+    hq_chg,jeita_temp_t7 = <600>;
+
+    hq_chg,jeita_temp_below_t1_cc = <490>;
+    hq_chg,jeita_temp_t1_to_t2_cc = <980>;
+    hq_chg,jeita_temp_t2_to_t3_cc = <2450>;
+    hq_chg,jeita_temp_t3_to_t4_cc = <3920>;
+    hq_chg,jeita_temp_t4_to_t5_cc = <6000>;
+    hq_chg,jeita_temp_t5_to_t6_cc = <6000>;
+    hq_chg,jeita_temp_above_t6_cc = <2450>;
+
+    hq_chg,jeita_cv0 = <4100>;
+    hq_chg,jeita_cv1 = <4450>;
+    hq_chg,jeita_cv2 = <4480>;
+
+    /*-------------HQ CHG THERMAL (unit:mA)-------------*/
+    hq_chg,thermal_enable = <1>;
+
+    hq_chg,normal_charger_thermal_table = <2000 2000 2000 2000
+        2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000>;
+    hq_chg,fast_charger_thermal_table = <2000 2000 2000 2000
+        2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000>;
+    hq_chg,super_charger_thermal_table = <2000 2000 2000 2000
+        2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000>;
+
+    /*-------------HQ CHG charger type current limit (unit:mA)-------------*/
+    hq_chg,sdp_input_charge_limit = <500>;
+    hq_chg,sdp_battery_charge_limit = <500>;
+    hq_chg,float_input_charge_limit = <1000>;
+    hq_chg,float_battery_charge_limit = <1000>;
+    hq_chg,cdp_input_charge_limit = <1500>;
+    hq_chg,cdp_battery_charge_limit = <1500>;
+    hq_chg,dcp_input_charge_limit = <2000>;
+    hq_chg,dcp_battery_charge_limit = <2000>;
+    hq_chg,qc_input_charge_limit = <3200>;
+    hq_chg,qc_battery_charge_limit = <3200>;
+    hq_chg,pd_input_charge_limit = <3000>;
+    hq_chg,pd_battery_charge_limit = <3000>;
+
+};

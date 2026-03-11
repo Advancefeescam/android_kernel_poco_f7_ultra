@@ -79,7 +79,6 @@ struct mtk_ddic_cmd {
 	unsigned char *para_list;
 };
 
-
 struct mtk_ddic_dsi_cmd {
 	unsigned int is_package;
 	unsigned int is_hs;
@@ -87,15 +86,14 @@ struct mtk_ddic_dsi_cmd {
 	struct mtk_ddic_cmd mtk_ddic_cmd_table[MAX_TX_CMD_NUM_PACK];
 };
 
-
-typedef void (*dcs_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
-				const void *data, size_t len);
-typedef void (*dcs_write_gce_pack) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
-				struct mtk_ddic_dsi_cmd *para_table);
-typedef void (*dcs_grp_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
-				struct mtk_panel_para_table *para_table,
-				unsigned int para_size);
-typedef int (*panel_tch_rst) (void);
+typedef void (*dcs_write_gce)(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
+			      const void *data, size_t len);
+typedef void (*dcs_write_gce_pack)(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
+				   struct mtk_ddic_dsi_cmd *para_table);
+typedef void (*dcs_grp_write_gce)(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
+				  struct mtk_panel_para_table *para_table,
+				  unsigned int para_size);
+typedef int (*panel_tch_rst)(void);
 
 enum MTK_PANEL_OUTPUT_PORT_MODE {
 	MTK_PANEL_SINGLE_PORT = 0x0,
@@ -120,7 +118,6 @@ enum MTK_PANEL_SPR_MODE {
 	MTK_PANEL_BRGBRG_RGBRGB_TYPE,
 	MTK_PANEL_EXT_TYPE,
 };
-
 
 struct esd_check_item {
 	unsigned char cmd;
@@ -213,8 +210,35 @@ struct mtk_panel_spr_params {
 	unsigned int spr_format_type;
 	unsigned int rg_xy_swap;
 	struct spr_color_params spr_color_params[SPR_COLOR_PARAMS_TYPE_NUM];
-
 };
+
+/*M6 code for DSC by yuyang at 2022/09/23 start*/
+#ifdef PROJECT_DIAMOND
+struct dsc_rc_range_parameters {
+	/**
+	 * @range_min_qp: Min Quantization Parameters allowed for this range
+	 */
+	u8 range_min_qp;
+	/**
+	 * @range_max_qp: Max Quantization Parameters allowed for this range
+	 */
+	u8 range_max_qp;
+	/**
+	 * @range_bpg_offset:
+	 * Bits/group offset to apply to target for this group
+	 */
+	u8 range_bpg_offset;
+};
+
+struct mtk_panel_dsc_ext_pps_cfg {
+	unsigned int enable;
+	unsigned int *rc_buf_thresh;
+	unsigned int *range_min_qp;
+	unsigned int *range_max_qp;
+	int *range_bpg_ofs;
+};
+#endif
+/*M6 code for DSC by yuyang at 2022/09/23 end*/
 
 struct mtk_panel_dsc_params {
 	unsigned int enable;
@@ -228,7 +252,7 @@ struct mtk_panel_dsc_params {
 	unsigned int bp_enable;
 	unsigned int bit_per_pixel;
 	unsigned int pic_height; /* need to check */
-	unsigned int pic_width;  /* need to check */
+	unsigned int pic_width; /* need to check */
 	unsigned int slice_height;
 	unsigned int slice_width;
 	unsigned int chunk_size;
@@ -250,6 +274,13 @@ struct mtk_panel_dsc_params {
 	unsigned int rc_quant_incr_limit1;
 	unsigned int rc_tgt_offset_hi;
 	unsigned int rc_tgt_offset_lo;
+/*M6 code for DSC by yuyang at 2022/09/23 start*/
+#ifdef PROJECT_DIAMOND
+	struct mtk_panel_dsc_ext_pps_cfg ext_pps_cfg;
+	unsigned int rc_buf_thresh[14];
+	struct dsc_rc_range_parameters rc_range_parameters[15];
+#endif
+	/*M6 code for DSC by yuyang at 2022/09/23 end*/
 };
 struct mtk_dsi_phy_timcon {
 	unsigned int hs_trail;
@@ -373,6 +404,11 @@ struct msync_cmd_table {
 };
 
 struct mtk_panel_params {
+/*M6 code for HQ-250915 by zhengjie at 2022/11/1 start*/
+#ifdef PROJECT_DIAMOND
+	unsigned int change_fps_by_vfp_send_cmd;
+#endif
+	/*M6 code for HQ-250915 by zhengjie at 2022/11/1 end*/
 	unsigned int pll_clk;
 	unsigned int data_rate;
 	struct mtk_dsi_phy_timcon phy_timcon;
@@ -402,8 +438,8 @@ struct mtk_panel_params {
 	unsigned int physical_height_um;
 	unsigned int lane_swap_en;
 	unsigned int is_cphy;
-	enum MIPITX_PHY_LANE_SWAP
-		lane_swap[MIPITX_PHY_PORT_NUM][MIPITX_PHY_LANE_NUM];
+	enum MIPITX_PHY_LANE_SWAP lane_swap[MIPITX_PHY_PORT_NUM]
+					   [MIPITX_PHY_LANE_NUM];
 	struct mtk_panel_dsc_params dsc_params;
 	unsigned int output_mode;
 	unsigned int spr_output_mode;
@@ -417,7 +453,7 @@ struct mtk_panel_params {
 	unsigned int cmd_null_pkt_en;
 	unsigned int cmd_null_pkt_len;
 
-//Settings for LFR Function:
+	//Settings for LFR Function:
 	unsigned int lfr_enable;
 	unsigned int lfr_minimum_fps;
 	/*Msync 2.0*/
@@ -448,32 +484,37 @@ enum mtk_lcm_version {
 };
 
 struct mtk_panel_funcs {
-	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb,
-		void *handle, unsigned int level);
-	int (*set_aod_light_mode)(void *dsi_drv, dcs_write_gce cb,
-		void *handle, unsigned int mode);
+	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb, void *handle,
+				  unsigned int level);
+	int (*set_aod_light_mode)(void *dsi_drv, dcs_write_gce cb, void *handle,
+				  unsigned int mode);
 	int (*set_backlight_grp_cmdq)(void *dsi_drv, dcs_grp_write_gce cb,
-		void *handle, unsigned int level);
+				      void *handle, unsigned int level);
 	int (*reset)(struct drm_panel *panel, int on);
 	int (*ata_check)(struct drm_panel *panel);
 	int (*ext_param_set)(struct drm_panel *panel,
-		struct drm_connector *connector, unsigned int mode);
+			     struct drm_connector *connector,
+			     unsigned int mode);
 	int (*ext_param_get)(struct drm_panel *panel,
-		struct drm_connector *connector,
-		struct mtk_panel_params **ext_para,
-		unsigned int mode);
+			     struct drm_connector *connector,
+			     struct mtk_panel_params **ext_para,
+			     unsigned int mode);
 	int (*mode_switch)(struct drm_panel *panel,
-		struct drm_connector *connector, unsigned int cur_mode,
-		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage);
-	int (*mode_switch_hs)(struct drm_panel *panel, struct drm_connector *connector,
-		void *dsi_drv, unsigned int cur_mode, unsigned int dst_mode,
-		enum MTK_PANEL_MODE_SWITCH_STAGE stage, dcs_write_gce_pack cb);
-	int (*msync_te_level_switch)(void *dsi, dcs_write_gce cb,
-		void *handle, unsigned int fps_level);
+			   struct drm_connector *connector,
+			   unsigned int cur_mode, unsigned int dst_mode,
+			   enum MTK_PANEL_MODE_SWITCH_STAGE stage);
+	int (*mode_switch_hs)(struct drm_panel *panel,
+			      struct drm_connector *connector, void *dsi_drv,
+			      unsigned int cur_mode, unsigned int dst_mode,
+			      enum MTK_PANEL_MODE_SWITCH_STAGE stage,
+			      dcs_write_gce_pack cb);
+	int (*msync_te_level_switch)(void *dsi, dcs_write_gce cb, void *handle,
+				     unsigned int fps_level);
 	int (*msync_te_level_switch_grp)(void *dsi, dcs_grp_write_gce cb,
-		void *handle, struct drm_panel *panel, unsigned int fps_level);
-	int (*msync_cmd_set_min_fps)(void *dsi, dcs_write_gce cb,
-			void *handle, unsigned int flag);
+					 void *handle, struct drm_panel *panel,
+					 unsigned int fps_level);
+	int (*msync_cmd_set_min_fps)(void *dsi, dcs_write_gce cb, void *handle,
+				     unsigned int flag);
 	int (*get_virtual_heigh)(void);
 	int (*get_virtual_width)(void);
 	/**
@@ -483,24 +524,24 @@ struct mtk_panel_funcs {
 	 * The LCM off may add here to avoid panel show unexpected
 	 * content when switching to specific panel low power mode.
 	 */
-	int (*doze_enable_start)(struct drm_panel *panel,
-		void *dsi_drv, dcs_write_gce cb, void *handle);
+	int (*doze_enable_start)(struct drm_panel *panel, void *dsi_drv,
+				 dcs_write_gce cb, void *handle);
 
 	/**
 	 * @doze_enable:
 	 *
 	 * Call the @doze_enable starts AOD mode.
 	 */
-	int (*doze_enable)(struct drm_panel *panel,
-		void *dsi_drv, dcs_write_gce cb, void *handle);
+	int (*doze_enable)(struct drm_panel *panel, void *dsi_drv,
+			   dcs_write_gce cb, void *handle);
 
 	/**
 	 * @doze_disable:
 	 *
 	 * Call the @doze_disable before ending AOD mode.
 	 */
-	int (*doze_disable)(struct drm_panel *panel,
-		void *dsi_drv, dcs_write_gce cb, void *handle);
+	int (*doze_disable)(struct drm_panel *panel, void *dsi_drv,
+			    dcs_write_gce cb, void *handle);
 
 	/**
 	 * @doze_post_disp_on:
@@ -509,16 +550,16 @@ struct mtk_panel_funcs {
 	 * After LCM switch to the new mode stable, system call
 	 * @doze_post_disp_on to turn on panel.
 	 */
-	int (*doze_post_disp_on)(struct drm_panel *panel,
-		void *dsi_drv, dcs_write_gce cb, void *handle);
+	int (*doze_post_disp_on)(struct drm_panel *panel, void *dsi_drv,
+				 dcs_write_gce cb, void *handle);
 
 	/**
 	 * @doze_area:
 	 *
 	 * Send the panel area in command here.
 	 */
-	int (*doze_area)(struct drm_panel *panel,
-		void *dsi_drv, dcs_write_gce cb, void *handle);
+	int (*doze_area)(struct drm_panel *panel, void *dsi_drv,
+			 dcs_write_gce cb, void *handle);
 
 	/**
 	 * @doze_get_mode_flags:
@@ -526,8 +567,8 @@ struct mtk_panel_funcs {
 	 * If CV switch is needed for doze mode, fill the mode_flags in this
 	 * function for both CMD and VDO mode.
 	 */
-	unsigned long (*doze_get_mode_flags)(
-		struct drm_panel *panel, int aod_en);
+	unsigned long (*doze_get_mode_flags)(struct drm_panel *panel,
+					     int aod_en);
 
 	int (*hbm_set_cmdq)(struct drm_panel *panel, void *dsi_drv,
 			    dcs_write_gce cb, void *handle, bool en);
@@ -538,10 +579,147 @@ struct mtk_panel_funcs {
 	void (*lcm_dump)(struct drm_panel *panel, enum MTK_LCM_DUMP_FLAG flag);
 	enum mtk_lcm_version (*get_lcm_version)(void);
 
-	int (*send_ddic_cmd_pack)(struct drm_panel *panel,
-		void *dsi_drv, dcs_write_gce_pack cb, void *handle);
+	int (*send_ddic_cmd_pack)(struct drm_panel *panel, void *dsi_drv,
+				  dcs_write_gce_pack cb, void *handle);
+
+#ifdef PROJECT_ROCK
+	/*L19A code for HQ-209605 by zhangkexin at 2022/05/20 start*/
+	int (*hbm_control)(struct drm_panel *panel, int hbmode);
+#endif
 };
 
+#ifdef PROJECT_ROCK
+enum DISPPARAM_MODE {
+	DISPPARAM_WARM = 0x1,
+	DISPPARAM_DEFAULT = 0x2,
+	DISPPARAM_COLD = 0x3,
+	DISPPARAM_PAPERMODE8 = 0x5,
+	DISPPARAM_PAPERMODE1 = 0x6,
+	DISPPARAM_PAPERMODE2 = 0x7,
+	DISPPARAM_PAPERMODE3 = 0x8,
+	DISPPARAM_PAPERMODE4 = 0x9,
+	DISPPARAM_PAPERMODE5 = 0xA,
+	DISPPARAM_PAPERMODE6 = 0xB,
+	DISPPARAM_PAPERMODE7 = 0xC,
+	DISPPARAM_WHITEPOINT_XY = 0xE,
+	DISPPARAM_CE_ON = 0x10,
+	DISPPARAM_CE_OFF = 0xF0,
+	DISPPARAM_CABCUI_ON = 0x100,
+	DISPPARAM_CABCSTILL_ON = 0x200,
+	DISPPARAM_CABCMOVIE_ON = 0x300,
+	DISPPARAM_CABC_OFF = 0x400,
+	DISPPARAM_SKIN_CE_CABCUI_ON = 0x500,
+	DISPPARAM_SKIN_CE_CABCSTILL_ON = 0x600,
+	DISPPARAM_SKIN_CE_CABCMOVIE_ON = 0x700,
+	DISPPARAM_SKIN_CE_CABC_OFF = 0x800,
+	DISPPARAM_DIMMING_OFF = 0xE00,
+	DISPPARAM_DIMMING = 0xF00,
+	DISPPARAM_ACL_L1 = 0x1000,
+	DISPPARAM_ACL_L2 = 0x2000,
+	DISPPARAM_ACL_L3 = 0x3000,
+	DISPPARAM_ACL_OFF = 0xF000,
+	DISPPARAM_HBM_ON = 0x10000,
+	DISPPARAM_HBM_FOD_ON = 0x20000,
+	DISPPARAM_HBM_FOD2NORM = 0x30000,
+	DISPPARAM_DC_ON = 0x40000,
+	DISPPARAM_DC_OFF = 0x50000,
+	DISPPARAM_HBM_FOD_OFF = 0xE0000,
+	DISPPARAM_HBM_OFF = 0xF0000,
+	DISPPARAM_LCD_HBM_L1_ON = 0xB0000,
+	DISPPARAM_LCD_HBM_L2_ON = 0xC0000,
+	DISPPARAM_LCD_HBM_L3_ON = 0xD0000,
+	DISPPARAM_LCD_HBM_OFF = 0xE0000,
+	DISPPARAM_NORMALMODE1 = 0x100000,
+	DISPPARAM_P3 = 0x200000,
+	DISPPARAM_SRGB = 0x300000,
+	DISPPARAM_SKIN_CE = 0x400000,
+	DISPPARAM_SKIN_CE_OFF = 0x500000,
+	DISPPARAM_DOZE_BRIGHTNESS_HBM = 0x600000,
+	DISPPARAM_DOZE_BRIGHTNESS_LBM = 0x700000,
+	DISPPARAM_DOZE_OFF = 0x800000,
+	DISPPARAM_HBM_BACKLIGHT_RESEND = 0xA00000,
+	DISPPARAM_HBM_FOD_ON_FLAG = 0xB00000,
+	DISPPARAM_HBM_FOD_OFF_FLAG = 0xC00000,
+	DISPPARAM_FOD_BACKLIGHT = 0xD00000,
+	DISPPARAM_CRC_P3_D65 = 0xE00000,
+	DISPPARAM_CRC_OFF = 0xF00000,
+	DISPPARAM_FOD_BACKLIGHT_ON = 0x1000000,
+	DISPPARAM_FOD_BACKLIGHT_OFF = 0x2000000,
+	DISPPARAM_FLAT_CRC_P3 = 0x4000000,
+	DISPPARAM_FLAT_MODE_ON = 0x5000000,
+	DISPPARAM_FLAT_MODE_OFF = 0x6000000,
+	DISPPARAM_DOZE_STATE_SET = 0x10000000,
+	DISPPARAM_DFPS_STATE_SET = 0x30000000,
+};
+/*L19A code for HQ-209605 by zhangkexin at 2022/05/20 end*/
+#endif
+
+#ifdef PROJECT_DIAMOND
+/*M6 code for HQ-246337 by yuyang at 22/10/11 start*/
+enum DISPPARAM_MODE {
+	DISPPARAM_WARM = 0x1,
+	DISPPARAM_DEFAULT = 0x2,
+	DISPPARAM_COLD = 0x3,
+	DISPPARAM_PAPERMODE8 = 0x5,
+	DISPPARAM_PAPERMODE1 = 0x6,
+	DISPPARAM_PAPERMODE2 = 0x7,
+	DISPPARAM_PAPERMODE3 = 0x8,
+	DISPPARAM_PAPERMODE4 = 0x9,
+	DISPPARAM_PAPERMODE5 = 0xA,
+	DISPPARAM_PAPERMODE6 = 0xB,
+	DISPPARAM_PAPERMODE7 = 0xC,
+	DISPPARAM_WHITEPOINT_XY = 0xE,
+	DISPPARAM_CE_ON = 0x10,
+	DISPPARAM_CE_OFF = 0xF0,
+	DISPPARAM_CABCUI_ON = 0x100,
+	DISPPARAM_CABCSTILL_ON = 0x200,
+	DISPPARAM_CABCMOVIE_ON = 0x300,
+	DISPPARAM_CABC_OFF = 0x400,
+	DISPPARAM_SKIN_CE_CABCUI_ON = 0x500,
+	DISPPARAM_SKIN_CE_CABCSTILL_ON = 0x600,
+	DISPPARAM_SKIN_CE_CABCMOVIE_ON = 0x700,
+	DISPPARAM_SKIN_CE_CABC_OFF = 0x800,
+	DISPPARAM_DIMMING_OFF = 0xE00,
+	DISPPARAM_DIMMING = 0xF00,
+	DISPPARAM_ACL_L1 = 0x1000,
+	DISPPARAM_ACL_L2 = 0x2000,
+	DISPPARAM_ACL_L3 = 0x3000,
+	DISPPARAM_ACL_OFF = 0xF000,
+	DISPPARAM_HBM_ON = 0x10000,
+	DISPPARAM_HBM_FOD_ON = 0x20000,
+	DISPPARAM_HBM_FOD2NORM = 0x30000,
+	DISPPARAM_WHITEPOINT_LV = 0x40000,
+	DISPPARAM_DC_OFF = 0x50000,
+	DISPPARAM_HBM_FOD_OFF = 0xE0000,
+	DISPPARAM_HBM_OFF = 0xF0000,
+	DISPPARAM_LCD_HBM_L1_ON = 0xB0000,
+	DISPPARAM_LCD_HBM_L2_ON = 0xC0000,
+	DISPPARAM_LCD_HBM_L3_ON = 0xD0000,
+	DISPPARAM_LCD_HBM_OFF = 0xE0000,
+	DISPPARAM_NORMALMODE1 = 0x100000,
+	DISPPARAM_P3 = 0x200000,
+	DISPPARAM_SRGB = 0x300000,
+	DISPPARAM_SKIN_CE = 0x400000,
+	DISPPARAM_SKIN_CE_OFF = 0x500000,
+	DISPPARAM_DOZE_BRIGHTNESS_HBM = 0x600000,
+	DISPPARAM_DOZE_BRIGHTNESS_LBM = 0x700000,
+	DISPPARAM_DOZE_OFF = 0x800000,
+	DISPPARAM_HBM_BACKLIGHT_RESEND = 0xA00000,
+	DISPPARAM_HBM_FOD_ON_FLAG = 0xB00000,
+	DISPPARAM_HBM_FOD_OFF_FLAG = 0xC00000,
+	DISPPARAM_FOD_BACKLIGHT = 0xD00000,
+	DISPPARAM_CRC_P3_D65 = 0xE00000,
+	DISPPARAM_CRC_OFF = 0xF00000,
+	DISPPARAM_FOD_BACKLIGHT_ON = 0x1000000,
+	DISPPARAM_FOD_BACKLIGHT_OFF = 0x2000000,
+	DISPPARAM_FLAT_CRC_P3 = 0x4000000,
+	DISPPARAM_FLAT_MODE_ON = 0x5000000,
+	DISPPARAM_FLAT_MODE_OFF = 0x6000000,
+	DISPPARAM_DOZE_STATE_SET = 0x10000000,
+	DISPPARAM_DFPS_STATE_SET = 0x30000000,
+};
+/*M6 code for HQ-246337 by yuyang at 22/10/11 end*/
+#endif
 void mtk_panel_init(struct mtk_panel_ctx *ctx);
 void mtk_panel_add(struct mtk_panel_ctx *ctx);
 void mtk_panel_remove(struct mtk_panel_ctx *ctx);

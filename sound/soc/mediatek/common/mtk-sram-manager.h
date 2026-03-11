@@ -8,7 +8,11 @@
 #define _MTK_SRAM_MANAGER_H_
 
 #include <sound/soc.h>
-
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 start*/
+#ifdef PROJECT_ROCK
+extern int fac_mic;
+#endif
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 end*/
 enum mtk_audio_sram_mode {
 	MTK_AUDIO_SRAM_NORMAL_MODE = 0,
 	MTK_AUDIO_SRAM_COMPACT_MODE,

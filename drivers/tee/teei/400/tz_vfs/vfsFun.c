@@ -67,9 +67,11 @@ int wait_for_vfs_done(void)
 {
 	int ret = 0;
 #ifdef VFS_RDWR_SEM
-	ret = down_interruptible(&VFS_wr_sem);
+
+	down(&VFS_wr_sem);
 #else
-	ret = wait_for_completion_interruptible(&VFS_wr_comp);
+	wait_for_completion(&VFS_wr_comp);
+
 #endif
 	if (ret != 0)
 		return ret;

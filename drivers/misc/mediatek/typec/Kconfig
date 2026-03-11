@@ -11,7 +11,213 @@ config MTK_USB_TYPEC
 	  by callback func.
 	  If unsure, say N.
 
-source "drivers/misc/mediatek/typec/tcpc/Kconfig"
+# ===============================================================================
+# SPDX-License-Identifier: GPL-2.0
+config MTK_USB_TYPEC_MUX
+	tristate "Mediatek USB TYPE-C Mux Driver"
+        select MTK_USB_TYPEC
+	help
+	  Say Y or M to support Mediatek USB Type-c mux switch
+	  driver. MTK Type-c mux driver is a simple architecture
+	  mux driver and  control multiple mux switch IC. Works
+	  with Type-C Port Controller Manager
 
-source "drivers/misc/mediatek/typec/mux/Kconfig"
+config TYPEC_MUX_FUSB304
+	tristate "TI FUSB304 Type-C cross switch driver"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Say Y or M if your system has a TI FUSB304
+	  Type-C cross switch / mux chip found on some
+	  devices with a Type-C port. Works with Type-C
+	  Port Controller Manager.
 
+config TYPEC_MUX_PTN36241G
+	tristate "NXP PTN36241G USB3 Redriver"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Say Y or M if your system has a NXP PTN36241G USB3.0 Redriver.
+	  Works with Type-C Port Controller Manager.
+
+config TYPEC_MUX_PS5169
+	tristate "Parade PS5169 USB Type-C Linear Redriver"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Say Y or M if your system has a PS5169 USB Type-C Linear Redriver.
+	  Works with Type-C Port Controller Manager.
+
+config TYPEC_MUX_PS5170
+	tristate "Parade PS5170 USB Type-C Linear Redriver"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Say Y or M if your system has a PS5170 USB Type-C Linear Redriver.
+	  Support USB/DP signal switch.
+
+config TYPEC_MUX_DP_SELECTOR
+	tristate "USB DP SIGNAL SELECTOR"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Say Y or M if your system has a integrate USB/DP selector.
+	  Support USB/DP channel switch.
+	  Works with Type-C Port Controller Manager.
+	  If unsure, say N.
+
+config MTK_USB_TYPEC_DP_MUX
+    tristate "Mediatek USB TYPE-C USB DP Mux"
+    depends on MTK_USB_TYPEC_MUX
+    help
+      Enables to support USB DP mux in usb-c.
+      To support TYPE-C USB DP must have a MUX to switch
+      SSRX1/SSTX1/SSRX2/SSTX2 pins.
+      Say Y to enable TYPEC DP Mux
+      If unsure, say N.
+
+config TYPEC_MUX_ALPHA_FSA4480
+	tristate "alpha phone FSA4480 aux channel switch IC"
+	help
+	  Say Y or M if your system has a FSA4480 switch IC.
+	  Support DP aux channel switch function.
+	  Support typec analog audio switch.
+	  Support turn on source vbus function.
+
+
+#============================================================================
+#
+# TypeC Port Controller Device Configuration
+#
+
+config TCPC_CLASS
+	tristate "TypeC Port Controller Device Class"
+	select MTK_USB_TYPEC
+	select RT_REGMAP
+	select TYPEC
+	help
+	  Say Y to enable
+	  Typec Port
+	  Controller Device
+	  Class
+
+config USB_POWER_DELIVERY
+	tristate "Support USB power delivery Function"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable
+	  USB
+	  Power Delivery
+	  support
+
+config TCPC_RT1711H
+	tristate "Richtek RT1711H TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable
+	  Richtek RT1711H
+	  TypeC port Controller
+	  Driver
+
+config TCPC_RT5081
+	tristate "Richtek RT5081 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable Richtek RT5081
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config TCPC_MT6360
+	tristate "MediaTek MT6360 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	help
+	  Say Y to enable MediaTek MT6370
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config TCPC_WUSB3801
+	tristate "MediaTek WUSB3801 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	help
+	  Say Y to enable WUSB3801
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config TCPC_FUSB303
+	tristate "MediaTek FUSB303 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	help
+	  Say Y to enable FUSB303
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config TCPC_MT6362
+	tristate "MT6362 SPMI TCPC driver"
+	depends on TCPC_CLASS
+	depends on MFD_MT6362
+	help
+	  Say yes here to have support for the MT6362 TCPC
+	  Support TypeC port Controller and Power Delivery
+
+	  The driver can also be build as a module.
+	  If so, the module will be called tcpci_mt6362
+
+config TCPC_MT6370
+	tristate "MediaTek MT6370 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable MediaTek MT6370
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config TCPC_MT6375
+	tristate "Mediatek MT6375 Type-C chip driver"
+	depends on TCPC_CLASS
+	depends on MFD_MT6375
+	help
+	  Mediatek MT6375 Type-C chip driver that works with
+	  Type-C Port Controller Manager to provide USB PD and USB
+	  Type-C functionalities.
+
+config USB_PD_VBUS_STABLE_TOUT
+	int "PD VBUS Stable Timeout"
+	depends on USB_POWER_DELIVERY
+	range 0 1000                       # >= 0,  <= 1000
+	default 125
+	help
+	  Setup a timeout value (ms)
+	  for
+	  VBUS change
+	  stable
+
+config PD_DBG_INFO
+	tristate "PD debug information"
+	depends on TCPC_CLASS
+	default y
+	help
+	  Say Y to enable PD debug
+	  for PD DBG
+	  information
+	  Say N to disable
+
+config MTK_TYPEC_WATER_DETECT
+	tristate "Water detection function for type-c connector"
+	depends on TCPC_CLASS
+	help
+	  Say Yes to enable water detection on type-c connector.
+	  If water is detected on the connector, it will show
+	  warning to notify end user.
+	  If unsure, say N.
+
+config MTK_TYPEC_WATER_DETECT_BY_PCB
+	tristate "Let PCB decides enabling water detection or not"
+	depends on MTK_TYPEC_WATER_DETECT
+	help
+	  Query GPIO on PCB to judge whether type-c water detection
+	  need to be enabled.
+	  Say Yes to let PCB decides enabling water detection or not.
+	  If unsure, say N.

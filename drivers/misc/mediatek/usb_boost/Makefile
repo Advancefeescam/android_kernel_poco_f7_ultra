@@ -3,7 +3,7 @@
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y += -I$(srctree)/drivers/usb/host
 ccflags-y += -I$(srctree)/drivers/usb/mtu3
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb20
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb20/$(BUILD_TARGET_PRODUCT)
 
 obj-$(CONFIG_MTK_USB_BOOST) += usb_boost.o
 

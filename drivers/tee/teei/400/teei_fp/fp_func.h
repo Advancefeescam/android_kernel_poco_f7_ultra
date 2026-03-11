@@ -9,8 +9,8 @@
 #define TEEI_FUNC_H
 
 #include <teei_ioc.h>
-#define MICROTRUST_FP_SIZE	0x80000
-#define FP_MAJOR		254
+#define MICROTRUST_FP_SIZE	0x2000000
+#define FP_MAJOR		518
 #define DEV_NAME		"teei_fp"
 
 extern struct semaphore fp_api_lock;

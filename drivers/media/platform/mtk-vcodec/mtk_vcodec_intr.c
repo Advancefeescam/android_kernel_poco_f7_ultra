@@ -75,7 +75,13 @@ irqreturn_t mtk_vcodec_dec_irq_handler(int irq, void *priv)
 	ctx = mtk_vcodec_get_curr_ctx(dev, MTK_VDEC_CORE);
 	if (ctx == NULL)
 		return IRQ_HANDLED;
-
+        /*L19A code for HQ-212377 by qiankang at 20220622 start*/
+	if (ctx->dec_params.svp_mode && dev->svp_mtee) {
+            mtk_v4l2_debug(4, "svp_mode %d don't handle",
+		ctx->dec_params.svp_mode);
+	    return IRQ_HANDLED;
+	}
+       /*L19A code for HQ-212377 by qiankang at 20220622 end*/
 	/* check if HW active or not */
 	cg_status = readl(dev->dec_reg_base[0]);
 	if ((cg_status & MTK_VDEC_HW_ACTIVE) != 0) {
@@ -248,17 +254,23 @@ int mtk_vcodec_dec_irq_setup(struct platform_device *pdev,
 #ifndef FPGA_INTERRUPT_API_DISABLE
 	int i = 0;
 	int ret = 0;
-
+        /*L19A code for HQ-212377 by qiankang at 20220622 start*/
 	for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
 		dev->dec_irq[i] = platform_get_irq(pdev, i);
 		if (dev->dec_irq[i] < 0) {
 			mtk_v4l2_debug(0, "no IRQ resource, hw id: %d", i);
 			break;
 		}
-		if (i == MTK_VDEC_CORE)
-			ret = devm_request_irq(&pdev->dev, dev->dec_irq[i],
-				mtk_vcodec_dec_irq_handler, 0, pdev->name, dev);
-		else if (i == MTK_VDEC_LAT)
+		if (i == MTK_VDEC_CORE) {
+			if (dev->svp_mtee)
+				ret = devm_request_irq(&pdev->dev, dev->dec_irq[i],
+					mtk_vcodec_dec_irq_handler,
+					IRQF_NO_THREAD | IRQF_SHARED | IRQF_PROBE_SHARED,
+					pdev->name, dev);
+			else
+				ret = devm_request_irq(&pdev->dev, dev->dec_irq[i],
+					mtk_vcodec_dec_irq_handler, 0, pdev->name, dev);
+		} else if (i == MTK_VDEC_LAT)
 			ret = devm_request_irq(&pdev->dev, dev->dec_irq[i],
 				mtk_vcodec_lat_dec_irq_handler, 0,
 					pdev->name, dev);
@@ -269,6 +281,7 @@ int mtk_vcodec_dec_irq_setup(struct platform_device *pdev,
 		}
 		disable_irq(dev->dec_irq[i]);
 	}
+        /*L19A code for HQ-212377 by qiankang at 20220622 end*/
 #endif
 	return 0;
 

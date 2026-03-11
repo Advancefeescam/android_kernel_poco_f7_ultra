@@ -12,7 +12,9 @@
 
 #ifdef CONFIG_UFSFEATURE
 #include "ufshcd.h"
-#include "ufsfeature.h"
+/*L19A code for HQ-194052 by xukai at 20220517 start*/
+#include "vendor/feature/ufsfeature.h"
+/*L19A code for HQ-194052 by xukai at 20220517 start*/
 #endif
 
 /*
@@ -65,6 +67,8 @@
 #define VS_SAVEPOWERCONTROL         0xD0A6
 #define VS_UNIPROPOWERDOWNCONTROL   0xD0A8
 
+
+
 /*
  * Vendor specific link state
  */
@@ -76,6 +80,7 @@ enum {
 	VS_LINK_LOST                = 4,
 	VS_LINK_CFG                 = 5,
 };
+
 
 /*
  * Vendor specific host controller state
@@ -188,6 +193,8 @@ enum ufs_mtk_host_caps {
 	 */
 	UFS_MTK_CAP_FORCE_VSx_LPM              = 1 << 5,
 };
+
+
 
 struct ufs_mtk_crypt_cfg {
 	struct regulator *reg_vcore;

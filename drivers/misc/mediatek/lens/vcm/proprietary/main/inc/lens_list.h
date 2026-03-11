@@ -359,4 +359,12 @@ extern long WV511AAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 extern int WV511AAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int WV511AAF_GetFileName(unsigned char *pFileName);
 
+#ifdef PROJECT_DIAMOND
+extern int DIAMOND_DW9800VAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+	spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long DIAMOND_DW9800VAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+	unsigned long a_u4Param);
+extern int DIAMOND_DW9800VAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int DIAMOND_DW9800VAF_GetFileName(unsigned char *pFileName);
+#endif
 #endif

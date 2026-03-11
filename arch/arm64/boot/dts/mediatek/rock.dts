@@ -1,0 +1,458 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2021 MediaTek Inc.
+ */
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/mt6789-pinfunc.h>
+#include "mediatek/cust_l19a_camera.dtsi"
+#include "mediatek/rock-sia8152.dtsi"
+&chosen {
+
+};
+
+&irtx_pwm {
+	/delete-property/ pwm_ch;
+	/delete-property/ pwm-supply;
+	pwm_ch = <0>;
+};
+
+&mtk_leds {
+	compatible = "mediatek,disp-leds";
+
+	backlight {
+		led_mode = <4>;
+		gate_enable = <1>;
+		/*L19A code for HQ-194061 by zhangkexin at 2022/04/26 start*/
+		max-brightness = <2047>;
+		/*L19A code for HQ-194061 by zhangkexin at 2022/04/26 end*/
+		pwm_config = <0 1 0 0 0>;
+	};
+};
+
+&mtee_svp {
+      mtee: MTEE {
+                   compatible = "mediatek,mtk_svp_on_mtee_support";
+    };
+   svp: SecureVideoPath {
+                   compatible = "mediatek,mtk_sec_video_path_support";
+    };
+};
+
+&pio {
+	mtkfb_pins_lcm_led_en1: lcm_led_en1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO12__FUNC_GPIO12>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_led_en0: lcm_led_en0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO12__FUNC_GPIO12>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO85__FUNC_GPIO85>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out0_gpio: lcm_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO85__FUNC_GPIO85>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO83__FUNC_DSI_TE>;
+		};
+	};
+};
+
+&mtkfb {
+	pinctrl-names = "lcm_led_en1_gpio", "lcm_led_en0_gpio",
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te";
+	pinctrl-0 = <&mtkfb_pins_lcm_led_en1>;
+	pinctrl-1 = <&mtkfb_pins_lcm_led_en0>;
+	pinctrl-2 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-3 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-4 = <&mtkfb_pins_lcm_dsi_te>;
+	status = "okay";
+};
+
+&dispsys_config {
+	pinctrl-names =
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te";
+	pinctrl-0 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-1 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-2 = <&mtkfb_pins_lcm_dsi_te>;
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel1@0 {
+		compatible = "nt36672c,tianma,vdo";
+		reg = <0>;
+		pm-enable-gpios = <&pio 12 0>;
+		reset-gpios = <&pio 85 0>;
+		bias-gpios = <&pio 153 0>,
+			<&pio 154 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	panel2@0 {
+		compatible = "ft8722,jdi,vdo";
+		reg = <1>;
+		pm-enable-gpios = <&pio 12 0>;
+		reset-gpios = <&pio 85 0>;
+		bias-gpios = <&pio 153 0>,
+			<&pio 154 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	ports {
+		port {
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in1>;
+			};
+		};
+	};
+};
+
+/* GPS GPIO standardization start */
+&pio {
+	gps_pins_default: gps_default {
+	};
+	gps_l1_lna_pins_ol: gps_l1_lna@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO25__FUNC_GPIO25>;
+			output-low;
+		};
+	};
+	gps_l1_lna_pins_dsp_ctrl: gps_l1_lna@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO25__FUNC_GPS_L1_ELNA_EN>;
+		};
+	};
+	gps_l1_lna_pins_oh: gps_l1_lna@2 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO25__FUNC_GPIO25>;
+			output-high;
+		};
+	};
+	gps_l5_lna_pins_ol: gps_l5_lna@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO26__FUNC_GPIO26>;
+			output-low;
+		};
+	};
+	gps_l5_lna_pins_dsp_ctrl: gps_l5_lna@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO26__FUNC_GPS_L5_ELNA_EN>;
+		};
+	};
+	gps_l5_lna_pins_oh: gps_l5_lna@2 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO26__FUNC_GPIO26>;
+			output-high;
+		};
+	};
+};
+&gps {
+	pinctrl-names = "default",
+		"gps_l1_lna_disable",
+		"gps_l1_lna_dsp_ctrl",
+		"gps_l1_lna_enable",
+		"gps_l5_lna_disable",
+		"gps_l5_lna_dsp_ctrl",
+		"gps_l5_lna_enable";
+	pinctrl-0 = <&gps_pins_default>;
+	pinctrl-1 = <&gps_l1_lna_pins_ol>;
+	pinctrl-2 = <&gps_l1_lna_pins_dsp_ctrl>;
+	pinctrl-3 = <&gps_l1_lna_pins_oh>;
+	pinctrl-4 = <&gps_l5_lna_pins_ol>;
+	pinctrl-5 = <&gps_l5_lna_pins_dsp_ctrl>;
+	pinctrl-6 = <&gps_l5_lna_pins_oh>;
+	status = "okay";
+};
+/* GPS GPIO standardization end */
+
+#include "mediatek/cust_mt6789_touch_1080x2400.dtsi"
+#include "mediatek/cust_mt6789_camera_v4l2.dtsi"
+
+/* L19A code for HQ-194500 by lukuan at 2022.4.8 start */
+&i2c3 {
+    nxp@28 {
+        compatible = "nq-nci";
+        reg = <0x28>;
+        nq-irq = <&pio 1 0x00>;
+        interrupt-parent = <&pio>;
+        interrupts = <1 IRQ_TYPE_LEVEL_HIGH 1 0>;
+        nq-ven = <&pio 150 0x0>;
+        nq-firm = <&pio 37 0x0>;
+        nq-clkreq = <&pio 68 0x0>;
+        interrupt-names = "irq_nfc";
+        status = "okay";
+    };
+};
+/* L19A code for HQ-194500 by lukuan at 2022.4.8 end */
+
+&i2c6 {
+/* L19A code for HQ-218235 by zhangbing at 2022.06.22 start */
+	spk: speaker_amp@5c {
+		compatible = "richtek,rt5512";
+		#sound-dai-cells = <0>;
+		reg = <0x5c>;
+		status = "disabled";
+		sound-name-prefix = "Left";
+	};
+/* L19A code for HQ-218235 by zhangbing at 2022.06.22 end */
+/*L19 code for HQ-161023 by zhangbing at 2022/04/06 start*/
+	aw87xxx_pa@58 {
+        	compatible = "awinic,aw87xxx_pa";
+        	reg = <0x58>;
+        	dev_index = < 0 >;
+        	status = "okay";
+       };
+/*L19 code for HQ-161023 by zhangbing at 2022/04/06 end*/
+	i2c_lcd_bias@3e {
+		compatible = "mediatek,i2c_lcd_bias";
+		reg = <0x3e>;
+		id = <6>;
+		status = "okay";
+	};
+
+	lm3697@36 {
+		compatible = "ti,lm3697";
+		reg = <0x36>;
+		status = "okay";
+		enable-gpios = <&pio 12 0>;
+		backlight {
+			compatible = "ti,lm3697-backlight";
+			lcd {
+				led-sources = <0 1 2>;
+				ramp-up-msec = <200>;
+				ramp-down-msec = <200>;
+				pwm-period = <0>;
+				default-brightness-level = <255>;
+			};
+		};
+		fault-monitor {
+			compatible = "ti,lm3697-fault-monitor";
+		};
+	};
+	ktd@37 {
+		compatible = "ktd,ktd3137";
+		reg = <0x37>;
+		status = "okay";
+		/*ktd,pwm-mode; */
+		ktd,using-lsb = <1>;
+		ktd,pwm-frequency = <100>;
+		ktd,bl-fscal-led = <0x98>;/*default 20.2mA*/
+		ktd,turn-on-ramp = <0>;
+		ktd,turn-off-ramp = <0>;
+		ktd,pwm-trans-dim = <0>;
+		ktd,i2c-trans-dim = <0>;
+		/*L19A code for HQ-192283 by zhangkexin at 2022/04/26 start*/
+		ktd,bl-channel = <2>;
+		/*L19A code for HQ-192283 by zhangkexin at 2022/04/26 end*/
+		ktd,ovp-level = <32>; /*default 32v*/
+		ktd,switching-frequency = <1000>; /*default 1000kHz*/
+		ktd,inductor-current = <2600>; //default 2600mA
+		};
+};
+
+&spi0{
+	/delete-property/ mediatek,pad-select;
+	mediatek,pad-select = <0>,<1>;
+};
+
+&i2c7 {
+	clock-frequency = <400000>;
+	wusb3801@60 {
+		compatible = "will,wusb3801";
+		reg = <0x60>;
+		interrupt-parent = <&pio>;
+		interrupts = <26 0>;
+		wusb3801,irq-gpio = <&pio 26 0x0>;
+		interrupt-name = "wusb3801_int_irq";
+		wusb3801,init-mode = <32>;
+		wusb3801,host-current = <0x01>;
+		wusb3801,drp-toggle-time = <0>;
+		status = "okay";
+	};
+	
+	fusb303@21 {
+		status = "okay";
+		compatible = "on,fusb303";
+		reg = <0x21>;
+		interrupt-parent = <&pio>;
+		interrupts = <26 0x2>;
+		fusb303,int-gpio = <&pio 26 0>;
+		fusb303,init-mode = <20>;			/* trysnk, DRP */
+		fusb303,host-current = <2>;			/* 180uA host current */
+		fusb303,drp-toggle-time =  <1>;			/* 70ms */
+		fusb303,drp-duty-time = <0>;			/* 60 duty time */
+		fusb303,autosink-threshold = <1>;		/* 3P1V */
+		fusb303,cc-debounce-time = <3>;			/* 150ms */
+	};
+	
+ 	type_c_port0 {
+		mt-tcpc,name = "type_c_port0"; /* tcpc_device's name */
+		/* 0: SNK Only, 1: SRC Only, 2: DRP, 3: Try.SRC, 4: Try.SNK */
+		mt-tcpc,role_def = <5>;
+		mt-tcpc,rp_level = <0>;
+		/* 0: Never, 1: Always, 2: EMarkOnly, 3: StartOnly */
+		mt-tcpc,vconn_supply  = <1>;
+		/* the number of notifier supply */
+		mt-tcpc,notifier_supply_num = <3>;
+		mt6370pd,intr_gpio = <&pio 26 0x0>;
+		mt6370pd,intr_gpio_num = <26>;
+	};
+};
+&sound {
+	mediatek,spk-i2s = <3 0>;
+	mediatek,speaker-codec {
+		sound-dai = <&spk>;
+	};
+};
+
+
+/* Huaqin add for HQ-198769 by gaoshilin at 2022/03/29 start */
+#include <dt-bindings/gpio/gpio.h>
+
+&mmc1 {
+	cd-gpios = <&pio 7 GPIO_ACTIVE_HIGH>;
+};
+/* Huaqin add for HQ-198769 by gaoshilin at 2022/03/29 start */
+
+
+&utos{
+	microtrust,real-drv=<1>;
+};
+
+&extcon_usb {
+	/delete-property/ vbus-supply;
+	/delete-property/ vbus-voltage;
+	/delete-property/ vbus-current;
+	/delete-property/ charger;
+	/delete-property/ tcpc;
+};
+
+&u2port0 {
+	mediatek,eye-vrt = <7>;
+	mediatek,eye-term = <6>;
+	mediatek,rev6 = <3>;
+	mediatek,discth = <15>;
+};
+
+&lk_charger {
+	ac_charger_current = <1800000>;
+	ac_charger_input_current = <1800000>;
+	non_std_ac_charger_current = <1000000>;
+	boot_battery_voltage = <3600000>;
+/*L19AT HQ-254277 fix lk jeita by zhaohan at 2022/10/25 start*/
+	/* battery temperature protection */
+	temp_t6_threshold = <55>;
+	temp_t5_threshold = <45>;
+	temp_t4_threshold = <15>;
+	temp_t3_threshold = <10>;
+	temp_t2_threshold = <5>;
+	temp_t1_threshold = <0>;
+/*L19AT HQ-254277 fix lk jeita by zhaohan at 2022/10/25 end*/
+};
+
+&charger {
+	charger = <&bq2589x>;
+	battery_cv = <4450000>;
+	max_charger_voltage = <14500000>;
+	min_charger_voltage = <4800000>;
+
+	enable_sw_jeita;
+	jeita_temp_above_t5_cv = <4100000>;
+	jeita_temp_t4_to_t5_cv = <4100000>;
+	jeita_temp_t3_to_t4_cv = <4450000>;
+	jeita_temp_t2_to_t3_cv = <4450000>;
+	jeita_temp_t1_to_t2_cv = <4450000>;
+	jeita_temp_t0_to_t1_cv = <4450000>;
+	jeita_temp_below_t0_cv = <4450000>;
+
+	jeita_temp_t4_to_t5_cc = <2400000>;
+	jeita_temp_t3_to_t4_cc = <3000000>;
+	jeita_temp_t2_to_t3_cc = <1470000>;
+	jeita_temp_t1_to_t2_cc = <480000>;
+	jeita_temp_t0_to_t1_cc = <480000>;
+	jeita_temp_below_t0_cc = <480000>;
+
+	temp_t5_thres = <55>;
+	temp_t5_thres_minus_x_degree = <55>;
+	temp_t4_thres = <45>;
+	temp_t4_thres_plus_x_degree = <45>;
+	temp_t3_thres = <15>;
+	temp_t3_thres_plus_x_degree = <15>;
+	temp_t2_thres = <10>;
+	temp_t2_thres_plus_x_degree = <10>;
+	temp_t1_thres = <5>;
+	temp_t1_thres_plus_x_degree = <5>;
+
+	min_charge_temp_plus_x_degree = <3>;
+	max_charge_temp = <55>;
+
+	ac_charger_input_current = <2050000>;
+	non_std_ac_charger_current = <1000000>;
+
+	recharger_uisoc_limit = <99>;
+
+	enable_sw_ffc;
+	ffc_cv_1 = <4448000>;
+	ffc_cv_2 = <4432000>;
+	ffc_cv_3 = <4416000>;
+	chg_cycle_count_level1 = <1>;
+	chg_cycle_count_level2 = <100>;
+	chg_cycle_count_level3 = <300>;
+
+
+};
+
+&mt6375 {
+	status = "disable";
+};
+
+&mtk_gauge {
+	charger = <&bq2589x>;
+};
+
+/* Huaqin modify for HQ-193847 by liunianliang at 2022/03/25 start */
+
+&swtp {
+ 	swtp-gpio = <&pio 92 0>;
+};
+ /* Huaqin modify for HQ-193847 by liunianliang at 2022/03/25 end */
+#include "mediatek/cust_rock_fingerprint.dtsi"
+#include <rock/cust.dtsi>
+/*End of this file, DO NOT ADD ANYTHING HERE*/
+

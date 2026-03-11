@@ -130,6 +130,28 @@ static const struct proc_ops sec_proc_rid_fops = {
 	.proc_release = seq_release,
 };
 
+//L19A code for HQ-194222 by liuquan at 2022/05/22 start
+static int secureboot_proc_show(struct seq_file *m, void *v)
+{
+    int secureboot_status = 0;
+    secureboot_status = sec_schip_enabled();
+    seq_printf(m, "%d\n", secureboot_status);
+    return 0;
+}
+
+static int secureboot_open(struct inode *inode, struct file *file)
+{
+    return single_open(file, secureboot_proc_show, NULL);
+}
+
+static const struct proc_ops proc_secureboot_operations = {
+    .proc_open = secureboot_open,
+    .proc_read = seq_read,
+    .proc_lseek = seq_lseek,
+    .proc_release = seq_release,
+};
+//L19A code for HQ-194222 by liuquan at 2022/05/22 end
+
 /**************************************************************************
  *  set_dmverity_reboot eio flag
  **************************************************************************/
@@ -218,6 +240,9 @@ static int sec_init(struct platform_device *dev)
 	spin_lock_init(&sec.lock);
 
 	proc_create("rid", 0444, NULL, &sec_proc_rid_fops);
+        //L19A code for HQ-194222 by liuquan at 2022/05/22 start
+        proc_create("secureboot", 0644, NULL, &proc_secureboot_operations);
+        //L19A code for HQ-194222 by liuquan at 2022/05/22 end
 
 exit:
 	if (ret != 0) {
@@ -297,6 +322,7 @@ static int __init masp_get_from_dts(void)
 	g_rom_info_sbc_attr = tags->rom_info_sbc_attr;
 	g_rom_info_sdl_attr = tags->rom_info_sdl_attr;
 	g_hw_sbcen = tags->hw_sbcen;
+
 	g_lock_state = tags->lock_state;
 	lks = tags->lock_state;
 	for (i = 0; i < NUM_RID; i++)

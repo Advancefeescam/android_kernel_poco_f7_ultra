@@ -82,6 +82,12 @@
 #define DRIVER_MAJOR 1
 #define DRIVER_MINOR 0
 
+#ifdef PROJECT_ROCK
+/*L19A code for HQ-194827 by chenzimo at 2022/5/25 start*/
+atomic_t resume_pending;
+wait_queue_head_t resume_wait_q;
+/*L19A code for HQ-194827 by chenzimo at 2022/5/25 end*/
+#endif
 void disp_dbg_deinit(void);
 void disp_dbg_probe(void);
 void disp_dbg_init(struct drm_device *dev);
@@ -100,7 +106,14 @@ unsigned long long mutex_nested_time_end;
 long long mutex_nested_time_period;
 const char *mutex_nested_locker;
 static int aod_scp_flag;
-
+/*M6 code for HQ-248555 by zhengjie at 2022/11/3 start*/
+/*L19A code for HQ-194729 by zhangkexin at 2022/05/06 start*/
+#if (defined CONFIG_MI_ESD_SUPPORT) && ((defined PROJECT_ROCK) || (defined PROJECT_DIAMOND))
+bool is_fts_fisrt_esd = false;
+EXPORT_SYMBOL(is_fts_fisrt_esd);
+#endif
+/*L19A code for HQ-194729 by zhangkexin at 2022/05/06 end*/
+/*M6 code for HQ-248555 by zhengjie at 2022/11/3 end*/
 struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
 
 static int manual_shift;
@@ -759,7 +772,7 @@ static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 				}
 			//pmic_ldo_vio18_lp(SRCLKEN0, 0, 1, HW_LP);
 			//pmic_ldo_vio18_lp(SRCLKEN2, 0, 1, HW_LP);
-			clk_buf_voter_ctrl_by_id(12, SW_BBLPM);
+			clk_buf_voter_ctrl_by_id(12, SW_LPM);
 		} else if (!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]
 				&& !prepare) {
 			DDPMSG("exit AOD, enable PMIC LPMODE\n");
@@ -1035,12 +1048,26 @@ static void drm_atomic_esd_chk_first_enable(struct drm_device *dev,
 	if (is_first) {
 		for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 			if (drm_crtc_index(crtc) == 0) {
-				if  (mtk_drm_lcm_is_connect())
+/*M6 code for HQ-248555 by zhengjie at 2022/11/3 start*/
+/*L19A code for HQ-194729 by zhangkexin at 2022/05/06 start*/
+				if  (mtk_drm_lcm_is_connect()){
+#if (defined CONFIG_MI_ESD_SUPPORT) && ((defined PROJECT_ROCK) || (defined PROJECT_DIAMOND))
+					if(is_fts_fisrt_esd) {
+						atomic_set(&lcm_valid_irq,1);
+						DDPPR_ERR("%s ---is focal\n", __func__);
+					} else {
+						atomic_set(&lcm_valid_irq,0);
+						DDPPR_ERR("%s ---is nova\n", __func__);
+					}
+						atomic_set(&is_lcm_inited_esd,1);
+#endif
+/*L19A code for HQ-194729 by zhangkexin at 2022/05/06 end*/
+/*M6 code for HQ-248555 by zhengjie at 2022/11/3 end*/
 					mtk_disp_esd_check_switch(crtc, true);
+					}
 				break;
 			}
 		}
-
 		is_first = false;
 	}
 }
@@ -5447,6 +5474,325 @@ done:
 	return ret;
 }
 
+#ifdef PROJECT_ROCK
+/*L19A code for HQ-194099 by zhangkexin at 2022/05/07 start*/
+struct fb_lcd_wp_para lcd_wp_para = {0};
+bool set_white_point_x = true;
+
+
+static void mtkfb_get_white_point(void)
+{
+	struct device_node *chosen;
+	unsigned long size = 0;
+	char *wpoint = NULL;
+
+	chosen = of_find_node_by_path("/chosen");
+	if (chosen) {
+		wpoint = (char *)of_get_property(chosen, "lcm_white_point", (int *)&size);
+	}
+	pr_err("[%s]: white_point = %s\n", __func__, wpoint);
+	lcd_wp_para.white_point_x = (wpoint[0]-'0') * 100
+		+ (wpoint[1]-'0') * 10 + (wpoint[2]-'0');
+	lcd_wp_para.white_point_y = (wpoint[3]-'0') * 100
+		+ (wpoint[4]-'0') * 10 + (wpoint[5]-'0');
+	lcd_wp_para.white_point_l = (wpoint[6]-'0') * 100
+		+ (wpoint[7]-'0') * 10 + (wpoint[8]-'0');
+
+	pr_err("lcd_wp_para.white_point_x = %d\n", lcd_wp_para.white_point_x);
+	pr_err("lcd_wp_para.white_point_y = %d\n", lcd_wp_para.white_point_y);
+	pr_err("lcd_wp_para.white_point_l = %d\n", lcd_wp_para.white_point_l);
+}
+
+static ssize_t mtkfb_get_wpoint_level(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%3d\n", lcd_wp_para.white_point_l);
+	return ret;
+}
+static ssize_t mtkfb_set_wpoint_level(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	sscanf(buf, "%3d", &lcd_wp_para.white_point_l);
+	return len;
+}
+
+static ssize_t mtkfb_get_wpoint(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%3d%3d\n",
+			lcd_wp_para.white_point_x, lcd_wp_para.white_point_y);
+	return ret;
+}
+static ssize_t mtkfb_set_wpoint(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	if (set_white_point_x) {
+		sscanf(buf, "%3d", &lcd_wp_para.white_point_x);
+		set_white_point_x = false;
+	} else {
+		sscanf(buf, "%3d", &lcd_wp_para.white_point_y);
+		set_white_point_x = true;
+	}
+		return len;
+}
+static DEVICE_ATTR(mtkfb_dispwpoint, 0644, mtkfb_get_wpoint, mtkfb_set_wpoint);
+static DEVICE_ATTR(mtkfb_dispwpoint_level, 0644, mtkfb_get_wpoint_level, mtkfb_set_wpoint_level);
+/*L19A code for HQ-194099 by zhangkexin at 2022/05/07 end*/
+
+/*L19A code for HQ-209605 by zhangkexin at 2022/05/20 start*/
+atomic64_t g_param = ATOMIC64_INIT(0);
+extern ssize_t dsi_panel_set_disp_param(struct drm_connector* connector, u32 cmd);
+
+static ssize_t panel_info_show(struct device *device,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct device_node *chosen;
+	unsigned long size = 0;
+	char *lcmname = NULL;
+	int ret;
+
+	chosen = of_find_node_by_path("/chosen");
+	if (chosen) {
+		lcmname = (char *)of_get_property(chosen, "panel_name", (int *)&size);
+	}
+	ret = scnprintf(buf, PAGE_SIZE, "panel_name=%s\n", lcmname);
+	return ret;
+}
+
+static ssize_t mi_dsi_display_set_disp_param(struct drm_connector *connector,
+			u32 param_type)
+{
+	int ret = 0;
+	if (!connector) {
+		pr_err("Invalid display ptr\n");
+		return -EINVAL;
+	}
+	atomic64_set(&g_param, param_type);
+	ret = dsi_panel_set_disp_param(connector, param_type);
+	return ret;
+}
+
+static ssize_t mi_dsi_display_get_disp_param(struct drm_connector *connector,
+			char *buf)
+{
+	u32 param = (u32)atomic64_read(&g_param);
+	return snprintf(buf, PAGE_SIZE, "0x%08X\n", param);
+}
+
+static ssize_t mi_drm_sysfs_set_disp_param(struct drm_connector *connector,
+			u32 param_type)
+{
+	int ret = 0;
+	ret = mi_dsi_display_set_disp_param(connector, param_type);
+	return ret;
+}
+
+static ssize_t mi_drm_sysfs_get_disp_param(struct drm_connector *connector,
+			char *buf)
+{
+	return mi_dsi_display_get_disp_param(connector, buf);
+}
+
+static ssize_t disp_param_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	ssize_t ret = 0;
+	int32_t param;
+	struct drm_connector *connector = dev_get_drvdata(device);
+	if (!connector) {
+		pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+		return ret;
+	}
+	sscanf(buf, "0x%x", &param);
+	ret = mi_drm_sysfs_set_disp_param(connector, param);
+	return count;
+}
+static ssize_t disp_param_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	ssize_t ret = 0;
+	struct drm_connector *connector = dev_get_drvdata(device);
+	if (!connector) {
+		pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+		return ret;
+	}
+	return mi_drm_sysfs_get_disp_param(connector, buf);
+}
+
+static DEVICE_ATTR(panel_info, 0444, panel_info_show, NULL);
+static DEVICE_ATTR_RW(disp_param);
+
+static struct attribute *panel_attrs[] = {
+	&dev_attr_disp_param.attr,
+        NULL,
+};
+
+static const struct attribute_group panel_attr_group = {
+        .attrs = panel_attrs,
+};
+/*L19A code for HQ-209605 by zhangkexin at 2022/05/20 end*/
+#endif
+
+#ifdef PROJECT_DIAMOND
+/*M6 code for HQ-246310 by yuyang at 2022/10/01 start*/
+struct fb_lcd_wp_para lcd_wp_para = {0};
+bool set_white_point_x = true;
+
+
+static void mtkfb_get_white_point(void)
+{
+	struct device_node *chosen;
+	unsigned long size = 0;
+	char *wpoint = NULL;
+
+	chosen = of_find_node_by_path("/chosen");
+	if (chosen) {
+		wpoint = (char *)of_get_property(chosen, "lcm_white_point", (int *)&size);
+	}
+	pr_err("[%s]: white_point = %s\n", __func__, wpoint);
+	lcd_wp_para.white_point_l = (wpoint[0]-'0') * 100
+		+ (wpoint[1]-'0') * 10 + (wpoint[2]-'0');
+	lcd_wp_para.white_point_x = (wpoint[3]-'0') * 100
+		+ (wpoint[4]-'0') * 10 + (wpoint[5]-'0');
+	lcd_wp_para.white_point_y = (wpoint[6]-'0') * 100
+		+ (wpoint[7]-'0') * 10 + (wpoint[8]-'0');
+
+	pr_err("lcd_wp_para.white_point_x = %d\n", lcd_wp_para.white_point_x);
+	pr_err("lcd_wp_para.white_point_y = %d\n", lcd_wp_para.white_point_y);
+	pr_err("lcd_wp_para.white_point_l = %d\n", lcd_wp_para.white_point_l);
+}
+
+static ssize_t mtkfb_get_wpoint_level(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%3d\n", lcd_wp_para.white_point_l);
+	return ret;
+}
+static ssize_t mtkfb_set_wpoint_level(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	sscanf(buf, "%3d", &lcd_wp_para.white_point_l);
+	return len;
+}
+
+static ssize_t mtkfb_get_wpoint(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%3d%3d\n",
+			lcd_wp_para.white_point_x, lcd_wp_para.white_point_y);
+	return ret;
+}
+static ssize_t mtkfb_set_wpoint(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	if (set_white_point_x) {
+		sscanf(buf, "%3d", &lcd_wp_para.white_point_x);
+		set_white_point_x = false;
+	} else {
+		sscanf(buf, "%3d", &lcd_wp_para.white_point_y);
+		set_white_point_x = true;
+	}
+		return len;
+}
+static DEVICE_ATTR(mtkfb_dispwpoint, 0644, mtkfb_get_wpoint, mtkfb_set_wpoint);
+static DEVICE_ATTR(mtkfb_dispwpoint_level, 0644, mtkfb_get_wpoint_level, mtkfb_set_wpoint_level);
+/*M6 code for HQ-246310 by yuyang at 2022/10/01 end*/
+
+/*M6 code for HQ-246337 by yuyang at 2022/10/11 start*/
+atomic64_t g_param = ATOMIC64_INIT(0);
+extern ssize_t dsi_panel_set_disp_param(struct drm_connector *connector, u32 cmd);
+
+static ssize_t panel_info_show(struct device *device,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct device_node *chosen;
+	unsigned long size = 0;
+	char *lcmname = NULL;
+	int ret;
+
+	chosen = of_find_node_by_path("/chosen");
+	if (chosen) {
+		lcmname = (char *)of_get_property(chosen, "panel_name", (int *)&size);
+	}
+	ret = scnprintf(buf, PAGE_SIZE, "panel_name=%s\n", lcmname);
+	return ret;
+}
+
+static ssize_t mi_dsi_display_set_disp_param(struct drm_connector *connector,
+			u32 param_type)
+{
+	int ret = 0;
+	if (!connector) {
+		pr_err("Invalid display ptr\n");
+		return -EINVAL;
+	}
+	ret = dsi_panel_set_disp_param(connector, param_type);
+	atomic64_set(&g_param, ret);
+	return ret;
+}
+
+static ssize_t mi_dsi_display_get_disp_param(struct drm_connector *connector,
+			char *buf)
+{
+	u32 param = (u32)atomic64_read(&g_param);
+	return snprintf(buf, PAGE_SIZE, "%x\n", param);
+}
+
+static ssize_t mi_drm_sysfs_set_disp_param(struct drm_connector *connector,
+			u32 param_type)
+{
+	int ret = 0;
+	ret = mi_dsi_display_set_disp_param(connector, param_type);
+	return ret;
+}
+
+static ssize_t mi_drm_sysfs_get_disp_param(struct drm_connector *connector,
+			char *buf)
+{
+	return mi_dsi_display_get_disp_param(connector, buf);
+}
+
+static ssize_t disp_param_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	ssize_t ret = 0;
+	int32_t param;
+	struct drm_connector *connector = dev_get_drvdata(device);
+	if (!connector) {
+		pr_info("%s-%d connector is NULL \r\n", __func__, __LINE__);
+		return ret;
+	}
+	sscanf(buf, "0x%x", &param);
+	ret = mi_drm_sysfs_set_disp_param(connector, param);
+	return count;
+}
+static ssize_t disp_param_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	ssize_t ret = 0;
+	struct drm_connector *connector = dev_get_drvdata(device);
+	if (!connector) {
+		pr_info("%s-%d connector is NULL \r\n", __func__, __LINE__);
+		return ret;
+	}
+	return mi_drm_sysfs_get_disp_param(connector, buf);
+}
+
+static DEVICE_ATTR(panel_info, 0444, panel_info_show, NULL);
+static DEVICE_ATTR_RW(disp_param);
+
+static struct attribute *panel_attrs[] = {
+	&dev_attr_disp_param.attr,
+	NULL,
+};
+
+static const struct attribute_group panel_attr_group = {
+	.attrs = panel_attrs,
+};
+/*M6 code for HQ-246337 by yuyang at 2022/10/11 end*/
+#endif
 static int mtk_drm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -5462,11 +5808,63 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	struct device_node *side_node = NULL;
 	struct device_node *aod_scp_node = NULL;
 	const __be32 *ranges = NULL;
-
+#ifdef PROJECT_ROCK
+	/*L19A code for HQ-194099 by zhangkexin at 2022/05/07 start*/
+	int err;
+	/*L19A code for HQ-194099 by zhangkexin at 2022/05/07 end*/
+#endif
+#ifdef PROJECT_DIAMOND
+	/*M6 code for HQ-246310 by yuyang at 2022/10/01 start*/
+	int err;
+	/*M6 code for HQ-246310 by yuyang at 2022/10/01 end*/
+#endif
 	disp_dbg_probe();
 	PanelMaster_probe();
 	DDPINFO("%s+\n", __func__);
 
+#ifdef PROJECT_ROCK
+	/*L19A code for HQ-194099 by zhangkexin at 2022/05/07 start*/
+	mtkfb_get_white_point();
+	err = device_create_file(dev, &dev_attr_mtkfb_dispwpoint);
+	if (err)
+		pr_err("sysfs group creat failed, rc = %d\n", err);
+
+	err = device_create_file(dev, &dev_attr_mtkfb_dispwpoint_level);
+	if (err)
+		pr_err("sysfs wp_lv creat failed, rc = %d\n", err);
+	/*L19A code for HQ-194099 by zhangkexin at 2022/05/07 end*/
+	/*L19A code for HQ-209605 by zhangkexin at 2022/05/20 start*/
+	err = device_create_file(dev, &dev_attr_panel_info);
+	if (err)
+		pr_err("sysfs wp_lv creat failed, rc = %d\n", err);
+
+	err = sysfs_create_group(&dev->kobj, &panel_attr_group);
+	if (err)
+		pr_err("hbm panel node creat failed, rc = %d\n", err);
+	/*L19A code for HQ-209605 by zhangkexin at 2022/05/20 end*/
+#endif
+#ifdef PROJECT_DIAMOND
+	/*M6 code for HQ-246310 by yuyang at 2022/10/01 start*/
+	mtkfb_get_white_point();
+	err = device_create_file(dev, &dev_attr_mtkfb_dispwpoint);
+	if (err)
+		pr_err("sysfs group creat failed, rc = %d\n", err);
+
+	err = device_create_file(dev, &dev_attr_mtkfb_dispwpoint_level);
+	if (err)
+		pr_err("sysfs wp_lv creat failed, rc = %d\n", err);
+	/*M6 code for HQ-246310 by yuyang at 2022/10/01 end*/
+
+	/*M6 code for HQ-246337 by yuyang at 2022/10/11 start*/
+	err = device_create_file(dev, &dev_attr_panel_info);
+	if (err)
+		pr_err("sysfs wp_lv creat failed, rc = %d\n", err);
+
+	err = sysfs_create_group(&dev->kobj, &panel_attr_group);
+	if (err)
+		pr_err("hbm panel node creat failed, rc = %d\n", err);
+	/*M6 code for HQ-246337 by yuyang at 2022/10/11 end*/
+#endif
 	//drm_debug = 0x2; /* DRIVER messages */
 	private = devm_kzalloc(dev, sizeof(*private), GFP_KERNEL);
 	if (!private)
@@ -5727,6 +6125,11 @@ err_node:
 		of_node_put(private->comp_node[i]);
 	return ret;
 }
+/*L19AC-U code for TS-108669, 2024/3/5, Start*/
+#if (defined PROJECT_ROCK)
+bool fts_shutdown_flag = false;
+EXPORT_SYMBOL(fts_shutdown_flag);
+#endif
 
 static void mtk_drm_shutdown(struct platform_device *pdev)
 {
@@ -5735,9 +6138,16 @@ static void mtk_drm_shutdown(struct platform_device *pdev)
 
 	if (drm) {
 		DDPMSG("%s\n", __func__);
+
+		#if (defined PROJECT_ROCK)
+		fts_shutdown_flag = true;
+		DDPMSG("%s,fts_shutdown_flag = %d\n", __func__, fts_shutdown_flag);
+		#endif
+
 		drm_atomic_helper_shutdown(drm);
 	}
 }
+/*L19AC-U code for TS-108669, 2024/3/5, END*/
 
 static int mtk_drm_remove(struct platform_device *pdev)
 {
@@ -5761,6 +6171,22 @@ static int mtk_drm_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
+#ifdef PROJECT_ROCK
+/*L19A code for HQ-194827 by chenzimo at 2022/5/25 start*/
+static int mtk_drm_sys_prepare(struct device *dev)
+{
+	atomic_inc(&resume_pending);
+	return 0;
+}
+
+static void mtk_drm_sys_complete(struct device *dev)
+{
+	atomic_set(&resume_pending, 0);
+	wake_up_all(&resume_wait_q);
+	return;
+}
+/*L19A code for HQ-194827 by chenzimo at 2022/5/25 end*/
+#endif
 static int mtk_drm_sys_suspend(struct device *dev)
 {
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
@@ -5823,9 +6249,22 @@ static int mtk_drm_sys_resume(struct device *dev)
 }
 #endif
 
+#ifdef PROJECT_ROCK
+/*L19A code for HQ-194827 by chenzimo at 2022/5/25 start*/
+//static SIMPLE_DEV_PM_OPS(mtk_drm_pm_ops, mtk_drm_sys_suspend,
+//			 mtk_drm_sys_resume);
+
+static const struct dev_pm_ops mtk_drm_pm_ops = {
+	.prepare = mtk_drm_sys_prepare,
+	.complete = mtk_drm_sys_complete,
+	.suspend = mtk_drm_sys_suspend,
+	.resume = mtk_drm_sys_resume,
+};
+/*L19A code for HQ-194827 by chenzimo at 2022/5/25 end*/
+#else
 static SIMPLE_DEV_PM_OPS(mtk_drm_pm_ops, mtk_drm_sys_suspend,
 			 mtk_drm_sys_resume);
-
+#endif
 static const struct of_device_id mtk_drm_of_ids[] = {
 	{.compatible = "mediatek,mt2701-mmsys",
 	 .data = &mt2701_mmsys_driver_data},

@@ -34,7 +34,9 @@
 #define pr_fmt(fmt) "[cpudvfs]: " fmt
 
 u32 *g_cpufreq_debug;
-
+/* Huaqin modify for HQ-194868 by wangzhaoguo at 2022/04/09 start */
+u32 *g_cpumaxfreq;
+/* Huaqin modify for HQ-194868 by wangzhaoguo at 2022/04/09 end */
 unsigned int cpufreq_debug_cpu;
 static int cpufreq_debug_proc_show(struct seq_file *m, void *v)
 {
@@ -153,7 +155,56 @@ static int create_cpufreq_debug_fs(void)
 	}
 	return 0;
 }
+/* Huaqin modify for HQ-194868 by wangzhaoguo at 2022/04/09 start */
+static int cpumaxfreq_proc_show(struct seq_file *m, void *v)
+{
+	struct cpufreq_policy *policy;
 
+	if (cpufreq_debug_cpu >= 8) {
+		seq_printf(m, "cpu%u is invalid!\n", cpufreq_debug_cpu);
+		return 0;
+	}
+	/* L19A code for HQ-194868 by wangzhaoguo at 2022/04/15 start */
+	policy = cpufreq_cpu_get(7);
+	/* L19A code for HQ-194868 by wangzhaoguo at 2022/04/15 end */
+	if (policy == NULL) {
+		seq_printf(m, "policy of cpu%u is null!\n", cpufreq_debug_cpu);
+		return 0;
+	}
+
+	seq_printf(m, "%lu.%lu\n", ((policy->cpuinfo.max_freq)/100000)/10, ((policy->cpuinfo.max_freq)/100000)%10);
+	cpufreq_cpu_put(policy);
+
+	return 0;
+}
+
+PROC_FOPS_RO(cpumaxfreq);
+
+static int create_cpumaxfreq_fs(void)
+{
+	int i;
+
+	struct pentry {
+		const char *name;
+		const struct proc_ops *fops;
+		void *data;
+	};
+
+	const struct pentry entries[] = {
+		PROC_ENTRY_DATA(cpumaxfreq),
+	};
+
+	for (i = 0; i < ARRAY_SIZE(entries); i++) {
+		if (!proc_create_data
+			(entries[i].name, 0444,
+			NULL, entries[i].fops, NULL))
+			pr_info("%s(), create /proc/%s failed\n",
+						__func__, entries[0].name);
+	}
+
+	return 0;
+}
+/* Huaqin modify for HQ-194868 by wangzhaoguo at 2022/04/09 end */
 static int mtk_cpudvfs_init(void)
 {
 	int ret = 0;
@@ -171,7 +222,9 @@ static int mtk_cpudvfs_init(void)
 		pr_info("failed to find pdev @ %s\n", __func__);
 		return -EINVAL;
 	}
-
+	/* Huaqin modify for HQ-194868 by wangzhaoguo at 2022/04/09 start */
+	create_cpumaxfreq_fs();
+	/* Huaqin modify for HQ-194868 by wangzhaoguo at 2022/04/09 end */
 	create_cpufreq_debug_fs();
 #ifdef EEM_DBG_LITE
 	ret = mtk_eem_init(pdev);

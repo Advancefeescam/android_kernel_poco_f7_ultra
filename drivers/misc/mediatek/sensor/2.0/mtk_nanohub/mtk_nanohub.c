@@ -86,7 +86,13 @@ struct mtk_nanohub_device {
 
 	int32_t acc_config_data[6];
 	int32_t gyro_config_data[12];
+	/*L19A code for HQ-194713 by baogguangxiu at 2022/05/05 start */
+	#ifdef PROJECT_ROCK
+	int32_t mag_config_data[10];
+	#else
 	int32_t mag_config_data[9];
+	#endif
+	/*L19A code for HQ-194713 by baogguangxiu at 2022/05/05 end */
 	int32_t light_config_data[1];
 	int32_t proximity_config_data[2];
 	int32_t pressure_config_data[2];

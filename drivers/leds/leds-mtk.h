@@ -40,3 +40,10 @@ void mt_leds_classdev_unregister(struct device *parent,
 int mt_leds_call_notifier(unsigned long action, void *data);
 
 extern int mtkfb_set_backlight_level(unsigned int level);
+#ifdef PROJECT_ROCK
+extern int lm3697_set_brightness(int brightness);
+
+extern int ktd3137_brightness_set(int brightness);
+
+extern int get_backlight_id(void);
+#endif

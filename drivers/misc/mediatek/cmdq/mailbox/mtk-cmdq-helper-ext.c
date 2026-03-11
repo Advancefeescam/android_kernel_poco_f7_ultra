@@ -13,6 +13,10 @@
 #include <linux/sched/clock.h>
 #include <linux/timer.h>
 #include <linux/delay.h>
+/*L19A/T code for HQ-290421 by p-lizongrui at 2023/06/20 start*/
+#include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
+/*L19A/T code for HQ-290421 by p-lizongrui at 2023/06/20 end*/
 
 #include <iommu_debug.h>
 
@@ -2638,6 +2642,10 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 {
 	struct cmdq_flush_item *item = pkt->flush_item;
+/*L19A/T code for HQ-290421 by p-lizongrui at 2023/06/20 start*/
+	struct sched_param param = {.sched_priority = 48 };
+	sched_setscheduler(current, SCHED_RR, &param);
+/*L19A/T code for HQ-290421 by p-lizongrui at 2023/06/20 end*/
 
 	if (!item) {
 		cmdq_err("pkt need flush from flush async ex:0x%p", pkt);

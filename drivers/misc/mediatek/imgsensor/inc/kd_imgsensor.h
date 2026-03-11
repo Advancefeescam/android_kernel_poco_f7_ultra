@@ -114,6 +114,31 @@
  *
  ************************************************************************/
 /* SENSOR CHIP VERSION */
+
+//M6 add start
+#ifdef PROJECT_DIAMOND
+#define S5KHM2SD_SENSOR_ID                      0xFAD2
+#define OV16A1QOFILM_SENSOR_ID                  0x1641
+#define OV16A1QSUNNY_SENSOR_ID                  0x1643
+#define OV16A1QAAC_SENSOR_ID                    0x1642
+#define IMX355SUNNY_SENSOR_ID                   0x0355
+#define IMX355OFILM_SENSOR_ID                   0x0356
+#define IMX355AAC_SENSOR_ID                     0x0357
+#define SC202CS_SUNNY_SENSOR_ID                 0xeb53
+#endif
+//M6 add end
+/* L19A */
+#define S5KJN1_SUNNY_MAIN_SENSOR_ID             0x38E1
+#define S5KJN1_OFILM_MAIN_SENSOR_ID             (0x38E1+1)
+#define OV8856_AAC_FRONT_SENSOR_ID              0x885A
+#define OV8856_OFILM_FRONT_SENSOR_ID            (0x885A+1)
+#define GC5035_SUNNY_FRONT_SENSOR_ID            0x5035
+#define HI556_OFILM_FRONT_SENSOR_ID             0x0556
+#define OV02B1B_SUNNY_DEPTH_SENSOR_ID           0x2b
+#define SC202CS_OFILM_DEPTH_SENSOR_ID           0xeb52
+#define GC02M1_OFILM_MACRO_SENSOR_ID            0x02E0
+#define GC02M1_AAC_MACRO_SENSOR_ID              0x02E1
+
 /*IMX*/
 #define IMX499_SENSOR_ID                        0x0499
 #define IMX481_SENSOR_ID                        0x0481
@@ -377,6 +402,32 @@
 /* CAMERA DRIVER NAME */
 #define CAMERA_HW_DEVNAME                       "kd_camera_hw"
 /* SENSOR DEVICE DRIVER NAME */
+
+//M6 add start
+#ifdef PROJECT_DIAMOND
+#define SENSOR_DRVNAME_S5KHM2SD_MIPI_RAW                "s5khm2sd_mipi_raw"
+#define SENSOR_DRVNAME_OV16A1QOFILM_MIPI_RAW            "ov16a1qofilm_mipi_raw"
+#define SENSOR_DRVNAME_OV16A1QSUNNY_MIPI_RAW            "ov16a1qsunny_mipi_raw"
+#define SENSOR_DRVNAME_OV16A1QAAC_MIPI_RAW              "ov16a1qaac_mipi_raw"
+#define SENSOR_DRVNAME_IMX355SUNNY_MIPI_RAW             "imx355sunny_mipi_raw"
+#define SENSOR_DRVNAME_IMX355OFILM_MIPI_RAW             "imx355ofilm_mipi_raw"
+#define SENSOR_DRVNAME_IMX355AAC_MIPI_RAW               "imx355aac_mipi_raw"
+#define SENSOR_DRVNAME_SC202CS_SUNNY_MIPI_RAW           "sc202cs_sunny_mipi_raw"
+
+#endif
+//M6 add end
+/* L19A */
+#define SENSOR_DRVNAME_S5KJN1_SUNNY_MAIN_MIPI_RAW       "s5kjn1_sunny_main_mipi_raw"
+#define SENSOR_DRVNAME_S5KJN1_OFILM_MAIN_MIPI_RAW       "s5kjn1_ofilm_main_mipi_raw"
+#define SENSOR_DRVNAME_OV8856_AAC_FRONT_MIPI_RAW        "ov8856_aac_front_mipi_raw"
+#define SENSOR_DRVNAME_OV8856_OFILM_FRONT_MIPI_RAW      "ov8856_ofilm_front_mipi_raw"
+#define SENSOR_DRVNAME_GC5035_SUNNY_FRONT_MIPI_RAW      "gc5035_sunny_front_mipi_raw"
+#define SENSOR_DRVNAME_HI556_OFILM_FRONT_MIPI_RAW       "hi556_ofilm_front_mipi_raw"
+#define SENSOR_DRVNAME_OV02B1B_SUNNY_DEPTH_MIPI_RAW     "ov02b1b_sunny_depth_mipi_raw"
+#define SENSOR_DRVNAME_SC202CS_OFILM_DEPTH_MIPI_RAW     "sc202cs_ofilm_depth_mipi_raw"
+#define SENSOR_DRVNAME_GC02M1_OFILM_MACRO_MIPI_RAW      "gc02m1_ofilm_macro_mipi_raw"
+#define SENSOR_DRVNAME_GC02M1_AAC_MACRO_MIPI_RAW        "gc02m1_aac_macro_mipi_raw"
+
 /*IMX*/
 #define SENSOR_DRVNAME_IMX499_MIPI_RAW          "imx499_mipi_raw"
 #define SENSOR_DRVNAME_IMX499_MIPI_RAW_13M      "imx499_mipi_raw_13m"
@@ -616,6 +667,7 @@ void KD_IMGSENSOR_PROFILE_INIT(void);
 void KD_IMGSENSOR_PROFILE(char *tag);
 void KD_IMGSENSOR_PROFILE_INIT_I2C(void);
 void KD_IMGSENSOR_PROFILE_I2C(char *tag, int trans_num);
+
 
 #define mDELAY(ms)     mdelay(ms)
 #define uDELAY(us)       udelay(us)

@@ -40,9 +40,9 @@
 #define _UFSFEATURE_H_
 
 #include <scsi/scsi_cmnd.h>
-
+/*L19A code for HQ-194052 by xukai at 20220517 start*/
 #include "ufs.h"
-
+/*L19A code for HQ-194052 by xukai at 20220517 end*/
 #include "ufsshpb.h"
 #include "ufstw.h"
 #include "ufshid.h"

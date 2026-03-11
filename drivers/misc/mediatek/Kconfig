@@ -187,4 +187,8 @@ config FPGA_EARLY_PORTING
 	  platform and non-FPGA platform.
 	  Say Y here if you are doing FPGA early porting.
 	  If unsure, say N
+
+# Huaqin add for HQ-194055 by liuninaliang at 2022/04/07 start
+source "drivers/misc/mediatek/simtray/Kconfig"
+# Huaqin add for HQ-194055 by liuninaliang at 2022/04/07 end
 endmenu # Misc

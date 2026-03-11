@@ -1,0 +1,1929 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2021 MediaTek Inc.
+ */
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/mt6789-pinfunc.h>
+#include "mediatek/cust_mt6789_camera_m6.dtsi"
+#include "mediatek/tcpc_config.dtsi"
+#include "mediatek/cust_diamond_hq_chg.dtsi"
+#include <dt-bindings/iio/qti_power_supply_iio.h>
+
+/* M6 code for thermal_zones by yingxuezhen at 2022.10.19 start */
+#include <dt-bindings/thermal/thermal.h>
+&tboard_thermistor1 {
+	compatible = "generic-adc-thermal";
+	#thermal-sensor-cells = <0>;
+	io-channels = <&auxadc 2>;
+	io-channel-names = "sensor-channel";
+	temperature-lookup-table = <
+		(-40000) 1760
+		(-39000) 1757
+		(-38000) 1754
+		(-37000) 1751
+		(-36000) 1747
+		(-35000) 1744
+		(-34000) 1740
+		(-33000) 1736
+		(-32000) 1731
+		(-31000) 1727
+		(-30000) 1722
+		(-29000) 1716
+		(-28000) 1711
+		(-27000) 1705
+		(-26000) 1699
+		(-25000) 1693
+		(-24000) 1686
+		(-23000) 1679
+		(-22000) 1672
+		(-21000) 1664
+		(-20000) 1656
+		(-19000) 1648
+		(-18000) 1639
+		(-17000) 1630
+		(-16000) 1620
+		(-15000) 1610
+		(-14000) 1599
+		(-13000) 1588
+		(-12000) 1577
+		(-11000) 1565
+		(-10000) 1553
+		(-9000) 1540
+		(-8000) 1527
+		(-7000) 1514
+		(-6000) 1500
+		(-5000) 1485
+		(-4000) 1470
+		(-3000) 1455
+		(-2000) 1439
+		(-1000) 1423
+		0 1406
+		1000 1389
+		2000 1372
+		3000 1354
+		4000 1335
+		5000 1317
+		6000 1298
+		7000 1279
+		8000 1259
+		9000 1239
+		10000 1219
+		11000 1198
+		12000 1178
+		13000 1157
+		14000 1136
+		15000 1115
+		16000 1093
+		17000 1072
+		18000 1050
+		19000 1029
+		20000 1007
+		21000 986
+		22000 964
+		23000 943
+		24000 921
+		25000 900
+		26000 879
+		27000 858
+		28000 837
+		29000 816
+		30000 796
+		31000 775
+		32000 755
+		33000 736
+		34000 716
+		35000 697
+		36000 678
+		37000 659
+		38000 641
+		39000 623
+		40000 605
+		41000 588
+		42000 571
+		43000 555
+		44000 538
+		45000 523
+		46000 507
+		47000 492
+		48000 477
+		49000 463
+		50000 449
+		51000 435
+		52000 422
+		53000 409
+		54000 396
+		55000 384
+		56000 372
+		57000 360
+		58000 349
+		59000 338
+		60000 327
+		61000 317
+		62000 307
+		63000 297
+		64000 288
+		65000 279
+		66000 270
+		67000 261
+		68000 253
+		69000 245
+		70000 237
+		71000 230
+		72000 222
+		73000 215
+		74000 209
+		75000 202
+		76000 196
+		77000 189
+		78000 183
+		79000 178
+		80000 172
+		81000 167
+		82000 161
+		83000 156
+		84000 151
+		85000 147
+		86000 142
+		87000 138
+		88000 133
+		89000 129
+		90000 125
+		91000 121
+		92000 118
+		93000 114
+		94000 111
+		95000 107
+		96000 104
+		97000 101
+		98000 98
+		99000 95
+		100000 92
+		101000 89
+		102000 87
+		103000 84
+		104000 81
+		105000 79
+		106000 77
+		107000 74
+		108000 72
+		109000 70
+		110000 68
+		111000 66
+		112000 64
+		113000 62
+		114000 61
+		115000 59
+		116000 57
+		117000 56
+		118000 54
+		119000 52
+		120000 51
+		121000 50
+		122000 48
+		123000 47
+		124000 46
+		125000 44>;
+};
+&tboard_thermistor2 {
+	compatible = "generic-adc-thermal";
+	#thermal-sensor-cells = <0>;
+	io-channels = <&auxadc 1>;
+	io-channel-names = "sensor-channel";
+	temperature-lookup-table = <
+		(-40000) 1760
+		(-39000) 1757
+		(-38000) 1754
+		(-37000) 1751
+		(-36000) 1747
+		(-35000) 1744
+		(-34000) 1740
+		(-33000) 1736
+		(-32000) 1731
+		(-31000) 1727
+		(-30000) 1722
+		(-29000) 1716
+		(-28000) 1711
+		(-27000) 1705
+		(-26000) 1699
+		(-25000) 1693
+		(-24000) 1686
+		(-23000) 1679
+		(-22000) 1672
+		(-21000) 1664
+		(-20000) 1656
+		(-19000) 1648
+		(-18000) 1639
+		(-17000) 1630
+		(-16000) 1620
+		(-15000) 1610
+		(-14000) 1599
+		(-13000) 1588
+		(-12000) 1577
+		(-11000) 1565
+		(-10000) 1553
+		(-9000) 1540
+		(-8000) 1527
+		(-7000) 1514
+		(-6000) 1500
+		(-5000) 1485
+		(-4000) 1470
+		(-3000) 1455
+		(-2000) 1439
+		(-1000) 1423
+		0 1406
+		1000 1389
+		2000 1372
+		3000 1354
+		4000 1335
+		5000 1317
+		6000 1298
+		7000 1279
+		8000 1259
+		9000 1239
+		10000 1219
+		11000 1198
+		12000 1178
+		13000 1157
+		14000 1136
+		15000 1115
+		16000 1093
+		17000 1072
+		18000 1050
+		19000 1029
+		20000 1007
+		21000 986
+		22000 964
+		23000 943
+		24000 921
+		25000 900
+		26000 879
+		27000 858
+		28000 837
+		29000 816
+		30000 796
+		31000 775
+		32000 755
+		33000 736
+		34000 716
+		35000 697
+		36000 678
+		37000 659
+		38000 641
+		39000 623
+		40000 605
+		41000 588
+		42000 571
+		43000 555
+		44000 538
+		45000 523
+		46000 507
+		47000 492
+		48000 477
+		49000 463
+		50000 449
+		51000 435
+		52000 422
+		53000 409
+		54000 396
+		55000 384
+		56000 372
+		57000 360
+		58000 349
+		59000 338
+		60000 327
+		61000 317
+		62000 307
+		63000 297
+		64000 288
+		65000 279
+		66000 270
+		67000 261
+		68000 253
+		69000 245
+		70000 237
+		71000 230
+		72000 222
+		73000 215
+		74000 209
+		75000 202
+		76000 196
+		77000 189
+		78000 183
+		79000 178
+		80000 172
+		81000 167
+		82000 161
+		83000 156
+		84000 151
+		85000 147
+		86000 142
+		87000 138
+		88000 133
+		89000 129
+		90000 125
+		91000 121
+		92000 118
+		93000 114
+		94000 111
+		95000 107
+		96000 104
+		97000 101
+		98000 98
+		99000 95
+		100000 92
+		101000 89
+		102000 87
+		103000 84
+		104000 81
+		105000 79
+		106000 77
+		107000 74
+		108000 72
+		109000 70
+		110000 68
+		111000 66
+		112000 64
+		113000 62
+		114000 61
+		115000 59
+		116000 57
+		117000 56
+		118000 54
+		119000 52
+		120000 51
+		121000 50
+		122000 48
+		123000 47
+		124000 46
+		125000 44>;
+};
+&tboard_thermistor5 {
+	compatible = "CPU-adc-thermal";
+	#thermal-sensor-cells = <0>;
+	io-channels = <&auxadc 0>;
+	io-channel-names = "CPU-adc-channel";
+	temperature-lookup-table = <
+		(-40000) 1760
+		(-39000) 1757
+		(-38000) 1754
+		(-37000) 1751
+		(-36000) 1747
+		(-35000) 1744
+		(-34000) 1740
+		(-33000) 1736
+		(-32000) 1731
+		(-31000) 1727
+		(-30000) 1722
+		(-29000) 1716
+		(-28000) 1711
+		(-27000) 1705
+		(-26000) 1699
+		(-25000) 1693
+		(-24000) 1686
+		(-23000) 1679
+		(-22000) 1672
+		(-21000) 1664
+		(-20000) 1656
+		(-19000) 1648
+		(-18000) 1639
+		(-17000) 1630
+		(-16000) 1620
+		(-15000) 1610
+		(-14000) 1599
+		(-13000) 1588
+		(-12000) 1577
+		(-11000) 1565
+		(-10000) 1553
+		(-9000) 1540
+		(-8000) 1527
+		(-7000) 1514
+		(-6000) 1500
+		(-5000) 1485
+		(-4000) 1470
+		(-3000) 1455
+		(-2000) 1439
+		(-1000) 1423
+		0 1406
+		1000 1389
+		2000 1372
+		3000 1354
+		4000 1335
+		5000 1317
+		6000 1298
+		7000 1279
+		8000 1259
+		9000 1239
+		10000 1219
+		11000 1198
+		12000 1178
+		13000 1157
+		14000 1136
+		15000 1115
+		16000 1093
+		17000 1072
+		18000 1050
+		19000 1029
+		20000 1007
+		21000 986
+		22000 964
+		23000 943
+		24000 921
+		25000 900
+		26000 879
+		27000 858
+		28000 837
+		29000 816
+		30000 796
+		31000 775
+		32000 755
+		33000 736
+		34000 716
+		35000 697
+		36000 678
+		37000 659
+		38000 641
+		39000 623
+		40000 605
+		41000 588
+		42000 571
+		43000 555
+		44000 538
+		45000 523
+		46000 507
+		47000 492
+		48000 477
+		49000 463
+		50000 449
+		51000 435
+		52000 422
+		53000 409
+		54000 396
+		55000 384
+		56000 372
+		57000 360
+		58000 349
+		59000 338
+		60000 327
+		61000 317
+		62000 307
+		63000 297
+		64000 288
+		65000 279
+		66000 270
+		67000 261
+		68000 253
+		69000 245
+		70000 237
+		71000 230
+		72000 222
+		73000 215
+		74000 209
+		75000 202
+		76000 196
+		77000 189
+		78000 183
+		79000 178
+		80000 172
+		81000 167
+		82000 161
+		83000 156
+		84000 151
+		85000 147
+		86000 142
+		87000 138
+		88000 133
+		89000 129
+		90000 125
+		91000 121
+		92000 118
+		93000 114
+		94000 111
+		95000 107
+		96000 104
+		97000 101
+		98000 98
+		99000 95
+		100000 92
+		101000 89
+		102000 87
+		103000 84
+		104000 81
+		105000 79
+		106000 77
+		107000 74
+		108000 72
+		109000 70
+		110000 68
+		111000 66
+		112000 64
+		113000 62
+		114000 61
+		115000 59
+		116000 57
+		117000 56
+		118000 54
+		119000 52
+		120000 51
+		121000 50
+		122000 48
+		123000 47
+		124000 46
+		125000 44>;
+};
+&tboard_thermistor6 {
+	compatible = "charge-adc-thermal";
+	#thermal-sensor-cells = <0>;
+	io-channels = <&auxadc 4>;
+	io-channel-names = "charge-adc-channel";
+	temperature-lookup-table = <
+		(-40000) 1760
+		(-39000) 1757
+		(-38000) 1754
+		(-37000) 1751
+		(-36000) 1747
+		(-35000) 1744
+		(-34000) 1740
+		(-33000) 1736
+		(-32000) 1731
+		(-31000) 1727
+		(-30000) 1722
+		(-29000) 1716
+		(-28000) 1711
+		(-27000) 1705
+		(-26000) 1699
+		(-25000) 1693
+		(-24000) 1686
+		(-23000) 1679
+		(-22000) 1672
+		(-21000) 1664
+		(-20000) 1656
+		(-19000) 1648
+		(-18000) 1639
+		(-17000) 1630
+		(-16000) 1620
+		(-15000) 1610
+		(-14000) 1599
+		(-13000) 1588
+		(-12000) 1577
+		(-11000) 1565
+		(-10000) 1553
+		(-9000) 1540
+		(-8000) 1527
+		(-7000) 1514
+		(-6000) 1500
+		(-5000) 1485
+		(-4000) 1470
+		(-3000) 1455
+		(-2000) 1439
+		(-1000) 1423
+		0 1406
+		1000 1389
+		2000 1372
+		3000 1354
+		4000 1335
+		5000 1317
+		6000 1298
+		7000 1279
+		8000 1259
+		9000 1239
+		10000 1219
+		11000 1198
+		12000 1178
+		13000 1157
+		14000 1136
+		15000 1115
+		16000 1093
+		17000 1072
+		18000 1050
+		19000 1029
+		20000 1007
+		21000 986
+		22000 964
+		23000 943
+		24000 921
+		25000 900
+		26000 879
+		27000 858
+		28000 837
+		29000 816
+		30000 796
+		31000 775
+		32000 755
+		33000 736
+		34000 716
+		35000 697
+		36000 678
+		37000 659
+		38000 641
+		39000 623
+		40000 605
+		41000 588
+		42000 571
+		43000 555
+		44000 538
+		45000 523
+		46000 507
+		47000 492
+		48000 477
+		49000 463
+		50000 449
+		51000 435
+		52000 422
+		53000 409
+		54000 396
+		55000 384
+		56000 372
+		57000 360
+		58000 349
+		59000 338
+		60000 327
+		61000 317
+		62000 307
+		63000 297
+		64000 288
+		65000 279
+		66000 270
+		67000 261
+		68000 253
+		69000 245
+		70000 237
+		71000 230
+		72000 222
+		73000 215
+		74000 209
+		75000 202
+		76000 196
+		77000 189
+		78000 183
+		79000 178
+		80000 172
+		81000 167
+		82000 161
+		83000 156
+		84000 151
+		85000 147
+		86000 142
+		87000 138
+		88000 133
+		89000 129
+		90000 125
+		91000 121
+		92000 118
+		93000 114
+		94000 111
+		95000 107
+		96000 104
+		97000 101
+		98000 98
+		99000 95
+		100000 92
+		101000 89
+		102000 87
+		103000 84
+		104000 81
+		105000 79
+		106000 77
+		107000 74
+		108000 72
+		109000 70
+		110000 68
+		111000 66
+		112000 64
+		113000 62
+		114000 61
+		115000 59
+		116000 57
+		117000 56
+		118000 54
+		119000 52
+		120000 51
+		121000 50
+		122000 48
+		123000 47
+		124000 46
+		125000 44>;
+};
+&thermal_zones {
+		CPU_therm: CPU_therm{
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&tboard_thermistor5>;
+	};
+		charge_therm: charge_therm{
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&tboard_thermistor6>;
+	};
+};
+/* M6 code for thermal by yingxuezhen at 2022.10.19 end */
+
+&chosen {
+	atag,videolfb-lcmname="dsi_panel_m6_36_02_0a_dsc_vdo_lcm_drv dsi_panel_m6_42_0d_0b_dsc_vdo_lcm_drv";
+};
+
+&irtx_pwm {
+	/delete-property/ pwm_ch;
+	/delete-property/ pwm-supply;
+	pwm_ch = <1>;
+};
+
+&simtray {
+	status-gpio = <&pio 23 0>;
+};
+
+&mtk_leds {
+	compatible = "mediatek,disp-leds";
+
+	backlight {
+		led_mode = <4>;
+		max-brightness = <2047>;
+		//gate_enable = <1>;
+		data = <1>;
+		pwm_config = <12 12>;
+	};
+};
+
+&pwrap {
+	pmic: mt6366 {
+		compatible = "mediatek,mt6366";
+		mt6358regulator: mt6358regulator {
+			compatible = "mediatek,mt6358-regulator";
+			mt6358_vibr_reg: ldo_vibr {
+				regulator-name = "vibr";
+				regulator-min-microvolt = <3000000>;
+				regulator-max-microvolt = <3000000>;
+				regulator-enable-ramp-delay = <60>;
+				regulator-always-on;
+			};
+		};
+	};
+};
+
+&mtee_svp {
+      mtee: MTEE {
+                   compatible = "mediatek,mtk_svp_on_mtee_support";
+    };
+   svp: SecureVideoPath {
+                   compatible = "mediatek,mtk_sec_video_path_support";
+    };
+};
+
+&pio {
+	mtkfb_pins_lcm_led_en1: lcm_led_en1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO12__FUNC_GPIO12>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_led_en0: lcm_led_en0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO12__FUNC_GPIO12>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO85__FUNC_GPIO85>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out0_gpio: lcm_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO85__FUNC_GPIO85>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO83__FUNC_DSI_TE>;
+		};
+	};
+};
+
+&mtkfb {
+	pinctrl-names = "lcm_led_en1_gpio", "lcm_led_en0_gpio",
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te";
+	pinctrl-0 = <&mtkfb_pins_lcm_led_en1>;
+	pinctrl-1 = <&mtkfb_pins_lcm_led_en0>;
+	pinctrl-2 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-3 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-4 = <&mtkfb_pins_lcm_dsi_te>;
+	status = "okay";
+};
+
+&dispsys_config {
+	pinctrl-names =
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te";
+	pinctrl-0 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-1 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-2 = <&mtkfb_pins_lcm_dsi_te>;
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel1@0 {
+		compatible = "m6_36_02_0a_dsc_vdo,lcm";
+		reg = <0>;
+		//pm-enable-gpios = <&pio 12 0>;
+		reset-gpios = <&pio 85 0>;
+		vddi-gpios = <&pio 156 0>;
+		vdd-gpios = <&pio 14 0>;
+		vci-gpios = <&pio 17 0>;
+		mi,esd-err-irq-gpio = <&pio 15 0>;
+		//gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+
+	panel2@0 {
+		compatible = "m6_42_0d_0b_dsc_vdo,lcm";
+		reg = <1>;
+		//pm-enable-gpios = <&pio 12 0>;
+		reset-gpios = <&pio 85 0>;
+		vddi-gpios = <&pio 156 0>;
+		vdd-gpios = <&pio 14 0>;
+		vci-gpios = <&pio 17 0>;
+		mi,esd-err-irq-gpio = <&pio 15 0>;
+		//gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+
+	ports {
+		port {
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in1>;
+			};
+		};
+	};
+};
+
+/* GPS GPIO standardization start */
+&pio {
+	/* AW86224_RESET_N */
+	awinic_gpio_reset: awinic_gpio_reset {
+		pins_cmd0_dat {
+			pinmux = <PINMUX_GPIO154__FUNC_GPIO154>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	/* AW8624_RESET_N, state device active*/
+	awinic_gpio_reset_output_high: awinic_gpio_reset_output_high {
+		pins_cmd0_dat {
+			pinmux = <PINMUX_GPIO154__FUNC_GPIO154>;
+			bias-disable;
+			output-high;
+		};
+	};
+	/* AW86224_INTERRUPT_N */
+	awinic_gpio_int: awinic_gpio_int {
+		pins_cmd0_dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	gps_pins_default: gps_default {
+	};
+	gps_l1_lna_pins_ol: gps_l1_lna@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO25__FUNC_GPIO25>;
+			output-low;
+		};
+	};
+	gps_l1_lna_pins_dsp_ctrl: gps_l1_lna@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO25__FUNC_GPS_L1_ELNA_EN>;
+		};
+	};
+	gps_l1_lna_pins_oh: gps_l1_lna@2 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO25__FUNC_GPIO25>;
+			output-high;
+		};
+	};
+	gps_l5_lna_pins_ol: gps_l5_lna@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO26__FUNC_GPIO26>;
+			output-low;
+		};
+	};
+	gps_l5_lna_pins_dsp_ctrl: gps_l5_lna@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO26__FUNC_GPS_L5_ELNA_EN>;
+		};
+	};
+	gps_l5_lna_pins_oh: gps_l5_lna@2 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO26__FUNC_GPIO26>;
+			output-high;
+		};
+	};
+};
+&gps {
+	pinctrl-names = "default",
+		"gps_l1_lna_disable",
+		"gps_l1_lna_dsp_ctrl",
+		"gps_l1_lna_enable",
+		"gps_l5_lna_disable",
+		"gps_l5_lna_dsp_ctrl",
+		"gps_l5_lna_enable";
+	pinctrl-0 = <&gps_pins_default>;
+	pinctrl-1 = <&gps_l1_lna_pins_ol>;
+	pinctrl-2 = <&gps_l1_lna_pins_dsp_ctrl>;
+	pinctrl-3 = <&gps_l1_lna_pins_oh>;
+	pinctrl-4 = <&gps_l5_lna_pins_ol>;
+	pinctrl-5 = <&gps_l5_lna_pins_dsp_ctrl>;
+	pinctrl-6 = <&gps_l5_lna_pins_oh>;
+	status = "okay";
+};
+/* GPS GPIO standardization end */
+
+
+#include "mediatek/cust_mt6789_camera_v4l2.dtsi"
+/* M6 code for vibrator by dongfeiju at 2022.9.29 start */
+&i2c0 {
+status = "ok";
+	awinic_haptic@5A {
+		compatible = "awinic,awinic_haptic";
+		reg = <0x5A>;
+		aw8622x_i2c_addr = < 0x58 >;
+		reset-gpio = <&pio 154 0>;
+		irq-gpio = <&pio 8 0>;
+		pinctrl-names = "awinic_reset_reset","awinic_reset_active","awinic_interrupt_active";
+		pinctrl-0 = <&awinic_gpio_reset>;
+		pinctrl-1 = <&awinic_gpio_reset_output_high>;
+		pinctrl-2 = <&awinic_gpio_int>;
+		/*---------------------aw8624_dts_info---------------------*/
+		aw8624_vib_f0_pre = < 2050 >;
+		aw8624_vib_f0_cali_percen = < 7 >;
+		aw8624_vib_cont_drv_lev = < 106 >;
+		aw8624_vib_cont_drv_lvl_ov = < 155 >;
+		aw8624_vib_cont_td = < 0xF06C >;
+		aw8624_vib_cont_zc_thr = < 0x08F8 >;
+		aw8624_vib_cont_num_brk = < 3 >;
+		aw8624_vib_f0_coeff = < 260 >; /*Don't modify it*/
+		aw8624_vib_duration_time = < 15 60 0 0 0 >;
+		aw8624_vib_brake_ram_config = < 1 1 90 60 20 3 1 3 1 1 90 60 30 5 1 3 0 0 50 40 25 0 5 3 >;
+		aw8624_vib_brake_cont_config = < 1 1 90 42 20 5 2 2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 >;
+		aw8624_vib_f0_trace_parameter = < 9 5 1 15 >;
+		aw8624_vib_bemf_config = < 0 8 3 0xf8 >;
+		aw8624_vib_sw_brake = < 0x2c >;
+		aw8624_vib_wavseq = < 0 1 1 2 0 0 0 0 0 0 0 0 0 0 0 0 >; /*wavseq1-seq8 0x07-0x0E*/
+		aw8624_vib_wavloop = < 0 6 1 15 0 0 0 0 0 0>;/*loop1-mainloog 0x0f-0x13*/
+		aw8624_vib_td_brake = < 42720 42720 42720 >; /*level0 level1 level2*/
+		aw8624_vib_tset = < 0x11 >;
+		aw8624_vib_func_parameter1 = < 1 >;
+		aw8624_vib_gain_flag = < 1 >;
+		aw8624_vib_r_spare = < 0x68 >;
+		aw8624_vib_bstdbg = < 0x30 0xeb 0xd4 0 0 0 >;
+		/*---------------------aw8622x_dts_info---------------------*/
+		aw8622x_vib_mode = < 0 >; /* mode: RAM mode->0; CONT mode->1 */
+		aw8622x_vib_f0_pre = < 2080 >;
+		aw8622x_vib_f0_cali_percen = < 7 >;
+		aw8622x_vib_cont_drv1_lvl = < 0x7F >;
+		aw8622x_vib_cont_drv2_lvl = < 0x36 >;
+		aw8622x_vib_cont_brk_time = < 0x06 >;
+		aw8622x_vib_cont_tset = < 0x06 >;
+		aw8622x_vib_cont_bemf_set = < 0x02 >;
+		aw8622x_vib_cont_drv_width = < 0x6A >;
+		aw8622x_vib_cont_wait_num = < 0x06 >;
+		aw8622x_vib_cont_brk_gain = < 0x08 >;
+		aw8622x_vib_cont_drv1_time = < 0x04 >;
+		aw8622x_vib_cont_drv2_time = < 0x14 >;
+		aw8622x_vib_cont_track_margin = < 0x12 >;
+		aw8622x_vib_sine_array = < 0x05 0xB2 0xFF 0xEF >; /* SIN_H SIN_L COS_H COS_L*/
+		aw8622x_vib_d2s_gain = < 0x05 >;
+		aw8622x_vib_prctmode = < 0x2D 0x3E 0x3F >;
+		/*---------------------common_dts_info---------------------*/
+		vib_effect_id_boundary = < 10 >;
+		vib_effect_max = < 193 >;
+		vib_rtp_time = < 20 20 20 20 40 20 20 20 20 20
+				 20 20 20 20 20 20 20 20 20 20
+				 20 24058 11520 14770 40341 22060 16745 15166 10590 17260
+				 16923 16000 9920 14420 12000 18000 7860 19400 12600 31992
+				 18581 30093 39836 19500 8530 9692 2000 16820 18782 14223
+				 1034 1161 2096 874 1606 795 1788 859 1260 1668
+				 2254 1852 5126 1931 1204 890 1803 1822 1325 2607
+				 1015 890 208 676 679 850 357 380 1140 457
+				 1176 1400 328 1500 100 150 100 341 100 249
+				 704 100 1000 479 100 1 1089 1 2103 23181
+				 1 620 100 466 178 1 100 785 124 140
+				 414 97 39 462 165 152 295 1 64 4088
+				 965 931 308 3584 4583 4289 100 70 1 1656
+				 89 56 76 56 51 681 1 36 1 1
+				 83 129 216 87 128 215 227 534 312 90
+				 299 1109 686 395 10500 5648 6708 618 749 701
+				 814 2610 200 200 300 200 200 300 200 200
+				 300 516 286 200 200 200 400 1200 200 400
+				 200 200 350 200 400 250 300 200 250 200
+				 300 600 23200 1 1 1 1 1 1 1 >;
+		status = "okay";
+		wf_0 {
+			//CLICK
+			qcom,effect-id = <0>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <20000>;
+		};
+		wf_1 {
+			//DOUBLE CLICK
+			qcom,effect-id = <1>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [7e 3e];
+			qcom,wf-brake-pattern = [03 01 00 00];
+			qcom,wf-play-rate-us = <20000>;
+		};
+		wf_2 {
+			//TICK
+			qcom,effect-id = <2>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [7e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <20000>;
+		};
+		wf_3 {
+			//THUD
+			qcom,effect-id = <3>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <20000>;
+		};
+		wf_4 {
+			//POP
+			qcom,effect-id = <4>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <28000>;
+		};
+		wf_5 {
+			//HEAVY CLICK
+			qcom,effect-id = <5>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [7e 7e 7e];
+			qcom,wf-brake-pattern = [03 03 01 00];
+			qcom,wf-play-rate-us = <20000>;
+		};
+		wf_6 {
+			//id 6
+			qcom,effect-id = <6>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <20000>;
+		};
+		wf_7 {
+			//id 7
+			qcom,effect-id = <7>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <20000>;
+		};
+		wf_8 {
+			//id 8
+			qcom,effect-id = <8>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <20000>;
+		};
+		wf_9 {
+			//id 9
+			qcom,effect-id = <9>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <20000>;
+		};
+     };
+
+};
+/* M6 code for vibrator by dongfeiju at 2022.9.29 end */
+
+/* M6 code  */
+&i2c3 {
+    nxp@28 {
+        compatible = "nq-nci";
+        reg = <0x28>;
+        nq-irq = <&pio 1 0x00>;
+        interrupt-parent = <&pio>;
+        interrupts = <1 IRQ_TYPE_LEVEL_HIGH 1 0>;
+        nq-ven = <&pio 96 0x0>;
+        nq-firm = <&pio 106 0x0>;
+        nq-clkreq = <&pio 68 0x0>;
+        interrupt-names = "irq_nfc";
+        status = "okay";
+    };
+};
+/* M6 code  */
+
+&i2c5 {
+	ln8000_master:ln8000-charger@51{
+		#io-channel-cells = <1>;
+		compatible = "lionsemi,ln8000";
+		reg = <0x51>;
+		interrupt-parent = <&pio>;
+		interrupts = <11 IRQ_TYPE_EDGE_FALLING 11 0>;
+		/*ln8000_charger,bat-ovp-disable = <0>;
+		ln8000_charger,bat-ocp_disable = <0>;
+		ln8000_charger,bat-ovp-alarm-disable = <0>;
+		ln8000_charger,bus-ocp-disable = <0>;
+		ln8000_charger,bus-ovp-alarm-disable = <0>;
+		ln8000_charger,bus-ocp-alarm-disable = <0>;
+		ln8000_charger,bat-ucp-alarm-disable = <0>;*/
+		ln8000_charger,bat-therm-disable = <0>;
+		ln8000_charger,bus-therm-disable = <0>;
+		ln8000_charger,bat-ovp-threshold = <4575>;
+		ln8000_charger,bat-ovp-alarm-threshold = <4400>;
+		ln8000_charger,bat-ocp-threshold = <8000>;
+		ln8000_charger,bat-ocp-alarm-threshold = <7500>;
+		ln8000_charger,bus-ovp-threshold = <12800>;
+		ln8000_charger,bus-ovp-alarm-threshold = <11000>;
+		ln8000_charger,bus-ocp-threshold = <3750>;
+		ln8000_charger,bus-ocp-alarm-threshold = <3500>;
+		ln8000_charger,bat-ucp-alarm-threshold = <2000>;
+		ln8000_charger,bat-therm-threshold = <0x15>;
+		ln8000_charger,bus-therm-threshold = <0x15>;
+		ln8000_charger,die-therm-threshold = <125>;
+		ln8000_charger,ac-ovp-threshold = <13>;
+		ln8000_charger,sense-resistor-mohm = <5>;
+		ln8000_charger,tdie-prot-disable;
+		ln8000_charger,tbus-mon-disable;
+		ln8000_charger,tbat-mon-disable;
+		ln8000_charger,iin-reg-disable;
+		ln8000_charger,tdie-reg-disable;
+		ln8000_charger,vbat-reg-disable;
+		ln8000_charger,revcurr-prot-disable;
+	};
+
+	sc8551_master: sc8551-charger@66{
+ 		#io-channel-cells = <1>;
+ 		compatible = "sc,sc8551-master";
+ 		reg = <0x66>;
+ 		interrupt-parent = <&pio>;
+ 		interrupts = <11 IRQ_TYPE_EDGE_FALLING 11 0>;
+ 		/*sc,sc8551,bat-ovp-disable = <0>;
+ 		sc,sc8551,bat-ocp_disable = <0>;
+ 		sc,sc8551,bat-ovp-alarm-disable = <0>;
+ 		sc,sc8551,bus-ocp-disable = <0>;
+ 		sc,sc8551,bus-ovp-alarm-disable = <0>;
+ 		sc,sc8551,bus-ocp-alarm-disable = <0>;
+ 		sc,sc8551,bat-ucp-alarm-disable = <0>;*/
+ 		sc,sc8551,bat-therm-disable = <0>;
+ 		sc,sc8551,bus-therm-disable = <0>;
+
+ 		sc,sc8551,bat-ovp-threshold = <4575>;
+ 		sc,sc8551,bat-ovp-alarm-threshold = <4400>;
+ 		sc,sc8551,bat-ocp-threshold = <8000>;
+ 		sc,sc8551,bat-ocp-alarm-threshold = <7500>;
+
+ 		sc,sc8551,bus-ovp-threshold = <12000>;
+ 		sc,sc8551,bus-ovp-alarm-threshold = <11000>;
+ 		sc,sc8551,bus-ocp-threshold = <3750>;
+ 		sc,sc8551,bus-ocp-alarm-threshold = <3500>;
+ 		sc,sc8551,bat-ucp-alarm-threshold = <2000>;
+
+ 		sc,sc8551,bat-therm-threshold = <0x15>;
+ 		sc,sc8551,bus-therm-threshold = <0x15>;
+ 		sc,sc8551,die-therm-threshold = <125>;
+
+ 		sc,sc8551,ac-ovp-threshold = <13>;
+ 		sc,sc8551,sense-resistor-mohm = <5>;
+ 	};
+};
+
+&i2c6 {
+/* L19A code for HQ-218235 by zhangbing at 2022.06.22 start */
+	spk: speaker_amp@5c {
+		compatible = "richtek,rt5512";
+		#sound-dai-cells = <0>;
+		reg = <0x5c>;
+		status = "disabled";
+		sound-name-prefix = "Left";
+	};
+
+	aw87xxx_pa_58@58 {
+		compatible = "awinic,aw87xxx_pa";
+		reg = <0x58>;
+		reset-gpio = <&pio 153 0>;
+		dev_index = < 0 >;
+		status = "okay";
+	};
+	aw87xxx_pa_5b@5b {
+		compatible = "awinic,aw87xxx_pa";
+		reg = <0x5b>;
+		reset-gpio = <&pio 159 0>;
+		dev_index = < 1 >;
+		status = "okay";
+	};
+	fs16xx@34 {
+		compatible = "foursemi,fs16xx";
+		reg = <0x34>;
+		fsm,rst-gpio = <&pio 153 0>;
+		status = "okay";
+	};
+	fs16xx@35 {
+		compatible = "foursemi,fs16xx";
+		reg = <0x35>;
+		fsm,rst-gpio = <&pio 159 0>;
+		status = "okay";
+	};
+
+	ln8000_slave:ln8000-charger@51 {
+		#io-channel-cells = <1>;
+		compatible = "lionsemi,ln8000_2";
+		reg = <0x51>;
+		interrupt-parent = <&pio>;
+		interrupts = <12 IRQ_TYPE_EDGE_FALLING 12 0>;
+		/*ln8000_charger,bat-ovp-disable = <0>;
+		ln8000_charger,bat-ocp_disable = <0>;
+		ln8000_charger,bat-ovp-alarm-disable = <0>;
+		ln8000_charger,bus-ocp-disable = <0>;
+		ln8000_charger,bus-ovp-alarm-disable = <0>;
+		ln8000_charger,bus-ocp-alarm-disable = <0>;
+		ln8000_charger,bat-ucp-alarm-disable = <0>;*/
+		ln8000_charger,bat-therm-disable = <0>;
+		ln8000_charger,bus-therm-disable = <0>;
+		ln8000_charger,bat-ovp-threshold = <4575>;
+		ln8000_charger,bat-ovp-alarm-threshold = <4400>;
+		ln8000_charger,bat-ocp-threshold = <8000>;
+		ln8000_charger,bat-ocp-alarm-threshold = <7500>;
+		ln8000_charger,bus-ovp-threshold = <12800>;
+		ln8000_charger,bus-ovp-alarm-threshold = <11000>;
+		ln8000_charger,bus-ocp-threshold = <3750>;
+		ln8000_charger,bus-ocp-alarm-threshold = <3500>;
+		ln8000_charger,bat-ucp-alarm-threshold = <2000>;
+		ln8000_charger,bat-therm-threshold = <0x15>;
+		ln8000_charger,bus-therm-threshold = <0x15>;
+		ln8000_charger,die-therm-threshold = <125>;
+		ln8000_charger,ac-ovp-threshold = <13>;
+		ln8000_charger,sense-resistor-mohm = <5>;
+		ln8000_charger,tdie-prot-disable;
+		ln8000_charger,tbus-mon-disable;
+		ln8000_charger,tbat-mon-disable;
+		ln8000_charger,iin-reg-disable;
+		ln8000_charger,tdie-reg-disable;
+		ln8000_charger,vbat-reg-disable;
+		ln8000_charger,revcurr-prot-disable;
+	};
+
+	sc8551_slave:sc8551-charger@66{
+ 		#io-channel-cells = <1>;
+ 		compatible = "sc,sc8551-slave";
+ 		reg = <0x66>;
+ 		interrupt-parent = <&pio>;
+ 		interrupts = <12 IRQ_TYPE_EDGE_FALLING 12 0>;
+ 		/*sc,sc8551,bat-ovp-disable = <0>;
+ 		sc,sc8551,bat-ocp_disable = <0>;
+ 		sc,sc8551,bat-ovp-alarm-disable = <0>;
+ 		sc,sc8551,bus-ocp-disable = <0>;
+ 		sc,sc8551,bus-ovp-alarm-disable = <0>;
+ 		sc,sc8551,bus-ocp-alarm-disable = <0>;
+ 		sc,sc8551,bat-ucp-alarm-disable = <0>;*/
+ 		sc,sc8551,bat-therm-disable = <0>;
+ 		sc,sc8551,bus-therm-disable = <0>;
+
+ 		sc,sc8551,bat-ovp-threshold = <4575>;
+ 		sc,sc8551,bat-ovp-alarm-threshold = <4400>;
+ 		sc,sc8551,bat-ocp-threshold = <8000>;
+ 		sc,sc8551,bat-ocp-alarm-threshold = <7500>;
+
+ 		sc,sc8551,bus-ovp-threshold = <12000>;
+ 		sc,sc8551,bus-ovp-alarm-threshold = <11000>;
+ 		sc,sc8551,bus-ocp-threshold = <3750>;
+ 		sc,sc8551,bus-ocp-alarm-threshold = <3500>;
+ 		sc,sc8551,bat-ucp-alarm-threshold = <2000>;
+
+ 		sc,sc8551,bat-therm-threshold = <0x15>;
+ 		sc,sc8551,bus-therm-threshold = <0x15>;
+ 		sc,sc8551,die-therm-threshold = <125>;
+
+ 		sc,sc8551,ac-ovp-threshold = <13>;
+ 		sc,sc8551,sense-resistor-mohm = <5>;
+ 	};
+
+};
+
+&sound {
+	mediatek,spk-i2s = <3 0>;
+	mediatek,speaker-codec {
+		sound-dai = <&spk>;
+	};
+};
+
+
+/* Huaqin add for HQ-198769 by gaoshilin at 2022/03/29 start */
+#include <dt-bindings/gpio/gpio.h>
+
+&mmc1 {
+	cd-gpios = <&pio 7 GPIO_ACTIVE_HIGH>;
+};
+/* Huaqin add for HQ-198769 by gaoshilin at 2022/03/29 start */
+
+
+&utos{
+	microtrust,real-drv=<1>;
+};
+
+&u2port0 {
+	mediatek,eye-vrt = <7>;
+	mediatek,eye-term = <6>;
+	mediatek,rev6 = <3>;
+	mediatek,discth = <15>;
+};
+&lk_charger {
+	ac_charger_current = <1800000>;
+	ac_charger_input_current = <1800000>;
+	non_std_ac_charger_current = <1000000>;
+	boot_battery_voltage = <3600000>;
+};
+&charger {
+	charger = <&bq2589x>;
+	battery_cv = <4450000>;
+	max_charger_voltage = <14500000>;
+	min_charger_voltage = <4800000>;
+	enable_sw_jeita;
+	jeita_temp_above_t5_cv = <4100000>;
+	jeita_temp_t4_to_t5_cv = <4100000>;
+	jeita_temp_t3_to_t4_cv = <4450000>;
+	jeita_temp_t2_to_t3_cv = <4450000>;
+	jeita_temp_t1_to_t2_cv = <4450000>;
+	jeita_temp_t0_to_t1_cv = <4450000>;
+	jeita_temp_below_t0_cv = <4450000>;
+	jeita_temp_t4_to_t5_cc = <2400000>;
+	jeita_temp_t3_to_t4_cc = <3000000>;
+	jeita_temp_t2_to_t3_cc = <1470000>;
+	jeita_temp_t1_to_t2_cc = <480000>;
+	jeita_temp_t0_to_t1_cc = <480000>;
+	jeita_temp_below_t0_cc = <480000>;
+	temp_t5_thres = <55>;
+	temp_t5_thres_minus_x_degree = <55>;
+	temp_t4_thres = <45>;
+	temp_t4_thres_plus_x_degree = <45>;
+	temp_t3_thres = <15>;
+	temp_t3_thres_plus_x_degree = <15>;
+	temp_t2_thres = <10>;
+	temp_t2_thres_plus_x_degree = <10>;
+	temp_t1_thres = <5>;
+	temp_t1_thres_plus_x_degree = <5>;
+	min_charge_temp_plus_x_degree = <3>;
+	max_charge_temp = <55>;
+	ac_charger_input_current = <2050000>;
+	non_std_ac_charger_current = <1000000>;
+	recharger_uisoc_limit = <99>;
+	enable_sw_ffc;
+	ffc_cv_1 = <4448000>;
+	ffc_cv_2 = <4432000>;
+	ffc_cv_3 = <4416000>;
+	chg_cycle_count_level1 = <1>;
+	chg_cycle_count_level2 = <100>;
+	chg_cycle_count_level3 = <300>;
+};
+
+&mtk_gauge {
+	charger = <&bq25890_main>;
+};
+
+&mt6375 {
+	status = "disabled";
+};
+
+&bq2589x {
+	status = "disabled";
+};
+
+&extcon_usb {
+	usb = <&bq25890_main>;
+	tcpc = "type_c_port0";
+};
+
+&board_id {
+        io-channels = <&auxadc 6>;
+};
+
+/*M6.TP - 2022.9.30 - Add for Compatible with TP - Start Modify*/
+&spi1 {
+	mediatek,pad-select = <0>,<1>;
+};
+/*End Modify*/
+
+/*m6 add battery fuel start 2022.09.29*/
+&i2c5 {
+	bq25890_main: bq25890@6A {
+		#io-channel-cells = <1>;
+		compatible = "ti,bq2589x-1";
+		status = "okay";
+		reg = <0x6A>;
+		interrupt-parent = <&pio>;
+		interrupts = <4 0>;
+		intr-gpio = <&pio 4 0>;
+		ti,bq2589x,charge-voltage = <4450>;
+		ti,bq2589x,charge-current = <2000>;
+		ti,bq2589x,term-current = <256>;
+		ti,bq2589x,enable-auto-dpdm;
+		ti,bq2589x,enable-termination;
+		ti,bq2589x,enable-ico;
+		ti,bq2589x,use-absolute-vindpm;
+		ti,bq2589x,otg_vol = <5300>;
+		ti,bq2589x,otg_current = <2000>;
+	};
+};
+
+&i2c7 {
+	bq27z561_qg: bq27z561@55 {
+		#io-channel-cells = <1>;
+		compatible = "ti,bq27z561";
+		reg = <0x55>;
+		bq,shutdown-delay-enable;
+		bq,soc_decimal_rate = <
+			0	32
+			10	30
+			20	28
+			30	28
+			40	28
+			50	28
+			60	28
+			70	28
+			80	28
+			90	26
+			95	10
+			99	5>;
+		status = "okay";
+	};
+};
+
+&batt_wt_chg {
+	compatible = "mediatek,wt_chg";
+	status = "okay";
+
+	#io-channel-cells = <1>;
+	io-channels = <&bq27z561_qg PSY_IIO_PRESENT>,
+		<&bq27z561_qg PSY_IIO_STATUS>,
+		<&bq27z561_qg PSY_IIO_VOLTAGE_NOW>,
+		<&bq27z561_qg PSY_IIO_VOLTAGE_MAX>,
+		<&bq27z561_qg PSY_IIO_CURRENT_NOW>,
+		<&bq27z561_qg PSY_IIO_CAPACITY>,
+		<&bq27z561_qg PSY_IIO_CAPACITY_LEVEL>,
+		<&bq27z561_qg PSY_IIO_TEMP>,
+		<&bq27z561_qg PSY_IIO_TIME_TO_EMPTY_NOW>,
+		<&bq27z561_qg PSY_IIO_CHARGE_FULL>,
+		<&bq27z561_qg PSY_IIO_CHARGE_FULL_DESIGN>,
+		<&bq27z561_qg PSY_IIO_CYCLE_COUNT>,
+		<&bq27z561_qg PSY_IIO_TIME_TO_FULL_NOW>,
+		<&bq27z561_qg PSY_IIO_RESISTANCE_ID>,
+		<&bq27z561_qg PSY_IIO_UPDATE_NOW>,
+		<&bq27z561_qg PSY_IIO_SHUTDOWN_DELAY>,
+		<&bq27z561_qg PSY_IIO_PARALLEL_FCC_MAX>,
+		<&bq27z561_qg PSY_IIO_BMS_CHIP_OK>,
+		<&bq27z561_qg PSY_IIO_BATTERY_AUTH>,
+		<&bq27z561_qg PSY_IIO_BMS_SOC_DECIMAL>,
+		<&bq27z561_qg PSY_IIO_BMS_SOC_DECIMAL_RATE>,
+		<&bq27z561_qg PSY_IIO_BATTERY_ID>,
+		<&bq27z561_qg PSY_IIO_CC_SOC>,
+		<&bq27z561_qg PSY_IIO_FASTCHARGE_MODE>,
+		<&bq25890_main PSY_IIO_MAIN_CHAGER_HZ>,
+		<&bq25890_main PSY_IIO_MAIN_INPUT_VOLTAGE_SETTLED>,
+		<&bq25890_main PSY_IIO_MAIN_INPUT_CURRENT_SETTLED>,
+		<&bq25890_main PSY_IIO_MAIN_CHAGER_CURRENT>,
+		<&bq25890_main PSY_IIO_CHARGING_ENABLED>,
+		<&bq25890_main PSY_IIO_OTG_ENABLE>,
+		<&bq25890_main PSY_IIO_MAIN_CHAGER_TERM>,
+		<&bq25890_main PSY_IIO_BATTERY_VOLTAGE_TERM>,
+		<&bq25890_main PSY_IIO_CHARGE_TYPE>,
+		<&bq25890_main PSY_IIO_SC_BUS_VOLTAGE>,
+		<&bq25890_main PSY_IIO_SC_BATTERY_VOLTAGE>,
+		<&bq25890_main PSY_IIO_CHARGER_STATUS>,
+		<&bq25890_main PSY_IIO_CHARGE_DONE>,
+		<&bq25890_main PSY_IIO_ENABLE_CHAGER_TERM>,
+		<&sc8551_slave PSY_IIO_CHARGING_ENABLED>,
+		<&sc8551_slave PSY_IIO_PRESENT>,
+		<&sc8551_slave PSY_IIO_SC_BUS_VOLTAGE>,
+		<&sc8551_slave PSY_IIO_SC_ENABLE_ADC>,
+		<&sc8551_slave PSY_IIO_SC_BUS_CURRENT>,
+		<&sc8551_master PSY_IIO_CHARGING_ENABLED>,
+		<&sc8551_master PSY_IIO_PRESENT>,
+		<&sc8551_master PSY_IIO_SC_BATTERY_VOLTAGE>,
+		<&sc8551_master PSY_IIO_SC_BUS_VOLTAGE>,
+		<&sc8551_master PSY_IIO_SC_ENABLE_ADC>,
+		<&sc8551_master PSY_IIO_SC_BUS_CURRENT>,
+		<&ln8000_slave PSY_IIO_CHARGING_ENABLED>,
+		<&ln8000_slave PSY_IIO_PRESENT>,
+		<&ln8000_slave PSY_IIO_SC_BUS_VOLTAGE>,
+		<&ln8000_slave PSY_IIO_SC_BUS_CURRENT>,
+		<&ln8000_master PSY_IIO_CHARGING_ENABLED>,
+		<&ln8000_master PSY_IIO_PRESENT>,
+		<&ln8000_master PSY_IIO_SC_BATTERY_VOLTAGE>,
+		<&ln8000_master PSY_IIO_SC_BUS_VOLTAGE>,
+		<&ln8000_master PSY_IIO_SC_BUS_CURRENT>;
+
+	io-channel-names ="present",
+		"status",
+		"voltage_now",
+		"voltage_max",
+		"current_now",
+		"capacity",
+		"capacity_level",
+		"temp",
+		"time_to_empty_now",
+		"charge_full",
+		"charge_full_design",
+		"cycle_count",
+		"time_to_full_now",
+		"resistance_id",
+		"update_now",
+		"shutdown_delay",
+		"therm_curr",
+		"chip_ok",
+		"battery_auth",
+		"soc_decimal",
+		"soc_decimal_rate",
+		"battery_id",
+		"rsoc",
+		"fastcharge_mode",
+		"main_chager_hz",
+		"input_voltage_settled",
+		"main_input_current_settled",
+		"main_charge_current",
+		"charger_enable",
+		"otg_enable",
+		"main_charger_term",
+		"batt_voltage_term",
+		"charger_type",
+		"vbus_voltage",
+		"vbat_voltage",
+		"charger_status",
+		"charge_done",
+		"enable_charger_term",
+		"charging_enabled_slave",
+		"present_slave",
+		"sc_bus_voltage_slave",
+		"sc_enable_adc_slave",
+		"sc_bus_current_slave",
+		"charging_enabled",
+		"present",
+		"sc_battery_voltage",
+		"sc_bus_voltage",
+		"sc_enable_adc",
+		"sc_bus_current",
+		"ln_charging_enabled_slave",
+		"ln_present_slave",
+		"ln_bus_voltage_slave",
+		"ln_bus_current_slave",
+		"ln_charging_enabled",
+		"ln_present",
+		"ln_battery_voltage",
+		"ln_bus_voltage",
+		"ln_bus_current";
+};
+
+&hq_batt_chg {
+	compatible = "hq,batt_chg";
+	status = "okay";
+	is_bringup;
+	#io-channel-cells = <1>;
+	io-channels = <&bq27z561_qg PSY_IIO_PRESENT>,
+		<&bq27z561_qg PSY_IIO_STATUS>,
+		<&bq27z561_qg PSY_IIO_VOLTAGE_NOW>,
+		<&bq27z561_qg PSY_IIO_VOLTAGE_MAX>,
+		<&bq27z561_qg PSY_IIO_CURRENT_NOW>,
+		<&bq27z561_qg PSY_IIO_CAPACITY>,
+		<&bq27z561_qg PSY_IIO_CAPACITY_LEVEL>,
+		<&bq27z561_qg PSY_IIO_TEMP>,
+		<&bq27z561_qg PSY_IIO_TIME_TO_EMPTY_NOW>,
+		<&bq27z561_qg PSY_IIO_CHARGE_FULL>,
+		<&bq27z561_qg PSY_IIO_CHARGE_FULL_DESIGN>,
+		<&bq27z561_qg PSY_IIO_CYCLE_COUNT>,
+		<&bq27z561_qg PSY_IIO_TIME_TO_FULL_NOW>,
+		<&bq27z561_qg PSY_IIO_RESISTANCE_ID>,
+		<&bq27z561_qg PSY_IIO_UPDATE_NOW>,
+		<&bq27z561_qg PSY_IIO_SHUTDOWN_DELAY>,
+		<&bq27z561_qg PSY_IIO_PARALLEL_FCC_MAX>,
+		<&bq27z561_qg PSY_IIO_BMS_CHIP_OK>,
+		<&bq27z561_qg PSY_IIO_BATTERY_AUTH>,
+		<&bq27z561_qg PSY_IIO_BMS_SOC_DECIMAL>,
+		<&bq27z561_qg PSY_IIO_BMS_SOC_DECIMAL_RATE>,
+		<&bq27z561_qg PSY_IIO_BATTERY_ID>,
+		<&bq27z561_qg PSY_IIO_CC_SOC>,
+		<&bq27z561_qg PSY_IIO_FASTCHARGE_MODE>,
+		<&bq25890_main PSY_IIO_MAIN_CHAGER_HZ>,
+		<&bq25890_main PSY_IIO_MAIN_INPUT_VOLTAGE_SETTLED>,
+		<&bq25890_main PSY_IIO_MAIN_INPUT_CURRENT_SETTLED>,
+		<&bq25890_main PSY_IIO_MAIN_CHAGER_CURRENT>,
+		<&bq25890_main PSY_IIO_CHARGING_ENABLED>,
+		<&bq25890_main PSY_IIO_OTG_ENABLE>,
+		<&bq25890_main PSY_IIO_MAIN_CHAGER_TERM>,
+		<&bq25890_main PSY_IIO_BATTERY_VOLTAGE_TERM>,
+		<&bq25890_main PSY_IIO_CHARGE_TYPE>,
+		<&bq25890_main PSY_IIO_SC_BUS_VOLTAGE>,
+		<&bq25890_main PSY_IIO_SC_BATTERY_VOLTAGE>,
+		<&bq25890_main PSY_IIO_CHARGER_STATUS>,
+		<&bq25890_main PSY_IIO_CHARGE_DONE>,
+		<&bq25890_main PSY_IIO_ENABLE_CHAGER_TERM>,
+		<&sc8551_slave PSY_IIO_CHARGING_ENABLED>,
+ 		<&sc8551_slave PSY_IIO_PRESENT>,
+ 		<&sc8551_slave PSY_IIO_SC_BUS_VOLTAGE>,
+ 		<&sc8551_slave PSY_IIO_SC_ENABLE_ADC>,
+ 		<&sc8551_slave PSY_IIO_SC_BUS_CURRENT>,
+ 		<&sc8551_master PSY_IIO_CHARGING_ENABLED>,
+ 		<&sc8551_master PSY_IIO_PRESENT>,
+ 		<&sc8551_master PSY_IIO_SC_BATTERY_VOLTAGE>,
+		<&sc8551_master PSY_IIO_SC_BUS_VOLTAGE>,
+ 		<&sc8551_master PSY_IIO_SC_ENABLE_ADC>,
+ 		<&sc8551_master PSY_IIO_SC_BUS_CURRENT>,
+		<&ln8000_slave PSY_IIO_CHARGING_ENABLED>,
+		<&ln8000_slave PSY_IIO_PRESENT>,
+		<&ln8000_slave PSY_IIO_SC_BUS_VOLTAGE>,
+		<&ln8000_slave PSY_IIO_SC_BUS_CURRENT>,
+		<&ln8000_master PSY_IIO_CHARGING_ENABLED>,
+		<&ln8000_master PSY_IIO_PRESENT>,
+		<&ln8000_master PSY_IIO_SC_BATTERY_VOLTAGE>,
+		<&ln8000_master PSY_IIO_SC_BUS_VOLTAGE>,
+		<&ln8000_master PSY_IIO_SC_BUS_CURRENT>;
+
+	io-channel-names ="present",
+		"status",
+		"voltage_now",
+		"voltage_max",
+		"current_now",
+		"capacity",
+		"capacity_level",
+		"temp",
+		"time_to_empty_now",
+		"charge_full",
+		"charge_full_design",
+		"cycle_count",
+		"time_to_full_now",
+		"resistance_id",
+		"update_now",
+		"shutdown_delay",
+		"therm_curr",
+		"chip_ok",
+		"battery_auth",
+		"soc_decimal",
+		"soc_decimal_rate",
+		"battery_id",
+		"rsoc",
+		"fastcharge_mode",
+		"main_chager_hz",
+		"input_voltage_settled",
+		"main_input_current_settled",
+		"main_charge_current",
+		"charger_enable",
+		"otg_enable",
+		"main_charger_term",
+		"batt_voltage_term",
+		"charger_type",
+		"vbus_voltage",
+		"vbat_voltage",
+		"charger_status",
+		"charge_done",
+		"enable_charger_term",
+		"charging_enabled_slave",
+		"present_slave",
+ 		"sc_bus_voltage_slave",
+ 		"sc_enable_adc_slave",
+ 		"sc_bus_current_slave",
+ 		"charging_enabled",
+ 		"present",
+	 	"sc_battery_voltage",
+	 	"sc_bus_voltage",
+		"sc_enable_adc",
+	 	"sc_bus_current",
+		"ln_charging_enabled_slave",
+		"ln_present_slave",
+		"ln_bus_voltage_slave",
+		"ln_bus_current_slave",
+		"ln_charging_enabled",
+		"ln_present",
+		"ln_battery_voltage",
+		"ln_bus_voltage",
+		"ln_bus_current";
+};
+/*m6 add battery fuel end 2022.09.29*/
+
+&rt_pd_manager {
+	compatible = "mediatek,rt-pd-manager";
+
+	#io-channel-cells = <1>;
+ 	io-channels = <&batt_wt_chg PSY_IIO_PD_ACTIVE>,
+ 		<&batt_wt_chg PSY_IIO_PD_USB_SUSPEND_SUPPORTED>,
+ 		<&batt_wt_chg PSY_IIO_PD_IN_HARD_RESET>,
+ 		<&batt_wt_chg PSY_IIO_PD_CURRENT_MAX>,
+		<&batt_wt_chg PSY_IIO_PD_VOLTAGE_MIN>,
+		<&batt_wt_chg PSY_IIO_PD_VOLTAGE_MAX>,
+		<&batt_wt_chg PSY_IIO_USB_REAL_TYPE>,
+		<&batt_wt_chg PSY_IIO_OTG_ENABLE>,
+		<&batt_wt_chg PSY_IIO_TYPEC_CC_ORIENTATION>,
+		<&batt_wt_chg PSY_IIO_TYPEC_MODE>;
+
+	io-channel-names = "pd_active",
+		"pd_usb_suspend_supported",
+		"pd_in_hard_reset",
+		"pd_current_max",
+		"pd_voltage_min",
+		"pd_voltage_max",
+		"real_type",
+		"otg_enable",
+		"typec_cc_orientation",
+		"typec_mode";
+};
+
+&xm_pd_adapter {
+	compatible = "xiaomi,pd_adapter";
+	adapter_name = "pd_adapter";
+	status = "ok";
+};
+
+&m6_cp_manager {
+	compatible = "m6,cp_manager";
+	status = "ok";
+
+	io-channels = <&sc8551_slave PSY_IIO_PRESENT>,
+		<&sc8551_slave PSY_IIO_CHARGING_ENABLED>,
+		<&sc8551_slave PSY_IIO_STATUS>,
+		<&sc8551_slave PSY_IIO_SC_BATTERY_PRESENT>,
+		<&sc8551_slave PSY_IIO_SC_VBUS_PRESENT>,
+		<&sc8551_slave PSY_IIO_SC_BATTERY_VOLTAGE>,
+		<&sc8551_slave PSY_IIO_SC_BATTERY_CURRENT>,
+		<&sc8551_slave PSY_IIO_SC_BATTERY_TEMPERATURE>,
+		<&sc8551_slave PSY_IIO_SC_BUS_VOLTAGE>,
+		<&sc8551_slave PSY_IIO_SC_BUS_CURRENT>,
+		<&sc8551_slave PSY_IIO_SC_BUS_TEMPERATURE>,
+		<&sc8551_slave PSY_IIO_SC_DIE_TEMPERATURE>,
+		<&sc8551_slave PSY_IIO_SC_ALARM_STATUS>,
+		<&sc8551_slave PSY_IIO_SC_FAULT_STATUS>,
+		<&sc8551_slave PSY_IIO_SC_VBUS_ERROR_STATUS>,
+		<&sc8551_master PSY_IIO_PRESENT>,
+		<&sc8551_master PSY_IIO_CHARGING_ENABLED>,
+		<&sc8551_master PSY_IIO_STATUS>,
+		<&sc8551_master PSY_IIO_SC_BATTERY_PRESENT>,
+		<&sc8551_master PSY_IIO_SC_VBUS_PRESENT>,
+		<&sc8551_master PSY_IIO_SC_BATTERY_VOLTAGE>,
+		<&sc8551_master PSY_IIO_SC_BATTERY_CURRENT>,
+		<&sc8551_master PSY_IIO_SC_BATTERY_TEMPERATURE>,
+		<&sc8551_master PSY_IIO_SC_BUS_VOLTAGE>,
+		<&sc8551_master PSY_IIO_SC_BUS_CURRENT>,
+		<&sc8551_master PSY_IIO_SC_BUS_TEMPERATURE>,
+		<&sc8551_master PSY_IIO_SC_DIE_TEMPERATURE>,
+		<&sc8551_master PSY_IIO_SC_ALARM_STATUS>,
+		<&sc8551_master PSY_IIO_SC_FAULT_STATUS>,
+		<&sc8551_master PSY_IIO_SC_VBUS_ERROR_STATUS>,
+		<&bq27z561_qg PSY_IIO_VOLTAGE_NOW>,
+		<&bq27z561_qg PSY_IIO_CURRENT_NOW>,
+		<&bq27z561_qg PSY_IIO_PARALLEL_FCC_MAX>,
+		<&bq27z561_qg PSY_IIO_TEMP>,
+		<&bq27z561_qg PSY_IIO_CYCLE_COUNT>,
+		<&bq25890_main PSY_IIO_MAIN_CHAGER_HZ>,
+		<&bq25890_main PSY_IIO_MAIN_INPUT_CURRENT_SETTLED>,
+		<&bq25890_main PSY_IIO_MAIN_CHAGER_CURRENT>,
+		<&bq25890_main PSY_IIO_CHARGING_ENABLED>,
+		<&bq25890_main PSY_IIO_ENABLE_CHAGER_TERM>,
+		<&bq25890_main PSY_IIO_ENABLE_CP_PD>,
+		<&ln8000_slave PSY_IIO_PRESENT>,
+		<&ln8000_slave PSY_IIO_CHARGING_ENABLED>,
+		<&ln8000_slave PSY_IIO_STATUS>,
+		<&ln8000_slave PSY_IIO_SC_BATTERY_PRESENT>,
+		<&ln8000_slave PSY_IIO_SC_VBUS_PRESENT>,
+		<&ln8000_slave PSY_IIO_SC_BATTERY_VOLTAGE>,
+		<&ln8000_slave PSY_IIO_SC_BATTERY_CURRENT>,
+		<&ln8000_slave PSY_IIO_SC_BATTERY_TEMPERATURE>,
+		<&ln8000_slave PSY_IIO_SC_BUS_VOLTAGE>,
+		<&ln8000_slave PSY_IIO_SC_BUS_CURRENT>,
+		<&ln8000_slave PSY_IIO_SC_BUS_TEMPERATURE>,
+		<&ln8000_slave PSY_IIO_SC_DIE_TEMPERATURE>,
+		<&ln8000_slave PSY_IIO_SC_ALARM_STATUS>,
+		<&ln8000_slave PSY_IIO_SC_FAULT_STATUS>,
+		<&ln8000_slave PSY_IIO_SC_VBUS_ERROR_STATUS>,
+		<&ln8000_master PSY_IIO_PRESENT>,
+		<&ln8000_master PSY_IIO_CHARGING_ENABLED>,
+		<&ln8000_master PSY_IIO_STATUS>,
+		<&ln8000_master PSY_IIO_SC_BATTERY_PRESENT>,
+		<&ln8000_master PSY_IIO_SC_VBUS_PRESENT>,
+		<&ln8000_master PSY_IIO_SC_BATTERY_VOLTAGE>,
+		<&ln8000_master PSY_IIO_SC_BATTERY_CURRENT>,
+		<&ln8000_master PSY_IIO_SC_BATTERY_TEMPERATURE>,
+		<&ln8000_master PSY_IIO_SC_BUS_VOLTAGE>,
+		<&ln8000_master PSY_IIO_SC_BUS_CURRENT>,
+		<&ln8000_master PSY_IIO_SC_BUS_TEMPERATURE>,
+		<&ln8000_master PSY_IIO_SC_DIE_TEMPERATURE>,
+		<&ln8000_master PSY_IIO_SC_ALARM_STATUS>,
+		<&ln8000_master PSY_IIO_SC_FAULT_STATUS>,
+		<&ln8000_master PSY_IIO_SC_VBUS_ERROR_STATUS>,
+		<&batt_wt_chg PSY_IIO_APDO_MAX_VOLT>,
+		<&batt_wt_chg PSY_IIO_APDO_MAX_CURR>;
+
+	io-channel-names = "present_slave",
+		"charging_enabled_slave",
+		"status_slave",
+		"sc_battery_present_slave",
+		"sc_vbus_present_slave",
+		"sc_battery_voltage_slave",
+		"sc_battery_current_slave",
+		"sc_battery_temperature_slave",
+		"sc_bus_voltage_slave",
+		"sc_bus_current_slave",
+		"sc_bus_temperature_slave",
+		"sc_die_temperature_slave",
+		"sc_alarm_status_slave",
+		"sc_fault_status_slave",
+		"sc_vbus_error_status_slave",
+		"present",
+		"charging_enabled",
+		"status",
+		"sc_battery_present",
+		"sc_vbus_present",
+		"sc_battery_voltage",
+		"sc_battery_current",
+		"sc_battery_temperature",
+		"sc_bus_voltage",
+		"sc_bus_current",
+		"sc_bus_temperature",
+		"sc_die_temperature",
+		"sc_alarm_status",
+		"sc_fault_status",
+		"sc_vbus_error_status",
+		"voltage_now",
+		"current_now",
+		"therm_curr",
+		"temp",
+		"cycle_count",
+		"main_chager_hz",
+		"main_input_current_settled",
+		"main_charge_current",
+		"charger_enable",
+		"enable_charger_term",
+		"enable_cp_pd",
+		"ln_present_slave",
+		"ln_charging_enabled_slave",
+		"ln_status_slave",
+		"ln_battery_present_slave",
+		"ln_vbus_present_slave",
+		"ln_battery_voltage_slave",
+		"ln_battery_current_slave",
+		"ln_battery_temperature_slave",
+		"ln_bus_voltage_slave",
+		"ln_bus_current_slave",
+		"ln_bus_temperature_slave",
+		"ln_die_temperature_slave",
+		"ln_alarm_status_slave",
+		"ln_fault_status_slave",
+		"ln_vbus_error_status_slave",
+		"ln_present",
+		"ln_charging_enabled",
+		"ln_status",
+		"ln_battery_present",
+		"ln_vbus_present",
+		"ln_battery_voltage",
+		"ln_battery_current",
+		"ln_battery_temperature",
+		"ln_bus_voltage",
+		"ln_bus_current",
+		"ln_bus_temperature",
+		"ln_die_temperature",
+		"ln_alarm_status",
+		"ln_fault_status",
+		"ln_vbus_error_status",
+		"apdo_max_volt",
+		"apdo_max_curr";
+};
+
+/*Huaqin modify for HQ-247118 by gaobowei at 2022.10.24 start*/
+&swtp {
+        swtp-gpio = <&pio 24 0>;
+};
+/*Huaqin modify for HQ-247118 by gaobowei at 2022.10.24 end*/
+
+#include "mediatek/diamond_mt6789_touch_1080x2400.dtsi"
+#include "mediatek/cust_diamond_fingerprint.dtsi"
+#include <diamond/cust.dtsi>
+/*End of this file, DO NOT ADD ANYTHING HERE*/

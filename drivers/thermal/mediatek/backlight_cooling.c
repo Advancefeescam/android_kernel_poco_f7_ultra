@@ -23,14 +23,13 @@
 static int backlight_throttle(struct backlight_cooling_device *backlight_cdev, unsigned long state)
 {
 	struct device *dev = backlight_cdev->dev;
-	unsigned long bl_percent;
-
-	int enable = (state == BACKLIGHT_COOLING_UNLIMITED_STATE) ? 0 : 1;
-	bl_percent = BACKLIGHT_COOLING_MAX_STATE - state;
-
-	setMaxBrightness(backlight_cdev->name, bl_percent, enable);
+ 	/* L19A code for HQ-192468 by wangzhaoguo at 2022/05/10 start */
+	int enable = (state >= BACKLIGHT_COOLING_MAX_STATE) ? 0 : 1;
+	state = (state > BACKLIGHT_COOLING_MAX_STATE) ? BACKLIGHT_COOLING_MAX_STATE : state;
+	setMaxBrightness(backlight_cdev->name, state, enable);
 	backlight_cdev->target_state = state;
-	dev_info(dev, "%s: set lv = %ld, bl percent = %ld done\n", backlight_cdev->name, state, bl_percent);
+	dev_info(dev, "%s: set lv = %ld done\n", backlight_cdev->name, state);
+	/* L19A code for HQ-192468 by wangzhaoguo at 2022/05/10 end */
 	return 0;
 }
 

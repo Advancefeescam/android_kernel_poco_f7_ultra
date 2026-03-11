@@ -42,10 +42,14 @@ g_QMAX_SYS_VOL_col = <10>;
 g_QMAX_SYS_VOL =
 <
 	34950  34950  34950  34950
-	34950  34950  34950  34950
+/*HQHW-2123 modify 25 Celsius 1 percentage voltage by miaozhichao at 2022/07/29 start*/
+	33000  33000  33000  33000
+/*HQHW-2123 modify 25 Celsius 1 percentage voltage by miaozhichao at 2022/07/29 end*/
 	34250  34250  34250  34250
 	34250  34250  34250  34250
-	34250  34250  34250  34250
+/*HQHW-1742 modify -10 Celsius 1 percentage voltage by tongjiacheng at 2022/06/06 start*/
+	32500  32500  32500  32500
+/*HQHW-1742 modify -10 Celsius 1 percentage voltage by tongjiacheng at 2022/06/06 end*/
 	32500  32500  32500  32500
 	32800  32800  32800  32800
 	32800  32800  32800  32800
@@ -53,14 +57,16 @@ g_QMAX_SYS_VOL =
 	32800  32800  32800  32800
 >;
 /*Pseudo100 percentage setting*/
+/*HQ-223242 modify 2 Celsius charge by miaozhichao at 2022/07/27 start*/
+/*HQHW-2035 modify 25 Celsius charge by miaozhichao at 2022/08/3 start*/
 g_FG_PSEUDO100_row = <4>;
 g_FG_PSEUDO100_col = <10>;
 g_FG_PSEUDO100 =
 <
 	100  100  100  100
-	100  100  100  100
-	100  100  100  100
-	100  100  100  100
+	98   98   98   98
+	97   97   97   97
+	97   97   97   97
 	100  100  100  100
 	100  100  100  100
 	100  100  100  100
@@ -68,7 +74,8 @@ g_FG_PSEUDO100 =
 	100  100  100  100
 	100  100  100  100
 >;
-
+/*HQHW-2035 modify 25 Celsius charge by miaozhichao at 2022/08/3 end*/
+/*HQ-223242 modify 2 Celsius charge by miaozhichao at 2022/07/27 end*/
 /* charge_r  pseudo100 setting*/
 g_FG_charge_PSEUDO100_row = <4>;
 g_FG_charge_PSEUDO100_col = <10>;

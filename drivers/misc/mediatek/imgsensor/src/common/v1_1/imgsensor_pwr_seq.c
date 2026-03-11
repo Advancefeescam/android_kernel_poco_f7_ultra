@@ -11,6 +11,296 @@
 
 /* Legacy design */
 struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
+/* M6 */
+#ifdef PROJECT_DIAMOND
+#if defined(S5KHM2SP_MIPI_RAW)
+  	{
+  		SENSOR_DRVNAME_S5KHM2SP_MIPI_RAW,
+  		{
+			{AFVDD, Vol_2800, 3},
+  			{RST, Vol_Low, 0},
+  			{DVDD, Vol_1100, 1},
+  			{AVDD, Vol_2800, 1},
+  			{DOVDD, Vol_1800, 1},
+  			{RST, Vol_High, 1},
+  			{SensorMCLK, Vol_High, 3}
+  		},
+  	},
+#endif
+#if defined(S5KHM2SD_MIPI_RAW)
+  	{
+  		SENSOR_DRVNAME_S5KHM2SD_MIPI_RAW,
+  		{
+			{AFVDD, Vol_2800, 3},
+  			{RST, Vol_Low, 0},
+  			{DVDD, Vol_1050, 1},
+  			{AVDD, Vol_2800, 1},
+  			{DOVDD, Vol_1800, 1},
+  			{RST, Vol_High, 1},
+  			{SensorMCLK, Vol_High, 3}
+  		},
+  	},
+#endif
+#if defined(OV16A1QOFILM_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV16A1QOFILM_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD1, Vol_2800, 1},
+			{DVDD1, Vol_1200, 1},
+			{DOVDD, Vol_1800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 1}
+		},
+	},
+#endif
+#if defined(OV16A1QSUNNY_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV16A1QSUNNY_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD1, Vol_2800, 1},
+			{DVDD1, Vol_1200, 1},
+			{DOVDD, Vol_1800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 1}
+		},
+	},
+#endif
+#if defined(OV16A1QAAC_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV16A1QAAC_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD1, Vol_2800, 1},
+			{DVDD1, Vol_1200, 1},
+			{DOVDD, Vol_1800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 1}
+		},
+	},
+#endif
+#if defined(IMX355SUNNY_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_IMX355SUNNY_MIPI_RAW,
+		{
+			{RST, Vol_Low, 2},
+			{AVDD1, Vol_2800, 2},
+			{DVDD1, Vol_1200, 2},
+			{DOVDD, Vol_1800, 2},
+			{SensorMCLK, Vol_High, 3},
+			{RST, Vol_High, 5}
+		},
+	},
+#endif
+#if defined(IMX355OFILM_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_IMX355OFILM_MIPI_RAW,
+		{
+			{RST, Vol_Low,25},
+			{AVDD1, Vol_2800, 2},
+			{DVDD1, Vol_1200, 2},
+			{DOVDD, Vol_1800, 2},
+			{SensorMCLK, Vol_High, 3},
+			{RST, Vol_High, 5}
+		},
+	},
+#endif
+#if defined(IMX355AAC_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_IMX355AAC_MIPI_RAW,
+		{
+			{RST, Vol_Low, 2},
+			{AVDD1, Vol_2800, 2},
+			{DVDD1, Vol_1200, 2},
+			{DOVDD, Vol_1800, 2},
+			{SensorMCLK, Vol_High, 3},
+			{RST, Vol_High, 5}
+		},
+	},
+#endif
+#if defined(SC202CS_SUNNY_MIPI_RAW)
+    {
+        SENSOR_DRVNAME_SC202CS_SUNNY_MIPI_RAW,
+        {
+            {RST, Vol_Low, 1},
+            {SensorMCLK, Vol_High, 0},
+            {DOVDD, Vol_1800, 0},
+			{DVDD1, Vol_1200, 0},
+			{AVDD1, Vol_2800, 1},
+            {RST, Vol_High, 4},
+        },
+    },
+#endif
+#endif
+/* M6 END */
+
+/* L19A */
+
+#if defined(S5KJN1_SUNNY_MAIN_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_S5KJN1_SUNNY_MAIN_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 0},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 start */
+			{DVDD1, Vol_1200, 0},
+			{AVDD1, Vol_2800, 0},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 end */
+			{DVDD, Vol_1050, 1},
+			 /*L19A code for HQ-199297 by xuyanfei at 2022/5/31 start */
+			{AVDD, Vol_2800, 1},
+			 /*L19A code for HQ-199297 by xuyanfei at 2022/5/31 end */
+			{RST, Vol_High, 1},
+            /*L19A code for HQ-199297 by zhangxiaodong at 2022/4/24 start */
+			{SensorMCLK, Vol_High, 10}
+            /*L19A code for HQ-199297 by zhangxiaodong at 2022/4/24 end*/
+		},
+    },
+#endif
+#if defined(S5KJN1_OFILM_MAIN_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_S5KJN1_OFILM_MAIN_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 0},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 start */
+			{DVDD1, Vol_1200, 0},
+			{AVDD1, Vol_2800, 0},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 end */
+			{DVDD, Vol_1050, 1},
+			/*L19A code for HQ-199297 by xuyanfei at 2022/5/31 start */
+			{AVDD, Vol_2800, 1},
+			/*L19A code for HQ-199297 by xuyanfei at 2022/5/31 end */
+			{RST, Vol_High, 1},
+            /*L19A code for HQ-199297 by zhangxiaodong at 2022/4/24 start */
+			{SensorMCLK, Vol_High, 10}
+            /*L19A code for HQ-199297 by zhangxiaodong at 2022/4/24 end*/
+		},
+    },
+#endif
+#if defined(OV8856_AAC_FRONT_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV8856_AAC_FRONT_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{SensorMCLK, Vol_High, 0},
+			{DOVDD, Vol_1800, 0},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 start */
+			{AVDD1, Vol_2800, 0},
+			{DVDD1, Vol_1200, 1},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 end */
+			{RST, Vol_High, 1},
+		},
+	},
+#endif
+#if defined(OV8856_OFILM_FRONT_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV8856_OFILM_FRONT_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{SensorMCLK, Vol_High, 0},
+			{DOVDD, Vol_1800, 0},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 start */
+			{AVDD1, Vol_2800, 0},
+			{DVDD1, Vol_1200, 1},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 end */
+			{RST, Vol_High, 1},
+		},
+	},
+#endif
+#if defined(GC5035_SUNNY_FRONT_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_GC5035_SUNNY_FRONT_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{SensorMCLK, Vol_High, 0},
+			{DOVDD, Vol_1800, 1},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 start */
+			{DVDD1, Vol_1200, 1},
+			{AVDD1, Vol_2800, 1},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 end */
+			{RST, Vol_High, 2}
+		},
+	},
+#endif
+#if defined(HI556_OFILM_FRONT_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_HI556_OFILM_FRONT_MIPI_RAW,
+		{
+			{RST, Vol_Low, 0},
+			{DOVDD, Vol_1800, 1},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 start */
+			{AVDD1, Vol_2800, 1},
+			{DVDD1, Vol_1200, 1},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 end */
+			{SensorMCLK, Vol_High, 5},
+			{RST, Vol_High, 10}
+		},
+	},
+#endif
+#if defined(OV02B1B_SUNNY_DEPTH_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV02B1B_SUNNY_DEPTH_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 0},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 start */
+			{DVDD1, Vol_1200, 0},
+			{AVDD1, Vol_2800, 6},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 end */
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 9}
+		},
+	},
+#endif
+#if defined(SC202CS_OFILM_DEPTH_MIPI_RAW)
+    {
+        SENSOR_DRVNAME_SC202CS_OFILM_DEPTH_MIPI_RAW,
+        {
+            {RST, Vol_Low, 1},
+            {SensorMCLK, Vol_High, 0},
+            {DOVDD, Vol_1800, 0},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 start */
+			{DVDD1, Vol_1200, 0},
+			{AVDD1, Vol_2800, 1},
+			/*L19A code for HQ-199297 by luling at 2022/5/9 end */
+            {RST, Vol_High, 4},
+        },
+    },
+#endif
+#if defined(GC02M1_OFILM_MACRO_MIPI_RAW)
+     {
+         SENSOR_DRVNAME_GC02M1_OFILM_MACRO_MIPI_RAW,
+         {
+			 {RST, Vol_Low, 0},
+			 {DOVDD, Vol_1800, 1},
+			 /*L19A code for HQ-199297 by luling at 2022/5/9 start */
+			 {DVDD1, Vol_1200, 0},
+			 {AVDD1, Vol_2800, 0},
+			 /*L19A code for HQ-199297 by luling at 2022/5/9 end */
+			 {SensorMCLK, Vol_High, 1},
+			 {RST, Vol_High, 1},
+        },
+     },
+ #endif
+ #if defined(GC02M1_AAC_MACRO_MIPI_RAW)
+     {
+         SENSOR_DRVNAME_GC02M1_AAC_MACRO_MIPI_RAW,
+         {
+			 {RST, Vol_Low, 0},
+			 {DOVDD, Vol_1800, 1},
+			 /*L19A code for HQ-199297 by luling at 2022/5/9 start */
+			 {DVDD1, Vol_1200, 0},
+			 {AVDD1, Vol_2800, 0},
+			 /*L19A code for HQ-199297 by luling at 2022/5/9 end */
+			 {SensorMCLK, Vol_High, 1},
+			 {RST, Vol_High, 1},
+        },
+     },
+ #endif
+
+/* L19A end */
 #if defined(IMX766_MIPI_RAW)
 	{
 		SENSOR_DRVNAME_IMX766_MIPI_RAW,
@@ -1120,7 +1410,11 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 			{RST, Vol_Low, 1},
 			{DOVDD, Vol_1800, 1},
 			{SensorMCLK, Vol_High, 0},
+			#ifdef PROJECT_DIAMOND
+			{AVDD1, Vol_2800, 9},
+			#else
 			{AVDD, Vol_2800, 9},
+			#endif
 			{RST, Vol_High, 1}
 		},
 	},

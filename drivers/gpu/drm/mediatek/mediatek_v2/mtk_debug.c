@@ -2003,6 +2003,11 @@ int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 	return ret;
 }
 
+#ifdef PROJECT_ROCK
+/*L19A code for HQ-221066 by chenzimo at 2022/07/05 start*/
+extern int mtk_drm_esd_recover(struct drm_crtc *crtc);
+/*L19A code for HQ-221066 by chenzimo at 2022/07/05 end*/
+#endif
 static void process_dbg_opt(const char *opt)
 {
 	DDPINFO("display_debug cmd %s\n", opt);
@@ -2229,8 +2234,16 @@ static void process_dbg_opt(const char *opt)
 		struct mtk_ddp_comp *comp;
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
-		int enable;
-
+#ifdef PROJECT_ROCK
+		/*L19A code for HQ-221066 by zhangkexin at 2022/07/27 start*/
+		struct mtk_drm_esd_ctx *esd_ctx;
+		/*L19A code for HQ-221066 by zhangkexin at 2022/07/27 end*/
+		/*L19A code for HQ-221066 by chenzimo at 2022/07/05 start*/
+		struct mtk_drm_private *private_temp = NULL;
+		/*L19A code for HQ-221066 by chenzimo at 2022/07/05 end*/
+#else
+                int enable;
+#endif
 		/* this debug cmd only for crtc0 */
 		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
 					typeof(*crtc), head);
@@ -2238,14 +2251,36 @@ static void process_dbg_opt(const char *opt)
 			DDPPR_ERR("find crtc fail\n");
 			return;
 		}
-
+#ifdef PROJECT_ROCK
+		/*L19A code for HQ-221066 by chenzimo at 2022/07/05 start*/
+		private_temp = crtc->dev->dev_private;
+		if (!private_temp) {
+			DDPPR_ERR("find private_temp fail\n");
+			return;
+		}
+		/*L19A code for HQ-221066 by chenzimo at 2022/07/05 end*/
+#endif
 		mtk_crtc = to_mtk_crtc(crtc);
+#ifdef PROJECT_ROCK
+		/*L19A code for HQ-221066 by zhangkexin at 2022/07/27 start*/
+		esd_ctx = mtk_crtc->esd_ctx;
+		/*L19A code for HQ-221066 by zhangkexin at 2022/07/27 end*/
+#endif
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
 		if (!comp || !comp->funcs || !comp->funcs->io_cmd) {
 			DDPINFO("cannot find output component\n");
 			return;
 		}
-		enable = 1;
+#ifdef PROJECT_ROCK
+		/*L19A code for HQ-221066 by chenzimo at 2022/07/05 start*/
+		mutex_lock(&private_temp->commit.lock);
+		/*L19A code for HQ-221066 by zhangkexin at 2022/07/27 start*/
+		atomic_set(&esd_ctx->ext_te_event, 1);
+		/*L19A code for HQ-221066 by zhangkexin at 2022/07/27 end*/
+		mutex_unlock(&private_temp->commit.lock);
+		/*L19A code for HQ-221066 by chenzimo at 2022/07/05 end*/
+#else
+                enable = 1;
 		comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
 		msleep(20);
 		enable = 0;
@@ -2253,6 +2288,7 @@ static void process_dbg_opt(const char *opt)
 		msleep(20);
 		enable = 1;
 		comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
+#endif
 		DDPMSG("%s, lcm reset\n", __func__);
 	} else if (strncmp(opt, "backlight:", 10) == 0) {
 		unsigned int level;

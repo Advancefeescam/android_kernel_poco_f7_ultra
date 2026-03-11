@@ -23,6 +23,9 @@
 #include <linux/init.h>
 #include <linux/irqdomain.h>
 #include <linux/irq.h>
+/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 start */
+#include <linux/switch.h>
+/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 end */
 #include <linux/regmap.h>
 #include <sound/soc.h>
 #include <sound/jack.h>
@@ -63,6 +66,11 @@
 #define EINT_PLUG_OUT			(0)
 #define EINT_PLUG_IN			(1)
 #define EINT_MOISTURE_DETECTED	(2)
+
+/*L19A code for HQ-193944 by dailei at 2022-04-18 modify to change keycode start*/
+#define MEDIA_PREVIOUS_SCAN_CODE 257
+#define MEDIA_NEXT_SCAN_CODE 258
+/*L19A code for HQ-193944 by dailei at 2022-04-18 modify to change keycode end*/
 
 struct mt63xx_accdet_data {
 	u32 base;
@@ -167,6 +175,9 @@ static struct timer_list micbias_timer;
 static void dis_micbias_timerhandler(struct timer_list *t);
 static bool dis_micbias_done;
 static char accdet_log_buf[1280];
+/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 start */
+static struct switch_dev accdet_data;
+/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 end */
 static bool debug_thread_en;
 static bool dump_reg;
 static struct task_struct *thread;
@@ -772,6 +783,7 @@ static u32 key_check(u32 v)
 	return NO_KEY;
 }
 
+/*L19A code for HQ-193944 by dailei at 2022-04-18 modify to change keycode start*/
 static void send_key_event(u32 keycode, u32 flag)
 {
 	int report = 0;
@@ -782,18 +794,21 @@ static void send_key_event(u32 keycode, u32 flag)
 			report = SND_JACK_BTN_1;
 		snd_soc_jack_report(&accdet->jack, report,
 				SND_JACK_BTN_1);
+                pr_debug("accdet KEY_VOLUMEDOWN %d\n", flag);
 		break;
 	case UP_KEY:
 		if (flag != 0)
 			report = SND_JACK_BTN_2;
 		snd_soc_jack_report(&accdet->jack, report,
 				SND_JACK_BTN_2);
+                pr_debug("accdet KEY_VOLUMEUP %d\n", flag);
 		break;
 	case MD_KEY:
 		if (flag != 0)
 			report = SND_JACK_BTN_0;
 		snd_soc_jack_report(&accdet->jack, report,
 				SND_JACK_BTN_0);
+                pr_debug("accdet KEY_PLAYPAUSE %d\n", flag);
 		break;
 	case AS_KEY:
 		if (flag != 0)
@@ -803,6 +818,7 @@ static void send_key_event(u32 keycode, u32 flag)
 		break;
 	}
 }
+/*L19A code for HQ-193944 by dailei at 2022-04-18 modify to change keycode end*/
 
 static void send_status_event(u32 cable_type, u32 status)
 {
@@ -828,6 +844,9 @@ static void send_status_event(u32 cable_type, u32 status)
 		}
 		pr_info("accdet HEADPHONE(3-pole) %s\n",
 			status ? "PlugIn" : "PlugOut");
+		/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 start */
+		switch_set_state(&accdet_data, status == 0 ? EINT_PLUG_OUT : EINT_PLUG_IN);
+		/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 end */
 		break;
 	case HEADSET_MIC:
 		/* when plug 4-pole out, 3-pole plug out should also be
@@ -847,6 +866,9 @@ static void send_status_event(u32 cable_type, u32 status)
 				SND_JACK_MICROPHONE);
 		pr_info("accdet MICROPHONE(4-pole) %s\n",
 			status ? "PlugIn" : "PlugOut");
+		/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 start */
+		switch_set_state(&accdet_data, status == 0 ? EINT_PLUG_OUT : EINT_PLUG_IN);
+		/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 end */
 		/* when press key for a long time then plug in
 		 * even recoginized as 4-pole
 		 * disable micbias timer still timeout after 6s
@@ -865,6 +887,9 @@ static void send_status_event(u32 cable_type, u32 status)
 				SND_JACK_LINEOUT);
 		pr_info("accdet LineOut %s\n",
 			status ? "PlugIn" : "PlugOut");
+		/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 start */
+		switch_set_state(&accdet_data, status == 0 ? EINT_PLUG_OUT : EINT_PLUG_IN);
+		/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 end */
 		break;
 	default:
 		pr_info("%s Invalid cableType\n", __func__);
@@ -2074,9 +2099,13 @@ int mt6358_accdet_init(struct snd_soc_component *component,
 
 	accdet->jack.jack->input_dev->id.bustype = BUS_HOST;
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+        /*L19A code for HQ-193944 by dailei at 2022-04-18 modify to change keycode start*/
+        //snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
+	//snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, MEDIA_NEXT_SCAN_CODE);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, MEDIA_PREVIOUS_SCAN_CODE);
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
+        /*L19A code for HQ-193944 by dailei at 2022-04-18 modify to change keycode end*/
 
 	snd_soc_component_set_jack(component, &accdet->jack, NULL);
 
@@ -2246,6 +2275,16 @@ static int mt6358_accdet_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+	/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 start */
+	accdet_data.name = "h2w";
+	accdet_data.index = 0;
+	accdet_data.state = 0;
+	ret = switch_dev_register(&accdet_data);
+	if (ret) {
+		pr_notice("%s switch_dev_register fail:%d!\n", __func__, ret);
+		return -1;
+	}
+	/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 end */
 
 	/* register char device number, Create normal device for auido use */
 	ret = alloc_chrdev_region(&accdet->accdet_devno, 0, 1, ACCDET_DEVNAME);
@@ -2339,6 +2378,9 @@ static int mt6358_accdet_remove(struct platform_device *pdev)
 	destroy_workqueue(accdet->delay_init_workqueue);
 	class_destroy(accdet->accdet_class);
 	unregister_chrdev_region(accdet->accdet_devno, 1);
+	/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 start */
+	switch_dev_unregister(&accdet_data);
+	/* L19 code for HQ-161421 by zhangkaiming at 2021/10/25 end */
 	devm_kfree(&pdev->dev, accdet);
 	return 0;
 }

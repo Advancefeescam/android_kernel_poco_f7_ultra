@@ -54,7 +54,9 @@
 #include "../../../block/blk.h"
 #include "../../../block/blk-mq.h"
 #include "../../../block/blk-mq-sched.h"
+/*L19A code for HQ-194052 by xukai at 20220517 start*/
 #include "../scsi_priv.h"
+/*L19A code for HQ-194052 by xukai at 20220517 end*/
 
 /* Version info*/
 #define UFSSHPB_VER				0x0221

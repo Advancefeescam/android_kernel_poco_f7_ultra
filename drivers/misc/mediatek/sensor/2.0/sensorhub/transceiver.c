@@ -332,10 +332,26 @@ static int transceiver_translate(struct transceiver_device *dev,
 			break;
 		case SENSOR_TYPE_LIGHT:
 		case SENSOR_TYPE_PRESSURE:
-		case SENSOR_TYPE_PROXIMITY:
 		case SENSOR_TYPE_STEP_COUNTER:
 			dst->word[0] = src->value[0];
 			break;
+		/* Huaqin add for HQ-193977 by baoguangxiu at 2022/04/14 start */
+		#ifdef PROJECT_ROCK
+		case SENSOR_TYPE_PROXIMITY:
+			dst->word[0] = src->value[0];
+			dst->word[1] = src->value[1];
+			break;
+		#elif defined(PROJECT_DIAMOND)
+		case SENSOR_TYPE_PROXIMITY:
+			dst->word[0] = src->value[0];
+			dst->word[1] = src->value[1];
+			break;
+		#else
+		case SENSOR_TYPE_PROXIMITY:
+                        dst->word[0] = src->value[0];
+			break;
+		#endif
+		/* Huaqin add for HQ-193977 by baoguangxiu at 2022/04/14 end */
 		default:
 			memcpy(dst->word, src->value,
 				min(sizeof(dst->word), sizeof(src->value)));

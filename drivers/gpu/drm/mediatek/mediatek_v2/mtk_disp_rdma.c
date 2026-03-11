@@ -266,6 +266,9 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	bool find_work = false;
 	static unsigned int work_id;
 	static DEFINE_RATELIMIT_STATE(isr_ratelimit, 1 * HZ, 4);
+	/*L19A code for HQ-223452 by chenzimo at 2022/7/14 start*/
+	ktime_t cur_time;
+	/*L19A code for HQ-223452 by chenzimo at 2022/7/14 end*/
 
 	if (IS_ERR_OR_NULL(priv))
 		return IRQ_NONE;
@@ -367,7 +370,15 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 			priv->ddp_comp.ts_works[work_id].irq_time, i)
 	}
 
+	/*L19A code for HQ-223452 by chenzimo at 2022/7/14 start*/
+	if (rdma->id == DDP_COMPONENT_RDMA0 && mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
+		cur_time = ktime_get();
+	/*L19A code for HQ-223452 by chenzimo at 2022/7/14 end*/
+
 	if (val & (1 << 1)) {
+		/*L19A code for HQ-223452 by chenzimo at 2022/7/14 start*/
+		int vrefresh = 0;
+		/*L19A code for HQ-223452 by chenzimo at 2022/7/14 end*/
 		if (mtk_crtc &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 			if (rdma->id == DDP_COMPONENT_RDMA0)
@@ -379,6 +390,15 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 			IF_DEBUG_IRQ_TS(find_work, priv->ddp_comp.ts_works[work_id].irq_time, i)
 
 			if (rdma->id == DDP_COMPONENT_RDMA0) {
+				/*L19A code for HQ-223452 by chenzimo at 2022/7/14 start*/
+				vrefresh = drm_mode_vrefresh(
+						&mtk_crtc->base.state->adjusted_mode);
+				if (vrefresh > 0 &&
+					ktime_to_us(cur_time - mtk_crtc->pf_time) >=
+						(500000 / vrefresh)) {
+					mtk_crtc->pf_time = cur_time;
+				}
+				/*L19A code for HQ-223452 by chenzimo at 2022/7/14 end*/
 				atomic_set(&mtk_crtc->pf_event, 1);
 				wake_up_interruptible(&mtk_crtc->present_fence_wq);
 				IF_DEBUG_IRQ_TS(find_work,
@@ -676,12 +696,16 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	gs[GS_RDMA_VDE_BLOCK_ULTRA] = 0;
 
 	/* DISP_RDMA_FIFO_CON */
-
-	if (gsc->is_vdo_mode || (rdma->data->dsi_buffer))
+	if (gsc->is_vdo_mode || (rdma->data->dsi_buffer)) {
+	#ifdef PROJECT_DIAMOND
+		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = 500;
+	#endif
+	#ifdef PROJECT_ROCK
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = 0;
-	else
+	#endif
+	} else {
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
-
+	}
 	if (rdma->data->dsi_buffer) {
 		struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 

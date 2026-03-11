@@ -20,6 +20,9 @@
 #include <linux/of_device.h>
 #include <linux/slab.h>
 
+#ifdef PROJECT_ROCK
+extern int get_backlight_id(void);
+#endif
 struct ti_lmu_data {
 	const struct mfd_cell *cells;
 	int num_cells;
@@ -108,6 +111,21 @@ static const struct mfd_cell lm3695_devices[] = {
 	},
 };
 
+#ifdef PROJECT_ROCK
+static const struct mfd_cell lm3697_devices[] = {
+	{
+		.name          = "ti-lmu-backlight",
+		.id            = LM3697,
+		.of_compatible = "ti,lm3697-backlight",
+	},
+	/* Monitoring driver for open/short circuit detection */
+	{
+		.name          = "ti-lmu-fault-monitor",
+		.id            = LM3697,
+		.of_compatible = "ti,lm3697-fault-monitor",
+	},
+};
+#endif
 static const struct mfd_cell lm36274_devices[] = {
 	LM363X_REGULATOR(LM36274_BOOST),
 	LM363X_REGULATOR(LM36274_LDO_POS),
@@ -131,6 +149,9 @@ TI_LMU_DATA(lm3631, LM3631_MAX_REG);
 TI_LMU_DATA(lm3632, LM3632_MAX_REG);
 TI_LMU_DATA(lm3633, LM3633_MAX_REG);
 TI_LMU_DATA(lm3695, LM3695_MAX_REG);
+#ifdef PROJECT_ROCK
+TI_LMU_DATA(lm3697, LM3697_MAX_REG);
+#endif
 TI_LMU_DATA(lm36274, LM36274_MAX_REG);
 
 static int ti_lmu_probe(struct i2c_client *cl, const struct i2c_device_id *id)
@@ -141,6 +162,10 @@ static int ti_lmu_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 	struct ti_lmu *lmu;
 	int ret;
 
+#ifdef PROJECT_ROCK
+	if(1 != get_backlight_id())
+		return -ENODEV;
+#endif
 	/*
 	 * Get device specific data from of_match table.
 	 * This data is defined by using TI_LMU_DATA() macro.
@@ -200,6 +225,9 @@ static const struct of_device_id ti_lmu_of_match[] = {
 	{ .compatible = "ti,lm3632", .data = &lm3632_data },
 	{ .compatible = "ti,lm3633", .data = &lm3633_data },
 	{ .compatible = "ti,lm3695", .data = &lm3695_data },
+#ifdef PROJECT_ROCK
+	{ .compatible = "ti,lm3697", .data = &lm3697_data },
+#endif
 	{ .compatible = "ti,lm36274", .data = &lm36274_data },
 	{ }
 };
@@ -210,6 +238,9 @@ static const struct i2c_device_id ti_lmu_ids[] = {
 	{ "lm3632", LM3632 },
 	{ "lm3633", LM3633 },
 	{ "lm3695", LM3695 },
+#ifdef PROJECT_ROCK
+	{ "lm3697", LM3697 },
+#endif
 	{ "lm36274", LM36274 },
 	{ }
 };

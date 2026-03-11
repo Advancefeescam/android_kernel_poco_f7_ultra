@@ -1,5 +1,6 @@
 subdir-ccflags-y += -Werror
 
+# L19A code for HQ-194827 by chenzimo at 2022/5/25 start
 mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_disp_tdshp.o \
 		  mtk_disp_color.o \
@@ -52,6 +53,8 @@ mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_disp_inlinerotate.o \
 		  mtk_mmlsys_bypass_mode.o \
 		  platform/mtk_drm_6789.o \
+		  mtk_notifier_odm.o
+# L19A code for HQ-194827 by chenzimo at 2022/5/25 end
 
 #ccflags-y += -DDRM_CMDQ_DISABLE
 #mediatek-drm-y += mtk_cmdq_dummy.o

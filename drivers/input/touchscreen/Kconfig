@@ -12,6 +12,17 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
+#L19A code for HQ-194810  by gaoxue at 2022/5/10 start
+config TOUCHSCREEN_XIAOMI_TOUCHFEATURE
+	tristate "Xiaomi Touch Feature"
+	depends on INPUT_TOUCHSCREEN
+	help
+	  Say Y here if you enable xiaomi touch feature.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here:
+#L19A code for HQ-194810  by gaoxue at 2022/5/10 end
 config TOUCHSCREEN_PROPERTIES
 	def_tristate INPUT
 	depends on INPUT

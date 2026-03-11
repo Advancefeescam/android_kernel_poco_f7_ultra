@@ -23,3 +23,16 @@ obj-$(CONFIG_MTK_THERMAL_INTERFACE)	+= thermal_interface.o
 obj-$(CONFIG_MTK_THERMAL_JATM)	+= thermal_jatm.o
 
 obj-$(CONFIG_MTK_BOARD_THERMAL)	+= board_temp.o
+# L19A code for HQ-192468 by wangzhaoguo at 2022/05/10 start
+obj-m += hq_thermal_message.o
+
+obj-m += hq_blk_temp.o
+# L19A code for HQ-192468 by wangzhaoguo at 2022/05/10 end
+# L19A code for HQ-211641 by wangzhaoguo at 2022/05/19 start
+obj-m += hq_fl_temp.o
+# L19A code for HQ-211641 by wangzhaoguo at 2022/05/19 end
+
+# M6 code for add thermal_zone by yingxuezhen at 2022/10/19 start
+obj-m += hq_CPU_temp.o
+obj-m += hq_charge_temp.o
+# M6 code for add thermal_zone by yingxuezhen at 2022/10/19 end

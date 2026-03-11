@@ -51,7 +51,7 @@
 #define EEPROM_I2C_WRITE_MSG_LENGTH_MAX 32
 #endif
 #ifndef EEPROM_WRITE_EN
-#define EEPROM_WRITE_EN 0
+#define EEPROM_WRITE_EN 1
 #endif
 
 static int Read_I2C_CAM_CAL(struct i2c_client *client,
@@ -225,5 +225,43 @@ unsigned int Common_write_region(struct i2c_client *client, unsigned int addr,
 #endif
 
 	return ret;
+}
+
+typedef struct init_table
+{
+	unsigned int ui4_offset;
+	unsigned char pinputdata;
+}init_table;
+#define TABLE_SIZE 6
+
+init_table otp[TABLE_SIZE] = 
+{
+	{0x3106,0x05},
+	{0x440d,0x10},
+	{0x4409,0x00},
+	{0x440b,0x12},
+	{0x0100,0x01},
+	{0x4400,0x11},
+};
+
+unsigned int sc202cs_read_otp(struct i2c_client *client, unsigned int addr,
+				unsigned char *data, unsigned int size)
+{
+    int otpdata_addr[] = {0x800A, 0x800B,0x8011,0x8012, 0x8000, 0x8001, 0x8002, 0x8003, 0x8004, 0x8005, 0x8006, 0x8007};
+    int i = 0,count = 0;
+	int addr_len = sizeof(otpdata_addr)/sizeof(int);
+	for(i = 0; i < TABLE_SIZE; i++)
+	{
+		iWriteData_CAM_CAL(client, otp[i].ui4_offset, 1, &otp[i].pinputdata);
+	}
+    for (i = 0; i < addr_len; i++) {
+        if(iReadData_CAM_CAL(client,otpdata_addr[i],1,&data[i]) == 0)
+		{
+			count++;
+		}
+        printk("read result[%d] is %x\n", i, data[i]);
+    }
+
+	return count;
 }
 

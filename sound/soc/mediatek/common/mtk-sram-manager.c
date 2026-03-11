@@ -10,7 +10,12 @@
 #include <linux/of_address.h>
 
 #include "mtk-sram-manager.h"
-
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 start*/
+#ifdef PROJECT_ROCK
+int fac_mic = 0;
+EXPORT_SYMBOL(fac_mic);
+#endif
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 end*/
 static void mtk_audio_sram_update_block_valid(struct mtk_audio_sram *sram,
 					      enum mtk_audio_sram_mode mode)
 {
@@ -62,6 +67,11 @@ static bool mtk_audio_sram_avail(struct mtk_audio_sram *sram,
 		if (sram_blk->valid == 0) {
 			dev_warn(sram->dev, "%s(), sram_blk->valid == 0, i = %d\n",
 				 __func__, i);
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 start*/
+#ifdef PROJECT_ROCK
+			fac_mic = i;
+#endif
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 end*/
 			break;
 		}
 	}

@@ -19,7 +19,9 @@
 	/* System shutdown current */
 	FG_METER_RESISTANCE = <(70)>;
 	/* The resistance of PCB */
-	CAR_TUNE_VALUE = <(101)>;
+	/*L19A HQ-198776 modify car_tune_value by gengyifei at 2022/5/10 start*/
+	CAR_TUNE_VALUE = <(100)>;
+        /*L19A HQ-198776 modify car_tune_value by gengyifei at 2022/5/10 end*/
 	/* Tune value for current measurement */
 	PMIC_MIN_VOL = <(33500)>;
 	/* vboot voltage for gauge 0%*/
@@ -68,6 +70,8 @@
 	MULTI_TEMP_GAUGE0 = <(1)>;
 	/* Multi gauge0 enable */
 	RBAT_PULL_UP_VOLT = <(2800)>;
-#include "mt6789_battery_table.dtsi"
+/*L19A HQ-198776 battery profile bring up by gengyifei at 2022/4/21 start*/
+#include "mt6789_battery_table_ext.dtsi"
+/*L19A HQ-198776 battery profile bring up by gengyifei at 2022/4/21 end*/
 #include "mt6789_battery_prop_dim2_ext.dtsi"
 };

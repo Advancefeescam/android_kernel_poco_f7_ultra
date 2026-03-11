@@ -71,6 +71,9 @@ obj-$(CONFIG_DRM_PANEL_K6895V1_64_95T_ALPHA_CMD) += k6895v1_64_95t_alpha/panel-k
 endif
 obj-$(CONFIG_DRM_PANEL_TRULY_FT8756_VDO) += panel-truly-ft8756-vdo.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672C_CPHY_VDO) += panel-alpha-jdi-nt36672c-cphy-vdo.o
+obj-$(CONFIG_DRM_PANEL_NT36672C_TIANMA_VDO) += panel-nt36672c-tianma-fhdp-dsi-vdo-90hz-l19a.o
+obj-$(CONFIG_DRM_PANEL_FT8722_JDI_VDO) += panel-ft8722-jdi-fhdp-dsi-vdo-90hz-l19a.o
+obj-$(CONFIG_DRM_PANEL_NT36672C_TIANMA_VDO) += panel-bias-l19a.o
 obj-$(CONFIG_DRM_PANEL_SC_NT36672C_VDO_120HZ) += panel-sc-nt36672c-vdo-120hz.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_R66451_CMD_120HZ) += panel-tianma-r66451-cmd-120hz.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_R66451_CMD_120HZ_WA) += panel-tianma-r66451-cmd-120hz-wa.o
@@ -86,6 +89,12 @@ obj-$(CONFIG_DRM_PANEL_SAMSUNG_S68FC01_VDO_AOD) += panel-samsung-s68fc01-vdo-aod
 obj-$(CONFIG_DRM_PANEL_ALPHA_SAMSUNG_S6E3HAE_CMD_120HZ) += panel-alpha-samsung-s6e3hae-wqhd-dphy-cmd-120hz.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_NT36672C_CPHY_VDO_90HZ_RT4801) += panel-tianma-nt36672c-cphy-vdo-90hz-rt4801.o
 obj-$(CONFIG_DRM_PANEL_NT37801_MSYNC2_RTE) += panel-nt37801-msync2-rte.o
+# M6 code for M6 by yuyang at 2022/09/13 start
+obj-$(CONFIG_DRM_PANEL_M6_36_02_0A_DSC_VDO) += panel-m6-36-02-0a-dsc-vdo.o
+# M6 code for M6 by yuyang at 2022/09/13 end
+# M6 code for M6 by zhengjie at 2022/09/23 start
+obj-$(CONFIG_DRM_PANEL_M6_42_0D_0B_DSC_VDO) += panel-m6-42-0d-0b-dsc-vdo.o
+# M6 code for M6 by zhengjie at 2022/09/23 end
 
 mediatek-drm-gateic-y := mtk_drm_panel_i2c.o \
 		  mtk_drm_gateic_rt4801h.o \

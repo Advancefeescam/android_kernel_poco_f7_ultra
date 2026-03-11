@@ -388,6 +388,11 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 		ret = -ENOENT;
 		goto err_res;
 	}
+        /*L19A code for HQ-212377 by qiankang at 20220622 start*/
+	ret = of_property_read_u32(pdev->dev.of_node, "svp-mtee", &dev->svp_mtee);
+	if (ret)
+	    mtk_v4l2_debug(0, "[VDEC] Cannot get svp-mtee, skip");
+        /*L19A code for HQ-212377 by qiankang at 20220622 end*/
 
 	ret = mtk_vcodec_dec_irq_setup(pdev, dev);
 	if (ret)

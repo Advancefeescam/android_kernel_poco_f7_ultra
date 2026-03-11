@@ -19,8 +19,20 @@
 #include <sound/tlv.h>
 #include <sound/soc.h>
 #include <sound/core.h>
-
+#ifdef PROJECT_DIAMOND
+#include "fs1815/fsm_public.h"
+extern void fsm_add_codec_controls(struct snd_soc_codec *codec);
+#endif
+/*L19 code for HQ-161023 by zhangbing at 2022/04/06 start*/
+extern int aw87xxx_add_codec_controls(void *codec);
+/*L19 code for HQ-161023 by zhangbing at 2022/04/06 end*/
 #include "mt6358.h"
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 start*/
+#ifdef PROJECT_ROCK
+#include "../mediatek/common/mtk-sram-manager.h"
+extern int fac_mic;
+#endif
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 end*/
 #if IS_ENABLED(CONFIG_SND_SOC_MT6366_ACCDET) || IS_ENABLED(CONFIG_SND_SOC_MT6358_ACCDET)
 #include "mt6358-accdet.h"
 #endif
@@ -466,6 +478,58 @@ static void headset_volume_ramp(struct mt6358_priv *priv, int from, int to)
 	}
 }
 
+static int mt6358_snd_soc_put_volsw(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	unsigned int reg = mc->reg;
+	unsigned int reg2 = mc->rreg;
+	unsigned int shift = mc->shift;
+	unsigned int rshift = mc->rshift;
+	int max = mc->max;
+	int min = mc->min;
+	unsigned int sign_bit = mc->sign_bit;
+	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int invert = mc->invert;
+	int err;
+	bool type_2r = false;
+	unsigned int val2 = 0;
+	unsigned int val, val_mask;
+
+	if (sign_bit)
+		mask = BIT(sign_bit + 1) - 1;
+
+	val = ucontrol->value.integer.value[0];
+	val = (val + min) & mask;
+	if (invert)
+		val = max - val;
+	val_mask = mask << shift;
+	val = val << shift;
+	if (snd_soc_volsw_is_stereo(mc)) {
+		val2 = ucontrol->value.integer.value[1];
+		val2 = (val2 + min) & mask;
+		if (invert)
+			val2 = max - val2;
+		if (reg == reg2) {
+			val_mask |= mask << rshift;
+			val |= val2 << rshift;
+		} else {
+			val2 = val2 << shift;
+			type_2r = true;
+		}
+	}
+	err = snd_soc_component_update_bits(component, reg, val_mask, val);
+	if (err < 0)
+		return err;
+
+	if (type_2r)
+		err = snd_soc_component_update_bits(component, reg2, val_mask, val2);
+
+	return err;
+}
+
 static int mt6358_put_volsw(struct snd_kcontrol *kcontrol,
 			    struct snd_ctl_elem_value *ucontrol)
 {
@@ -478,7 +542,7 @@ static int mt6358_put_volsw(struct snd_kcontrol *kcontrol,
 	int index = ucontrol->value.integer.value[0];
 	int ret;
 
-	ret = snd_soc_put_volsw(kcontrol, ucontrol);
+	ret = mt6358_snd_soc_put_volsw(kcontrol, ucontrol);
 	if (ret < 0)
 		return ret;
 
@@ -661,12 +725,14 @@ static const DECLARE_TLV_DB_SCALE(capture_tlv, 0, 600, 0);
 
 static const struct snd_kcontrol_new mt6358_snd_controls[] = {
 	/* dl pga gain */
+/* L19A code for HQ-217800 by zhangpeng at 20220615 start */
 	SOC_DOUBLE_EXT_TLV("Headset Volume",
-			   MT6358_ZCD_CON2, 0, 7, 0x12, 0,
+			   MT6358_ZCD_CON2, 0, 7, 0x1f, 0,
 			   snd_soc_get_volsw, mt6358_put_volsw, playback_tlv),
 	SOC_DOUBLE_EXT_TLV("Lineout Volume",
-			   MT6358_ZCD_CON1, 0, 7, 0x12, 0,
+			   MT6358_ZCD_CON1, 0, 7, 0x1f, 0,
 			   snd_soc_get_volsw, mt6358_put_volsw, playback_tlv),
+/* L19A code for HQ-217800 by zhangpeng at 20220615 end */
 	SOC_SINGLE_EXT_TLV("Handset Volume",
 			   MT6358_ZCD_CON3, 0, 0x12, 0,
 			   snd_soc_get_volsw, mt6358_put_volsw, playback_tlv),
@@ -2420,7 +2486,7 @@ static int mt_adc_supply_event(struct snd_soc_dapm_widget *w,
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE];
 
-	dev_dbg(priv->dev, "%s(), event 0x%x, vow_enable: %d\n",
+	dev_info(priv->dev, "%s(), event 0x%x, vow_enable: %d\n",
 		__func__, event, priv->vow_enable);
 
 	switch (event) {
@@ -2622,7 +2688,12 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 	unsigned int mux_pga_r = priv->mux_select[MUX_PGA_R];
 	int mic_gain_l = priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1];
 	int mic_gain_r = priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2];
-
+	unsigned int reg_value = 0, rc_1 = 0, rc_2 = 0;
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 start*/
+#ifdef PROJECT_ROCK
+	fac_mic = 0;
+#endif
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 end*/
 	dev_info(priv->dev, "%s(), mux, mic %u, pga l %u, pga r %u, mic_gain l %d, r %d\n",
 		 __func__, mic_type, mux_pga_l, mux_pga_r,
 		 mic_gain_l, mic_gain_r);
@@ -2709,11 +2780,14 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 					   0x1 << RG_AUDPREAMPLDCCEN_SFT);
 		}
 
+		usleep_range(1000, 1050);
 		/* Audio L ADC input selection: Left Preamplifier */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
 				   RG_AUDADCLINPUTSEL_MASK_SFT,
 				   ADC_MUX_PREAMPLIFIER <<
 				   RG_AUDADCLINPUTSEL_SFT);
+
+		usleep_range(1000, 1050);
 		/* Audio L ADC power on */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
 				   RG_AUDADCLPWRUP_MASK_SFT,
@@ -2738,11 +2812,13 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 					   0x1 << RG_AUDPREAMPRDCCEN_SFT);
 		}
 
+		usleep_range(1000, 1050);
 		/* R ADC input sel : R PGA. Enable audio R ADC */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
 				   RG_AUDADCRINPUTSEL_MASK_SFT,
 				   ADC_MUX_PREAMPLIFIER <<
 				   RG_AUDADCRINPUTSEL_SFT);
+		usleep_range(1000, 1050);
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
 				   RG_AUDADCRPWRUP_MASK_SFT,
 				   0x1 << RG_AUDADCRPWRUP_SFT);
@@ -2761,6 +2837,36 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON3,
 				   0x1 << 12, 0x0);
 	}
+
+	usleep_range(500, 520);
+	regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON12, &reg_value);
+	rc_1 = reg_value & 0x1f;
+	rc_2 = (reg_value >> 8) & 0x1f;
+	dev_dbg(priv->dev, "%s(), 1: MT6358_AUDENC_CON12(rc2, rc1) = 0x%x(0x%x, 0x%x)\n",
+			__func__, reg_value, rc_2, rc_1);
+	if ((rc_2 == 0) || (rc_1 == 0) || (rc_1 == 0x1f) || (rc_2 == 0x1f)) {
+		/* Disable audio L ADC */
+		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
+				   RG_AUDADCLPWRUP_MASK_SFT,
+				   0x0 << RG_AUDADCLPWRUP_SFT);
+		/* Disable audio R ADC */
+		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
+				   RG_AUDADCRPWRUP_MASK_SFT,
+				   0x0 << RG_AUDADCRPWRUP_SFT);
+		/* Enable audio L ADC */
+		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
+				   RG_AUDADCLPWRUP_MASK_SFT,
+				   0x1 << RG_AUDADCLPWRUP_SFT);
+		/* Enable audio R ADC */
+		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
+				   RG_AUDADCRPWRUP_MASK_SFT,
+				   0x1 << RG_AUDADCRPWRUP_SFT);
+	}
+
+	usleep_range(500, 520);
+	regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON12, &reg_value);
+	dev_dbg(priv->dev, "%s(), final: MT6358_AUDENC_CON12 = 0x%x\n",
+			__func__, reg_value);
 
 	/* here to set digital part */
 	mt6358_mtkaif_tx_enable(priv);
@@ -2901,6 +3007,7 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 {
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE];
 	unsigned int mux_pga_l = priv->mux_select[MUX_PGA_L];
+	unsigned int rc_value = 0, rc_l = 0;
 
 	dev_info(priv->dev, "%s(), mux, mic %u, pga l %u\n",
 		 __func__, mic_type, mux_pga_l);
@@ -2970,6 +3077,16 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON9,
 				   0xff, 0x25);
 	}
+	/*L19A-T code for HQ-279017 by zhoujinxiang about vow MTK patch at 2023.01.31 start*/
+        /* Enable audio uplink LPW mode */
+	/* Enable Audio ADC 1st Stage LPW */
+	/* Enable Audio ADC 2nd & 3rd LPW */
+	/* Enable Audio ADC flash Audio ADC flash */
+	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON2,
+			   0xC31F, 0xC31F);
+	dev_info(priv->dev, "%s(), mt_vow_aud_lpw_enable 0xC31F\n",
+		 __func__);
+	/*L19A-T code for HQ-279017 by zhoujinxiang about vow MTK patch at 2023.01.31 end*/
 	/* Audio L preamplifier gain adjust: 24db */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
 			   RG_AUDPREAMPLGAIN_MASK_SFT,
@@ -3003,11 +3120,13 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 					   0x1 << RG_AUDPREAMPLDCCEN_SFT);
 		}
 
+		usleep_range(1000, 1050);
 		/* Audio L ADC input selection: Left Preamplifier */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
 				   RG_AUDADCLINPUTSEL_MASK_SFT,
 				   ADC_MUX_PREAMPLIFIER <<
 				   RG_AUDADCLINPUTSEL_SFT);
+		usleep_range(1000, 1050);
 		/* Audio L ADC power on */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
 				   RG_AUDADCLPWRUP_MASK_SFT,
@@ -3016,6 +3135,31 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON3,
 				   0x1 << 12, 0x0);
 	}
+
+	usleep_range(500, 520);
+	/* adc reset mechanism */
+	regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON12, &rc_value);
+	/* AUDENC_CON12[4:0] => RGS_AUDRCTUNELREAD */
+	rc_l = rc_value & 0x1f;
+	dev_dbg(priv->dev, "%s(), MT6358_AUDENC_ANA_CON12(rc_l) = 0x%x(0x%x)\n",
+			__func__, rc_value, rc_l);
+	if (rc_l == 0x0 || rc_l == 0x1f) {
+		dev_info(priv->dev, "%s(), calibration fail, resetting...\n",
+			 __func__);
+		/* Disable audio L ADC */
+		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
+				   RG_AUDADCLPWRUP_MASK_SFT,
+				   0x0 << RG_AUDADCLPWRUP_SFT);
+		/* Enable audio L ADC */
+		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
+				   RG_AUDADCLPWRUP_MASK_SFT,
+				   0x1 << RG_AUDADCLPWRUP_SFT);
+	}
+	usleep_range(500, 520);
+	regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON12, &rc_value);
+	dev_dbg(priv->dev, "%s(), after reset: MT6358_AUDENC_ANA_CON12(rc_l) = 0x%x(0x%x)\n",
+			__func__, rc_value, rc_l);
+
 	if (IS_DCC_BASE(mic_type)) {
 		usleep_range(100, 150);
 		/* Audio L preamplifier DCC precharge off */
@@ -3026,14 +3170,6 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 				   0x1 << 12, 0x0);
 	}
 	usleep_range(1000, 1200);
-	/* Enable audio uplink LPW mode */
-	/* Enable Audio ADC 1st Stage LPW */
-	/* Enable Audio ADC 2nd & 3rd LPW */
-	/* Enable Audio ADC flash Audio ADC flash */
-	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON2,
-			   0x0039, 0x0039);
-	dev_info(priv->dev, "%s(), mt_vow_aud_lpw_enable 0x39\n",
-		 __func__);
 	return 0;
 }
 
@@ -3048,8 +3184,10 @@ static int mt6358_vow_amic_disable(struct mt6358_priv *priv)
 	/* Disable Audio ADC 1st Stage LPW */
 	/* Disable Audio ADC 2nd & 3rd LPW */
 	/* Disable Audio ADC flash Audio ADC flash */
+	/*L19A-T code for HQ-279017 by zhoujinxiang about vow MTK patch at 2023.01.31 start*/
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON2,
-			   0x0039, 0x0000);
+			   0xC31F, 0x0000);
+	/*L19A-T code for HQ-279017 by zhoujinxiang about vow MTK patch at 2023.01.31 end*/
 	dev_info(priv->dev, "%s(), mt_vow_aud_lpw_disable 0x0\n",
 		 __func__);
 	/* L ADC input sel : off, disable L ADC */
@@ -3132,6 +3270,8 @@ static int mt_mic_bias_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = priv->mux_select[MUX_MIC_TYPE];
+	unsigned int mux_pga_l = priv->mux_select[MUX_PGA_L];
+	unsigned int mux_pga_r = priv->mux_select[MUX_PGA_R];
 
 	dev_dbg(priv->dev, "%s(), event 0x%x, mux %u, vow_enable: %d\n",
 		__func__, event, mux, priv->vow_enable);
@@ -3139,7 +3279,8 @@ static int mt_mic_bias_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		if (priv->vow_enable) {
-			if (mux == MIC_TYPE_MUX_DMIC) {
+			if ((mux == MIC_TYPE_MUX_DMIC) &&
+				!((mux_pga_l == PGA_MUX_AIN1 || mux_pga_r == PGA_MUX_AIN1))) {
 				mt6358_vow_dmic_enable(priv);
 				mt6358_vow_cfg_enable(priv);
 			} else {
@@ -3147,7 +3288,8 @@ static int mt_mic_bias_event(struct snd_soc_dapm_widget *w,
 				mt6358_vow_cfg_enable(priv);
 			}
 		} else {
-			if (mux == MIC_TYPE_MUX_DMIC)
+			if ((mux == MIC_TYPE_MUX_DMIC) &&
+				!((mux_pga_l == PGA_MUX_AIN1 || mux_pga_r == PGA_MUX_AIN1)))
 				mt6358_dmic_enable(priv);
 			else
 				mt6358_amic_enable(priv);
@@ -3155,7 +3297,8 @@ static int mt_mic_bias_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (priv->vow_enable) {
-			if (mux == MIC_TYPE_MUX_DMIC) {
+			if ((mux == MIC_TYPE_MUX_DMIC) &&
+				!((mux_pga_l == PGA_MUX_AIN1 || mux_pga_r == PGA_MUX_AIN1))) {
 				mt6358_vow_cfg_disable(priv);
 				mt6358_vow_dmic_disable(priv);
 			} else {
@@ -3163,7 +3306,8 @@ static int mt_mic_bias_event(struct snd_soc_dapm_widget *w,
 				mt6358_vow_amic_disable(priv);
 			}
 		} else {
-			if (mux == MIC_TYPE_MUX_DMIC)
+			if ((mux == MIC_TYPE_MUX_DMIC) &&
+				!((mux_pga_l == PGA_MUX_AIN1 || mux_pga_r == PGA_MUX_AIN1)))
 				mt6358_dmic_disable(priv);
 			else
 				mt6358_amic_disable(priv);
@@ -3261,12 +3405,25 @@ static int mt_pga_left_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 start*/
+#ifdef PROJECT_ROCK
+	dev_info(priv->dev, "%s(), event = 0x%x, mux %u\n",
+		__func__, event, mux);
 
+	priv->mux_select[MUX_PGA_L] = mux;
+	if(fac_mic != 9){
+	if(mux==1)
+		priv->mux_select[MUX_PGA_R] = 3;
+	if(mux==3)
+		priv->mux_select[MUX_PGA_R] = 1;
+	}
+#else
 	dev_dbg(priv->dev, "%s(), event = 0x%x, mux %u\n",
 		__func__, event, mux);
 
 	priv->mux_select[MUX_PGA_L] = mux;
-
+#endif
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 end*/
 	return 0;
 }
 
@@ -3277,12 +3434,25 @@ static int mt_pga_right_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 start*/
+#ifdef PROJECT_ROCK
+	dev_info(priv->dev, "%s(), event = 0x%x, mux %u\n",
+		__func__, event, mux);
 
+	priv->mux_select[MUX_PGA_R] = mux;
+	if(fac_mic != 9){
+	if(mux==1)
+	   priv->mux_select[MUX_PGA_L] = 3;
+	if(mux==3)
+	   priv->mux_select[MUX_PGA_L] = 1;
+	}
+#else
 	dev_dbg(priv->dev, "%s(), event = 0x%x, mux %u\n",
 		__func__, event, mux);
 
 	priv->mux_select[MUX_PGA_R] = mux;
-
+#endif
+/*L19A code for HQ-221064 by zhangbing at 2022/07/19 end*/
 	return 0;
 }
 
@@ -3664,7 +3834,7 @@ static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 
 	/* mic bias */
 	{"AIN0", NULL, "MIC_BIAS", mt_amic_connect},
-	{"AIN1", NULL, "MIC_BIAS", mt_amic_connect},
+	{"AIN1", NULL, "MIC_BIAS"},
 	{"AIN2", NULL, "MIC_BIAS", mt_amic_connect},
 	{"AIN0_DMIC", NULL, "MIC_BIAS", mt_dmic_connect},
 };
@@ -6529,7 +6699,16 @@ static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 				       mt6358_snd_vow_controls,
 				       ARRAY_SIZE(mt6358_snd_vow_controls));
 	mt6358_codec_init_reg(priv);
-
+/*L19 code for HQ-161023 by zhangbing at 2022/04/06 start*/
+	pr_err("%s: aw87xxx_add_codec_controls enter \n", __func__);
+	ret = aw87xxx_add_codec_controls(cmpnt);
+	if (ret < 0) {
+		pr_err("%s: aw87xxx_add_codec_controls failed, ret= %d\n", __func__, ret);
+	};
+/*L19 code for HQ-161023 by zhangbing at 2022/04/06 end*/
+#ifdef PROJECT_DIAMOND
+	fsm_add_codec_controls(cmpnt);
+#endif
 #if !defined(SKIP_SB) && !defined(CONFIG_FPGA_EARLY_PORTING)
 	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
 #else

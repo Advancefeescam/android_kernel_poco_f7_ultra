@@ -602,6 +602,10 @@ static void vow_service_Init(void)
 		spin_unlock(&vowdrv_lock);
 		vowserv.force_phase_stage = NO_FORCE;
 		vowserv.swip_log_enable = true;
+	/*L19A-T code for HQ-279013 by zhoujinxiang about vow MTK patch p27 at 2023.01.31 start*/
+		memset((void *)&vowserv.vow_eint_data_struct, 0,
+					sizeof(vowserv.vow_eint_data_struct));
+	/*L19A-T code for HQ-279013 by zhoujinxiang about vow MTK patch p27 at 2023.01.31 end*/
 		vowserv.voicedata_user_addr = 0;
 		vowserv.voicedata_user_size = 0;
 		vowserv.voicedata_user_return_size_addr = 0;
@@ -1586,7 +1590,7 @@ static void vow_service_GetVowDumpData(void)
 			}
 
 			if (((temp_dump_info.user_dump_idx + idx) > temp_dump_info.user_dump_size)
-				&& (temp_dump_info.user_dump_idx < temp_dump_info.user_dump_size)) {
+			   && (temp_dump_info.user_dump_idx <= temp_dump_info.user_dump_size)) {
 				size = temp_dump_info.user_dump_size -
 						 temp_dump_info.user_dump_idx;
 			} else {
@@ -2937,6 +2941,16 @@ static ssize_t VowDrv_read(struct file *fp,
 	bool dsp_inform_tx_flag = false;
 
 	VOWDRV_DEBUG("+%s()+\n", __func__);
+	/*L19A-T code for HQ-279013 by zhoujinxiang about vow MTK patch p27 at 2023.01.31 start*/
+	if (count != sizeof(struct vow_eint_data_struct_t)) {
+		VOWDRV_DEBUG(
+			"%s(), cpy incorrect size to user, size=%d, correct size=%d, exit\n",
+			__func__,
+			count,
+			sizeof(struct vow_eint_data_struct_t));
+		goto exit;
+	}
+	/*L19A-T code for HQ-279013 by zhoujinxiang about vow MTK patch p27 at 2023.01.31 end*/
 	VowDrv_SetVowEINTStatus(VOW_EINT_RETRY);
 
 	if (VowDrv_Wait_Queue_flag == 0)
@@ -2993,6 +3007,10 @@ static ssize_t VowDrv_read(struct file *fp,
 	} else {
 		vowserv.scp_command_id = vowserv.vow_speaker_model[slot].id;
 	}
+	/*L19A-T code for HQ-279013 by zhoujinxiang about vow MTK patch p27 at 2023.01.31 start*/
+	memset((void *)&vowserv.vow_eint_data_struct, 0,
+					sizeof(vowserv.vow_eint_data_struct));
+	/*L19A-T code for HQ-279013 by zhoujinxiang about vow MTK patch p27 at 2023.01.31 end*/
 	vowserv.vow_eint_data_struct.id = vowserv.scp_command_id;
 	vowserv.vow_eint_data_struct.eint_status = VowDrv_QueryVowEINTStatus();
 	vowserv.vow_eint_data_struct.data[0] = (char)vowserv.confidence_level;
@@ -3005,10 +3023,18 @@ static ssize_t VowDrv_read(struct file *fp,
 
 		dsp_inform_tx_flag = false;
 
-		if (vowserv.extradata_mem_ptr == NULL)
+	/*L19A-T code for HQ-279013 by zhoujinxiang about vow MTK patch p27 at 2023.01.31 start*/
+		mutex_lock(&vow_extradata_mutex);
+		if (vowserv.extradata_mem_ptr == NULL) {
+			mutex_unlock(&vow_extradata_mutex);
 			goto exit;
-		if (vowserv.extradata_ptr == NULL)
+		}
+		if (vowserv.extradata_ptr == NULL) {
+			mutex_unlock(&vow_extradata_mutex);
 			goto exit;
+		}
+		mutex_unlock(&vow_extradata_mutex);
+	/*L19A-T code for HQ-279013 by zhoujinxiang about vow MTK patch p27 at 2023.01.31 end*/
 		if (vowserv.vow_speaker_model[slot].rx_inform_size_addr == 0)
 			goto exit;
 		if (vowserv.vow_speaker_model[slot].rx_inform_addr == 0)

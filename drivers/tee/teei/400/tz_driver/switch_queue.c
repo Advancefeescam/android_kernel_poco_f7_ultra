@@ -96,7 +96,7 @@ static int teei_bind_current_cpu(void)
 
 	/* Get current CPU ID */
 	preempt_disable();
-	cpu_id = smp_processor_id();
+	cpu_id = raw_smp_processor_id();
 	preempt_enable();
 
 	cpumask_clear(&mask);

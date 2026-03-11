@@ -142,7 +142,14 @@ static int initAF(void)
 
 		s4AF_ReadReg(0x00, &Temp);  //ic info
 		LOG_INF("Check HW version: 0x00 is %x\n", Temp);
-		ret = s4AF_WriteReg(0, 0x02, 0x00); //CONTROL
+/* L19A code modify by liujingxiu at 2022.04.25 start */
+		ret = s4AF_WriteReg(0, 0x02, 0x02); //CONTROL
+                LOG_INF("GT9764 REG06 ret: %x\n", ret);
+                ret = s4AF_WriteReg(0, 0x00, 0x40);
+                LOG_INF("GT9764 REG07 ret: %x\n", ret);
+                ret = s4AF_WriteReg(0, 0x07, 0x6F);
+                LOG_INF("GT9764 REG08 ret: %x\n", ret);
+/* L19A code modify by liujingxiu at 2022.04.25 end */
 
 
 

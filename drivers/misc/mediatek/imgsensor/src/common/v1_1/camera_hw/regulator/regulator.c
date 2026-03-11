@@ -25,6 +25,17 @@ struct REGULATOR_CTRL regulator_control[REGULATOR_TYPE_MAX_NUM] = {
 	{"vcama1"},
 	{"vcamaf"},
 	{"vcamd"},
+#ifdef PROJECT_ROCK
+	/*L19A code for HQ-199297 by luling at 2022/5/9 start */
+	{"vcamd1"},
+	/*L19A code for HQ-199297 by luling at 2022/5/9 end */
+#endif
+
+#ifdef PROJECT_DIAMOND
+	/*m6 code  */
+	{"vcamd1"},
+	/*m6 code  */
+#endif
 	{"vcamio"},
 };
 

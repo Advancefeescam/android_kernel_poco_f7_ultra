@@ -21,6 +21,16 @@ char * const imgsensor_hw_pin_names[] = {
 	"vcama1",
 	"vcamaf",
 	"vcamd",
+#ifdef PROJECT_ROCK
+	/*L19A code for HQ-199297 by luling at 2022/5/9 start */
+	"vcamd1",
+	/*L19A code for HQ-199297 by luling at 2022/5/9 end */
+#endif
+#ifdef PROJECT_DIAMOND
+	/*M6 code start */
+	"vcamd1",
+	/*M6 code end */
+#endif
 	"vcamio",
 	"mipi_switch_en",
 	"mipi_switch_sel",
@@ -129,9 +139,21 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 					}
 				}
 			} else {
+				//PK_DBG("NOTICE: imgsensor_hw_cfg hw_pin:%s, id:%d\n",
+				//	str_prop_name, IMGSENSOR_HW_ID_NONE);
+			#ifdef PROJECT_ROCK
+				PK_DBG("NOTICE: imgsensor_hw_cfg hw_pin:%s, id:%d\n",
+					str_prop_name, ppwr_info->id);
+				//ppwr_info->id = IMGSENSOR_HW_ID_NONE;   //changed by chenxiaoyong
+			#elif defined PROJECT_DIAMOND
+				PK_DBG("NOTICE: imgsensor_hw_cfg hw_pin:%s, id:%d\n",
+					str_prop_name, ppwr_info->id);
+				//ppwr_info->id = IMGSENSOR_HW_ID_NONE;
+			#else
 				PK_DBG("NOTICE: imgsensor_hw_cfg hw_pin:%s, id:%d\n",
 					str_prop_name, IMGSENSOR_HW_ID_NONE);
 				ppwr_info->id = IMGSENSOR_HW_ID_NONE;
+			#endif
 			}
 			ppwr_info++;
 		}
@@ -350,14 +372,24 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 				pwr_status,
 				platform_power_sequence_for_mt6833,
 				str_index);
-	else
+	else {
+#ifdef PROJECT_DIAMOND
+		if (IS_MT6789(phw->g_platform_id))
+		imgsensor_hw_power_sequence(
+				phw,
+				sensor_idx,
+				pwr_status,
+				platform_power_sequence_for_mt6789,
+				str_index);
+#else
 		imgsensor_hw_power_sequence(
 				phw,
 				sensor_idx,
 				pwr_status,
 				platform_power_sequence,
 				str_index);
-
+#endif
+		}
 	imgsensor_hw_power_sequence(
 			phw,
 			sensor_idx,

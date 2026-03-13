@@ -278,7 +278,6 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 		*new_cpu = this_cpu;
 		goto out;
 	}
-
 	*new_cpu = cpu; /* previous CPU as back up */
 	rq = cpu_rq(cpu);
 
@@ -313,6 +312,7 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 				lowest_mask, walt_rt_task_fits_capacity);
 
 	packing_cpu = walt_find_and_choose_cluster_packing_cpu(0, task);
+
 	if (packing_cpu >= 0) {
 		while (packing_cpu < WALT_NR_CPUS) {
 			if (cpumask_test_cpu(packing_cpu, &wts->reduce_mask) &&
@@ -362,7 +362,6 @@ unlock:
 out:
 	trace_sched_select_task_rt(task, fastpath, *new_cpu, lowest_mask);
 }
-
 
 static void walt_rt_find_lowest_rq(void *unused, struct task_struct *task,
 				   struct cpumask *lowest_mask, int ret, int *best_cpu)

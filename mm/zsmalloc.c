@@ -1390,7 +1390,6 @@ unsigned long zs_malloc(struct zs_pool *pool, size_t size, gfp_t gfp)
 	}
 
 	spin_unlock(&pool->lock);
-
 	zspage = alloc_zspage(pool, class, gfp);
 	if (!zspage) {
 		cache_free_handle(pool, handle);
@@ -2323,7 +2322,7 @@ EXPORT_SYMBOL_GPL(zs_destroy_pool);
 static int __init zs_init(void)
 {
 	int ret;
-
+	pr_err("zhang entry zs_init");
 	ret = cpuhp_setup_state(CPUHP_MM_ZS_PREPARE, "mm/zsmalloc:prepare",
 				zs_cpu_prepare, zs_cpu_dead);
 	if (ret)

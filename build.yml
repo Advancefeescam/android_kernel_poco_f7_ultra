@@ -1,0 +1,51 @@
+name: Build Poco F6 OP Kernel (KVM + KSU Next)
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Build Environment
+        run: |
+          sudo apt update
+          sudo apt install -y bc bison build-essential flex git libssl-dev libelf-dev clang lld llvm-dev
+
+      - name: Clone Kernel Source
+        run: |
+          # Pake repo Poco F6 yang support GKI (Cari yang branch android14-6.1)
+          git clone --depth=1 https://github.com/xiaomi-kernel-dev/peridot-u-oss kernel-source
+
+      - name: Inject KernelSU Next
+        run: |
+          cd kernel-source
+          # Command sakti buat narik KernelSU Next langsung ke source
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s next
+          
+      - name: Unlock KVM & AVF
+        run: |
+          cd kernel-source
+          # Masuk ke folder config GKI
+          CONF="arch/arm64/configs/gki_defconfig"
+          echo "CONFIG_VIRTUALIZATION=y" >> $CONF
+          echo "CONFIG_KVM=y" >> $CONF
+          echo "CONFIG_KVM_ARM_HOST=y" >> $CONF
+          echo "CONFIG_VHOST_NET=y" >> $CONF
+          # Tambahan buat KSU Next agar lancar
+          echo "CONFIG_KSU=y" >> $CONF
+          echo "CONFIG_OVERLAY_FS=y" >> $CONF
+
+      - name: Build Kernel (GKI Mode)
+        run: |
+          cd kernel-source
+          make O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=1 gki_defconfig
+          make O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=1 -j$(nproc --all)
+
+      - name: Upload Image
+        uses: actions/upload-artifact@v4
+        with:
+          name: Image-KSU-Next-KVM-PocoF6
+          path: kernel-source/out/arch/arm64/boot/Image

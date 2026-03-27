@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: GPL-2.0
+obj-$(CONFIG_MCA_EXTERNAL_WIRELESS_SC96231_TX)	+= sc96231_comp.o
+sc96231_comp-objs := sc96231_tx.o sc96231_mtp_program.o

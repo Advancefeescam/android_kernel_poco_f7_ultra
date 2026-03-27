@@ -1,0 +1,13 @@
+#
+# NT touchscreen driver configuration
+#
+config TOUCHSCREEN_XIAOMI_TOUCHFEATURE_O81A
+	tristate "Xiaomi Touch Feature"
+	depends on INPUT_TOUCHSCREEN
+	help
+	  Say Y here if you enable xiaomi touch feature.
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here:
+
+config TOUCHSCREEN_NT36XXX_TCH
+	tristate "nt 36532 touchscreen"

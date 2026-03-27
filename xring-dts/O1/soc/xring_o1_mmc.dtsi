@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+* Copyright 2024 XiaoMi
+*
+*/
+
+#include "xring_o1.dtsi"
+#include "xring_o1_clock.dtsi"
+
+&soc_bus{
+    dw_mmc: dwcmshc_sdhci@CF800000 {
+		compatible = "xring,dwcmshc-sdhci";
+		reg = <0x00 0xCF800000 0x00 0x4000>;
+		interrupts = <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "core", "bus";
+		hss2_crg_base = <0xCF401000>;
+		hss2_crg_size = <0x1000>;
+		bus-width = <0x08>;
+		status = "disabled";
+    };
+};

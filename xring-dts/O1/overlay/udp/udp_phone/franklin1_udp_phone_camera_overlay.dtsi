@@ -1,0 +1,384 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * vpu subsystem overlay dts for X-Ring Franklin
+ *
+ * (C) Copyright 2023 - 2023, X-Ring, Inc.
+ */
+
+#include <dt-bindings/xring/xr-o1-clock.h>
+#include <dt-bindings/gpio/gpio.h>
+
+&media2_smmu {
+	status = "okay";
+};
+
+&xrisp_clk {
+	status = "okay";
+};
+
+&dw_i2c5 {
+	status = "okay";
+};
+
+&xrisp_flash_sgm37864 {
+	status = "okay";
+	pinctrl-names = "init", "default", "sleep";
+	pinctrl-0 = <&gpio_139_init>;
+	pinctrl-1 = <&gpio_139_default>;
+	pinctrl-2 = <&gpio_139_sleep>;
+	flash-table = <1 1>;
+};
+
+&dw_i2c13 {
+	status = "okay";
+};
+
+&xrisp_wl28681c1 {
+	status = "okay";
+	pinctrl-names ="gpio_default","gpio_sleep";
+	pinctrl-0 = <&gpio_216_default &gpio_217_default>;
+	pinctrl-1 = <&gpio_216_sleep &gpio_217_sleep>;
+};
+
+&xrisp_wl28681c2 {
+	status = "okay";
+	pinctrl-names ="gpio_default","gpio_sleep";
+	pinctrl-0 = <&gpio_159_default &gpio_160_default>;
+	pinctrl-1 = <&gpio_159_sleep &gpio_160_sleep>;
+};
+
+&xrisp_csiphy {
+	status = "okay";
+	csiphy_vdd = "ulldo5";
+	volt-names = "csiphy_vdd";
+	rgltr-min-voltage = <750000>;
+	rgltr-max-voltage = <750000>;
+	rgltr-load-current = <195000>;
+	rgltr-cntrl-support;
+};
+
+&xrcam_sensor0 {
+	status = "okay";
+	cam_vana  = "WL1_LDO5";
+	cam_vdig  = "WL1_LDO1";
+	cam_vio   = "mldo6";
+	cam_bob1  = "hldo3";
+	cam_vois  = "WL1_LDO3";
+	cam_vaf   = "WL1_LDO4";
+	cam_bob2  = "lldo4";
+	cam_vclk  = "WL1_LDO6";
+	volt-names = "cam_vana", "cam_vdig", "cam_vio", "cam_bob1",
+		"cam_vois", "cam_vaf", "cam_bob2", "cam_vclk";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <2800000 1150000 1800000 3100000 3300000 3300000 1200000 1800000>;
+	rgltr-max-voltage = <2800000 1150000 1800000 3100000 3300000 3300000 1200000 1800000>;
+	rgltr-load-current = <195000 990000 10000 600000 300000 3000000 10000 30000>;
+	pinctrl-names = "cam_active", "cam_sleep", "cci_active", "cci_sleep";
+	pinctrl-0 =
+		<&gpio_151_default
+		 &gpio_218_default>;
+	pinctrl-1 =
+		<&gpio_151_sleep
+		 &gpio_218_sleep>;
+	pinctrl-2 =
+		<&i3c7_scl_default
+		 &i3c7_sda_default>;
+	pinctrl-3 =
+		<&i3c7_scl_sleep
+		 &i3c7_sda_sleep>;
+	gpios =
+		<&dw_gpio5 6  0>,   // wide sensor gpio151, oscillator
+		<&dw_gpio7 3  0>,   // wide sensor gpio218
+		<&dw_gpio3 14 0>;   // ldo en_gpio95
+	gpio-mclk  = <0>;
+	gpio-rst   = <1>;
+	gpio-apert = <2>;
+	gpio-req-tab-idx = <0 1 2>;
+	gpio-req-tab-flags = <0 0 0>;
+	gpio-req-tab-label = "gpio_mclk", "gpio_rst", "gpio_apert";
+	sensor-pu = <&xrcam0_sensor_pu>;
+	sensor-pd = <&xrcam0_sensor_pd>;
+};
+
+&xrcam_sensor1 {
+	status = "okay";
+	cam_vana  = "WL0_LDO4";
+	cam_vdig  = "WL0_LDO2";
+	cam_vio   = "mldo6";
+	cam_vaf   = "hldo2";
+	cam_bob2  = "lldo4";
+	volt-names = "cam_vana", "cam_vdig", "cam_vio", "cam_vaf",
+		"cam_bob2";
+	rgltr-cntrl-support;
+	rgltr-min-voltage  = <2800000 1050000 1800000 2800000 1200000>;
+	rgltr-max-voltage  = <2800000 1050000 1800000 2800000 1200000>;
+	rgltr-load-current = <68000 261000 10000 300000 10000>;
+	pinctrl-names = "cam_active", "cam_sleep", "cci_active", "cci_sleep";
+	pinctrl-0 =
+		<&camf_clk_default
+		 &gpio_213_default>;
+	pinctrl-1 =
+		<&camf_clk_sleep
+		 &gpio_213_sleep>;
+	pinctrl-2 =
+		<&i2c22_scl_default
+		 &i2c22_sda_default>;
+	pinctrl-3 =
+		<&i2c22_scl_sleep
+		 &i2c22_sda_sleep>;
+	gpios =
+		<&dw_gpio7 11  0>,  // uwide sensor gpio226, mclk
+		<&dw_gpio6 30 0>;   // uwide sensor gpio213
+	gpio-rst   = <1>;
+	gpio-req-tab-idx = <1>;
+	gpio-req-tab-flags = <0>;
+	gpio-req-tab-label = "gpio_rst";
+	clocks = <&xr_clk XR_CLK_CAM0>;
+	clock-names = "cam_mclk";
+	clock-cntl-level = "normal";
+	clock-rates = <19200000>;
+	sensor-pu = <&xrcam1_sensor_pu>;
+	sensor-pd = <&xrcam1_sensor_pd>;
+};
+
+&xrcam_sensor2 {
+	status = "okay";
+	cam_vana = "WL0_LDO5";
+	cam_vio  = "mldo6";
+	cam_vaf  = "hldo3";
+	cam_bob2 = "lldo4";
+	volt-names = "cam_vana", "cam_vio", "cam_vaf", "cam_bob2";
+	rgltr-cntrl-support;
+	rgltr-min-voltage  = <2800000 1800000 3100000 1200000>;
+	rgltr-max-voltage  = <2800000 1800000 3100000 1200000>;
+	rgltr-load-current = <68000 10000 600000 10000>;
+	pinctrl-names = "cam_active", "cam_sleep", "cci_active", "cci_sleep";
+	pinctrl-0 =
+		<&camt_clk_default
+		 &gpio_192_default
+		 &gpio_096_default>;
+	pinctrl-1 =
+		<&camt_clk_sleep
+		 &gpio_192_sleep
+		 &gpio_096_sleep>;
+	pinctrl-2 =
+		<&i3c5_scl_default
+		 &i3c5_sda_default>;
+	pinctrl-3 =
+		<&i3c5_scl_sleep
+		 &i3c5_sda_sleep>;
+	gpios =
+		<&dw_gpio7 9 0>,    // tele sensor gpio224, mclk
+		<&dw_gpio6 9 0>,    // tele sensor gpio192
+		<&dw_gpio3 15 0>;   // tele dvdd_1p05 gpio096
+	gpio-rst   = <1>;
+	gpio-dvdd  = <2>;
+	gpio-req-tab-idx = <1 2>;
+	gpio-req-tab-flags = <0 0>;
+	gpio-req-tab-label = "gpio_rst", "gpio_dvdd";
+	clocks = <&xr_clk XR_CLK_CAM2>;
+	clock-names = "cam_mclk";
+	clock-cntl-level = "normal";
+	clock-rates = <19200000>;
+	sensor-pu = <&xrcam2_sensor_pu>;
+	sensor-pd = <&xrcam2_sensor_pd>;
+};
+
+&xrcam_sensor3 {
+	status = "okay";
+	cam_vana  = "WL1_LDO7";
+	cam_vdig  = "WL1_LDO2";
+	cam_vio   = "mldo6";
+	cam_bob2  = "lldo4";
+	cam_vclk  = "WL1_LDO6";
+	volt-names = "cam_vana","cam_vdig","cam_vio","cam_bob2", "cam_vclk";
+	rgltr-cntrl-support;
+	rgltr-min-voltage  = <2800000 1100000 1800000 1200000 1800000>;
+	rgltr-max-voltage  = <2800000 1100000 1800000 1200000 1800000>;
+	rgltr-load-current = <75000 425000 10000 10000 30000>;
+	pinctrl-names = "cam_active", "cam_sleep", "cci_active", "cci_sleep";
+	pinctrl-0 =
+		<&gpio_088_default
+		 &gpio_195_default>;
+	pinctrl-1 =
+		<&gpio_088_sleep
+		 &gpio_195_sleep>;
+	pinctrl-2 =
+		<&i3c4_scl_default
+		 &i3c4_sda_default>;
+	pinctrl-3 =
+		<&i3c4_scl_sleep
+		 &i3c4_sda_sleep>;
+	gpios =
+		<&dw_gpio3 7 0>,  // front sensor gpio88, oscillator
+		<&dw_gpio6 12 0>; // front sensor gpio195
+	gpio-mclk  = <0>;
+	gpio-rst   = <1>;
+	gpio-req-tab-idx = <0 1>;
+	gpio-req-tab-flags = <0 0>;
+	gpio-req-tab-label = "gpio_mclk", "gpio_rst";
+	interrupt-parent = <&gic>;
+	interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+	sensor-pu = <&xrcam3_sensor_pu>;
+	sensor-pd = <&xrcam3_sensor_pd>;
+};
+
+&xrcam_sensor4 {
+	status = "okay";
+	cam_vana = "WL0_LDO6";
+	cam_bob1 = "WL0_LDO7";
+	cam_vdig  = "WL0_LDO1";
+	cam_vio   = "mldo6";
+	cam_vaf   = "hldo5";
+	cam_bob2  = "lldo4";
+	cam_vclk  = "WL1_LDO6";
+	volt-names = "cam_vana", "cam_bob1", "cam_vdig","cam_vio",
+		"cam_vaf", "cam_bob2", "cam_vclk";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <2900000 1800000 1150000 1800000 3100000 1200000 1800000>;
+	rgltr-max-voltage = <2900000 1800000 1150000 1800000 3100000 1200000 1800000>;
+	rgltr-load-current = <220000 150000 975000 10000 300000 10000 30000>;
+
+	pinctrl-names = "cam_active", "cam_sleep", "cci_active", "cci_sleep";
+	pinctrl-0 =
+		<&gpio_087_default
+		 &gpio_207_default
+		 &gpio_132_default>;
+	pinctrl-1 =
+		<&gpio_087_sleep
+		 &gpio_207_sleep
+		 &gpio_132_sleep>;
+	pinctrl-2 =
+		<&i3c6_scl_default
+		 &i3c6_sda_default>;
+	pinctrl-3 =
+		<&i3c6_scl_sleep
+		 &i3c6_sda_sleep>;
+	gpios =
+		<&dw_gpio3 6 0>,   // wide sensor gpio087, oscillator
+		<&dw_gpio6 24 0>,  // wide sensor gpio207
+		<&dw_gpio4 19 0>;  // wide sensor ois_vdd gpio132
+	gpio-mclk  = <0>;
+	gpio-rst   = <1>;
+	gpio-vois  = <2>;
+	gpio-req-tab-idx = <0 1 2>;
+	gpio-req-tab-flags = <0 0 0>;
+	gpio-req-tab-label = "gpio_mclk", "gpio_rst", "gpio_vois";
+	sensor-pu = <&xrcam4_sensor_pu>;
+	sensor-pd = <&xrcam4_sensor_pd>;
+};
+
+&soc_bus {
+	xrcam0_sensor_pu: xrcam0_sensor_pu_setting {
+		seq-names = "sensor_bob2", "sensor_camio", "sensor_avdd",
+			"sensor_dvdd", "sensor_bob1", "sensor_af",
+			"sensor_ois", "sensor_mclk", "sensor_reset";
+		seq-table = <6 5 1 0 2 3 4 9 8>;
+		seq-delay = <1 16 1 1 1 0 1 2 8>;
+		seq-val   = <0 0 0 0 0 0 0 0 0>;
+	};
+
+	xrcam0_sensor_pd: xrcam0_sensor_pd_setting {
+		seq-names = "sensor_mclk", "sensor_reset", "sensor_dvdd",
+			"sensor_avdd", "sensor_bob2", "sensor_camio",
+			"sensor_ois", "sensor_af", "sensor_bob1";
+		seq-table = <9 8 0 1 6 5 4 3 2>;
+		seq-delay = <1 1 0 0 0 0 0 0 0>;
+		seq-val   = <0 0 0 0 0 0 0 0 0>;
+	};
+
+	xrcam1_sensor_pu: xrcam1_sensor_pu_setting {
+		seq-names = "sensor_bob2", "sensor_camio", "sensor_dvdd",
+			"sensor_avdd", "sensor_af", "sensor_reset", "sensor_mclk";
+		seq-table = <6 5 0 1 3 8 9>;
+		seq-delay = <1 1 1 1 1 9 6>;
+		seq-val   = <0 0 0 0 0 0 0>;
+	};
+
+	xrcam1_sensor_pd: xrcam1_sensor_pd_setting {
+		seq-names = "sensor_mclk", "sensor_reset", "sensor_avdd",
+			"sensor_dvdd", "sensor_bob2", "sensor_camio", "sensor_af";
+		seq-table = <9 8 1 0 6 5 3>;
+		seq-delay = <0 1 3 1 0 1 0>;
+		seq-val   = <0 0 0 0 0 0 0>;
+	};
+
+	xrcam2_sensor_pu: xrcam2_sensor_pu_setting {
+		seq-names = "sensor_bob2", "sensor_camio", "sensor_dvdd",
+			"sensor_avdd", "sensor_af", "sensor_reset", "sensor_mclk";
+		seq-table = <6 5 0 1 3 8 9>;
+		seq-delay = <1 12 1 1 1 9 6>;
+		seq-val   = <0 0 0 0 0 0 0>;
+	};
+
+	xrcam2_sensor_pd: xrcam2_sensor_pd_setting {
+		seq-names = "sensor_mclk", "sensor_reset", "sensor_avdd",
+			"sensor_dvdd", "sensor_bob2", "sensor_camio", "sensor_af";
+		seq-table = <9 8 1 0 6 5 3>;
+		seq-delay = <0 1 3 1 0 1 0>;
+		seq-val   = <0 0 0 0 0 0 0>;
+	};
+
+	xrcam3_sensor_pu: xrcam3_sensor_pu_setting {
+		seq-names = "sensor_bob2", "sensor_camio", "sensor_avdd",
+			"sensor_dvdd", "sensor_mclk", "sensor_reset";
+		seq-table = <6 5 1 0 9 8>;
+		seq-delay = <1 24 0 0 1 6>;
+		seq-val   = <0 0 0 0 0 0>;
+	};
+
+	xrcam3_sensor_pd: xrcam3_sensor_pd_setting {
+		seq-names = "sensor_reset", "sensor_mclk", "sensor_dvdd",
+			"sensor_avdd", "sensor_bob2", "sensor_camio";
+		seq-table = <8 9 0 1 6 5>;
+		seq-delay = <0 1 0 0 0 1>;
+		seq-val   = <0 0 0 0 0 0>;
+	};
+
+	xrcam4_sensor_pu: xrcam4_sensor_pu_setting {
+		seq-names = "sensor_bob2", "sensor_camio", "sensor_avdd",
+			"sensor_bob1", "sensor_dvdd", "sensor_af",
+			"sensor_ois", "sensor_mclk", "sensor_reset";
+		seq-table = <6 5 1 2 0 3 4 9 8>;
+		seq-delay = <1 10 1 1 1 1 1 2 13>;
+		seq-val   = <0 0 0 0 0 0 0 0 0>;
+	};
+
+	xrcam4_sensor_pd: xrcam4_sensor_pd_setting {
+		seq-names = "sensor_reset", "sensor_dvdd", "sensor_camio",
+			"sensor_avdd", "sensor_bob1", "sensor_bob2",
+			"sensor_ois", "sensor_af", "sensor_mclk";
+		seq-table = <8 0 5 1 2 6 4 3 9>;
+		seq-delay = <1 1 0 0 0 0 0 0 0>;
+		seq-val   = <0 0 0 0 0 0 0 0 0>;
+	};
+};
+
+&xrisp_vi530x {
+	status = "okay";
+	pinctrl-names ="interrupt_default";
+	pinctrl-0 = <&gpio_201_default>;
+};
+
+&dw_spi4 {
+	status = "disable";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "init", "default", "sleep";
+	pinctrl-0 = <&spi4_clk_init>, <&spi4_mosi_init>,
+				<&spi4_miso_init>, <&spi4_cs_init>;
+	pinctrl-1 = <&spi4_clk_default>, <&spi4_mosi_default>,
+				<&spi4_miso_default>,  <&spi4_cs_default>;
+	pinctrl-2 = <&spi4_clk_sleep>, <&spi4_mosi_sleep>,
+				<&spi4_miso_sleep>, <&spi4_cs_sleep>;
+	cs-gpios = <&dw_gpio3 29 GPIO_ACTIVE_LOW>;
+	xrisp_stmvl53l8: xrisp_stmvl53l8@0 {
+		status = "disable";
+		compatible = "xring,stmvl53l8";
+		spi-max-frequency = <20000000>;
+		xring,firmware_name = "com.xring.cam_tof.stmvl53l8.bin";
+		reg = <0>;
+		spi-cpol;
+		spi-cpha;
+	};
+};

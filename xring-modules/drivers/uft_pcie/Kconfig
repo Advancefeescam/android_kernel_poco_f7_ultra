@@ -1,0 +1,4 @@
+config UFT_PCIE_BOOT
+	tristate "support uft pcie boot driver"
+	help
+	  Say yes here to support uft pcie boot

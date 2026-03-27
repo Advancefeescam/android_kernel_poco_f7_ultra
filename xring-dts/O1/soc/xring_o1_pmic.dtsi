@@ -1,0 +1,338 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 XiaoMi
+ *
+ */
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/xring/vote_mng_define.h>
+#include <dt-bindings/input/linux-event-codes.h>
+
+#define TOP_REG_BASE_ADDR 0
+
+&soc_bus {
+	xring_spmi: spmi@E0001000 {
+		compatible = "xring,spmi-controller";
+		reg = <0x0 0xE0001000 0x0 0x1000>;
+		interrupts = <GIC_SPI 516 IRQ_TYPE_LEVEL_HIGH>;
+		spmi-channel = <1>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		interrupt-parent = <&gic>;
+		interrupt-controller;
+		#interrupt-cells = <4>;
+		status = "okay";
+
+		pmic: pmic@f {
+			compatible = "xring,pmic-spmi";
+			reg = <0xf SPMI_USID>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mpmic_debug: mpmic_debug {
+				compatible = "xring,mpmic-debug";
+				dump_regs = <0x0800 0x0a00
+							0x1400 0x0200
+							0x2000 0x0200
+							0x2400 0x0a05>;
+				status = "okay";
+			};
+
+			mntn_mpmic_exception: mntn_mpmic_exception {
+				compatible = "xring,mntn_mpmic-exception";
+				interrupts-extended =
+					<&gic GIC_SPI 519 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x8 5 IRQ_TYPE_LEVEL_HIGH>,
+					/* ocp-xxx start */
+					<&xring_spmi 0xf 0x8 7 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x9 0 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x9 1 IRQ_TYPE_LEVEL_HIGH>,
+					/* ocp-ulldo5 */
+					<&xring_spmi 0xf 0x5 4 IRQ_TYPE_LEVEL_HIGH>,
+					/* ocp-lldo5 */
+					<&xring_spmi 0xf 0x6 2 IRQ_TYPE_LEVEL_HIGH>,
+					/* ocp-mldo4 start */
+					<&xring_spmi 0xf 0x6 6 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x6 7 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x7 0 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x7 1 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x7 2 IRQ_TYPE_LEVEL_HIGH>,
+					/* ocp-hldo5 start */
+					<&xring_spmi 0xf 0x7 7 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x8 0 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x8 1 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x8 2 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x8 3 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x8 4 IRQ_TYPE_LEVEL_HIGH>,
+					/* ocp-ulldo1 start */
+					<&xring_spmi 0xf 0x5 0 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x5 1 IRQ_TYPE_LEVEL_HIGH>,
+					/* ocp-lldo3 start */
+					<&xring_spmi 0xf 0x6 0 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x6 1 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x6 3 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x6 4 IRQ_TYPE_LEVEL_HIGH>,
+					/* ocp-hldo2 start */
+					<&xring_spmi 0xf 0x7 4 IRQ_TYPE_LEVEL_HIGH>,
+					<&xring_spmi 0xf 0x7 5 IRQ_TYPE_LEVEL_HIGH>;
+
+
+				interrupt-names =
+					"vbat_drop",
+					"over_temp",
+					"ocp-ldo_adc",
+					"ocp-ldo_coul",
+					"ocp-ldo_pmu",
+					"ocp-ulldo5",
+					"ocp-lldo5",
+					"ocp-mldo4",
+					"ocp-mldo5",
+					"ocp-mldo6",
+					"ocp-mldo7",
+					"ocp-mldo8",
+					"ocp-hldo5",
+					"ocp-hldo6",
+					"ocp-hldo7",
+					"ocp-hldo8",
+					"ocp-hldo9",
+					"ocp-hldo10",
+					"ocp-ulldo1",
+					"ocp-ulldo2",
+					"ocp-lldo3",
+					"ocp-lldo4",
+					"ocp-mldo1",
+					"ocp-mldo2",
+					"ocp-hldo2",
+					"ocp-hldo3";
+
+				vote-mng-names = "CPUL", "CPUM_LP", "CPUM", "CPUB", "NPU", "GPU", "L3";
+				vote-mngs =
+					<&m2_arbiter_xctrlcpu VOTE_MNG_M2_XCTRLCPU_CH0>,
+					<&m2_arbiter_xctrlcpu VOTE_MNG_M2_XCTRLCPU_CH1>,
+					<&m2_arbiter_xctrlcpu VOTE_MNG_M2_XCTRLCPU_CH2>,
+					<&m2_arbiter_xctrlcpu VOTE_MNG_M2_XCTRLCPU_CH3>,
+					<&m2_arbiter_xctrlcpu VOTE_MNG_M2_XCTRLCPU_CH5>,
+					<&m2_arbiter_xctrlcpu VOTE_MNG_M2_XCTRLCPU_CH6>,
+					<&m2_arbiter_xctrlcpu VOTE_MNG_M2_XCTRLCPU_CH4>;
+				vote-mng-ch = <1 1 1 1 1 1 1>;
+
+				vbat_mv_normal = <3400>;
+				vbat_detect_cnt_max = <3>;
+				vbd_ctrl_level1_temp = <0>;
+				vbd_ctrl_level1_cap = <5>;
+				vbd_ctrl_level2_temp = <(-100)>;
+				vbd_ctrl_level2_cap = <5>;
+				power_supply = "battery";
+				status = "okay";
+			};
+
+			pmic_pwrkey: pwrkey {
+				compatible = "xring,pmic-pwrkey";
+				interrupts =
+					<0xf 0x0 0 IRQ_TYPE_LEVEL_HIGH>,
+					<0xf 0x0 1 IRQ_TYPE_LEVEL_HIGH>,
+					<0xf 0x0 2 IRQ_TYPE_LEVEL_HIGH>,
+					<0xf 0x0 3 IRQ_TYPE_LEVEL_HIGH>;
+
+				interrupt-names =
+					"powerkey_release",
+					"powerkey_press",
+					"powerkey_press_hold_1s",
+					"powerkey_press_hold_6s";
+
+				linux,code = <KEY_POWER>;
+			};
+
+			pmic_volumeup_key: volumeup_key {
+				compatible = "xring,pmic-volumeup";
+				interrupts =
+					<0xf 0x1 0 IRQ_TYPE_LEVEL_HIGH>,
+					<0xf 0x1 1 IRQ_TYPE_LEVEL_HIGH>,
+					<0xf 0x1 2 IRQ_TYPE_LEVEL_HIGH>;
+
+				interrupt-names =
+					"volumeup_release",
+					"volumeup_press",
+					"volumeup_press_hold_1s";
+
+				linux,code = <KEY_VOLUMEUP>;
+			};
+
+			pmic_volumedown_key: volumedown_key {
+				compatible = "xring,pmic-volumedown";
+				interrupts =
+					<0xf 0x1 3 IRQ_TYPE_LEVEL_HIGH>,
+					<0xf 0x1 4 IRQ_TYPE_LEVEL_HIGH>,
+					<0xf 0x1 5 IRQ_TYPE_LEVEL_HIGH>;
+
+				interrupt-names =
+					"volumedown_release",
+					"volumedown_press",
+					"volumedown_press_hold_1s";
+
+				linux,code = <KEY_VOLUMEDOWN>;
+			};
+
+			pmic_rtc: rtc {
+				compatible = "xring,pmic-rtc";
+				base_addr = <TOP_REG_BASE_ADDR>;
+				interrupts = <0xf 0xd 3 IRQ_TYPE_LEVEL_HIGH>;
+				allow-set-time;
+				status = "okay";
+			};
+
+			pmic_led: leds {
+				compatible = "xring,pmic_led";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "okay";
+
+				pmic_led0: led0 {
+					base_addr = <TOP_REG_BASE_ADDR>;
+					id = <0>;
+					default-state = "off";
+				};
+				pmic_led1: led1 {
+					base_addr = <TOP_REG_BASE_ADDR>;
+					id = <1>;
+					default-state = "off";
+				};
+				pmic_led2: led2 {
+					base_addr = <TOP_REG_BASE_ADDR>;
+					id = <2>;
+					default-state = "off";
+				};
+			};
+
+			coul_xp2210: coul_xp2210 {
+				compatible = "xring,coul_xp2210";
+				interrupts =
+					<0xf 0xf 0 IRQ_TYPE_LEVEL_HIGH>,
+					<0xf 0xf 1 IRQ_TYPE_LEVEL_HIGH>,
+					<0xf 0xf 2 IRQ_TYPE_LEVEL_HIGH>,
+					<0xf 0xf 3 IRQ_TYPE_LEVEL_HIGH>,
+					<0xf 0xf 4 IRQ_TYPE_LEVEL_HIGH>,
+					<0xf 0xf 5 IRQ_TYPE_LEVEL_HIGH>,
+					<0xf 0xf 6 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names =
+					"coul-cali-done",
+					"coul-in-ocp",
+					"coul-out-ocp",
+					"coul-cc-in",
+					"coul-cc-out",
+					"coul-low-vol",
+					"coul-lp-out";
+
+				io-channels = <&pmic_adc 0xa>;
+				io-channel-names = "ntc-bat1";
+
+				status = "disabled";
+			};
+
+			coul_core: coul {
+				compatible = "xring,coul_core";
+				status = "disabled";
+				pcb_mohm = <10>;
+				coul_curr_mohm = <1>;
+				delta_soc = <10>;
+				shutdown_soc_en = <1>;
+				multi_ocv_open = <0>;
+				v_poweroff = <2900>; /* 2900 mv */
+				sleep_poweroff_vol_mv = <3100>; /* 3100 mv */
+				v_poweroff_low_temp = <3150>; /* 3150 mv */
+				low_vbatt_filter_cnt = <6>;
+				soc_at_term = <95>;
+				uuc_zero_vol = <3000>;
+				vth_soc_en = <1>;
+				vth_soc_para = <3 3247 5 3327 8 3428>;
+			};
+
+			batt_profile_6100mah_demo:batt-6100mah {
+				fcc_desgin = <6100>; /* maH */
+				rbatt_mohm = <8>;
+				auth_type = "sn_auth";
+				batt_sn = "YA";
+				vbat_max = <4530000>; /* uv */
+				vbat_min = <2450000>; /* uv */
+				low_temp_opt_flag = <1>;
+				vbat_low_temp_soc_three = <3250000>; /* uv */
+				fcc_temp = <5835 5915 6008 6131 6116 6089>; /* fcc - temp */
+				fcc_coef_x = <0x00 0x64 0xc8 0x12c 0x190 0x1f4 0x258 0x2bc 0x320 0x3e8 0x5dc>; /* cycles */
+				fcc_coef_y = <0x64 0x60 0x5e 0x5c 0x5a 0x58 0x57 0x54 0x51 0x4b 0x32>; /* pc */
+				fcc_coef_cols = <0x0b>; /* fcc_coef_x num */
+				pc_coef_rows = <0x01>;
+				pc_coef_cols = <0x01>;
+				pc_coef_row_entries = <0x00>; /* pc coef */
+				pc_coef_percent = <0x64>;
+				pc_coef_sf = <0x64>;
+				rbatt_coef_rows = <28>; /* num of rbatt_coef_percent */
+				rbatt_coef_cols = <6>; /* num of  batt_temp_level */
+				rbatt_coef_percent = <100 95 90 85 80 75 70 65 60 55 50 45 40 35 30 25 20 15 10 9 8 7 6 5 4 3 2 1>;
+				rbatt_coef_sf = <8058 5030 2799 882 641 562 8058 5030 2799 882 641 562 7726 4967 2771 857 641 576 7438 4823 2741 851 645 582 7204 4780 2711 856 654 589 7014 4734 2706 878 672 602 6864 4661 2696 936 708 625 6743 4531 2559 1051 805 697 6685 4429 2423 865 655 580 6708 4416 2377 800 632 581 6813 4458 2388 813 646 593 7000 4539 2428 851 685 628 7274 4639 2478 896 700 596 7639 4830 2497 834 662 618 8116 5066 2467 842 693 657 8827 5516 2528 822 666 626 10234 6450 3025 1018 890 850 13638 8042 4106 1253 994 923 33230 13783 5764 1489 1105 1009 39899 18979 7773 2709 2227 2130 49793 22249 8559 2989 2413 2281 72691 27246 9699 3192 2537 2373 108896 34606 11244 3393 2663 2475 179392 50980 13582 3615 2804 2574 380062 86819 17466 3853 2944 2627 451629 182400 24601 4094 3046 2591 185725 215363 45157 4353 3110 2556 173031 172400 124968 4700 3260 2708>;
+				pc_temp_ocv_rows = <29>; /* num of pc_temp_ocv_percent */
+				pc_temp_ocv_cols = <6>; /* num of  batt_temp_level */
+				pc_temp_ocv_percent = <100 95 90 85 80 75 70 65 60 55 50 45 40 35 30 25 20 15 10 9 8 7 6 5 4 3 2 1>;
+				pc_temp_ocv_ocv = <4514 4514 4512 4513 4501 4485 4384 4406 4417 4423 4419 4412 4304 4344 4366 4374 4370 4364 4233 4285 4312 4321 4316 4310 4168 4223 4254 4260 4257 4251 4105 4159 4193 4198 4195 4190 4044 4093 4130 4137 4135 4130 3987 4028 4058 4073 4072 4069 3936 3969 3992 3999 3998 3996 3892 3920 3940 3946 3948 3948 3855 3879 3898 3906 3908 3909 3825 3843 3862 3871 3872 3869 3800 3812 3828 3833 3830 3820 3775 3783 3791 3788 3784 3774 3749 3750 3745 3742 3740 3731 3721 3716 3706 3706 3704 3695 3684 3681 3670 3666 3664 3652 3602 3592 3587 3588 3586 3572 3473 3476 3474 3477 3475 3462 3444 3452 3447 3454 3452 3439 3416 3424 3419 3429 3427 3415 3388 3392 3388 3399 3399 3386 3354 3358 3354 3366 3365 3353 3321 3324 3316 3328 3328 3316 3288 3288 3274 3288 3289 3278 3255 3250 3230 3247 3248 3239 3221 3207 3179 3200 3200 3193 3175 3140 3106 3130 3130 3125 3000 3000 3000 3000 3000 3000>;
+			};
+
+			xring_battery: xring_battery {
+				compatible = "xring,battery";
+				status = "disabled";
+				batt_name = <&batt_profile_6100mah_demo>;
+			};
+
+			xring_coul_psy: coul_psy {
+				compatible = "xring,coul_psy";
+				status = "disabled";
+			};
+
+			pmic_adc: adc {
+				compatible = "xring,pmic-adc";
+				interrupts = <0xf 0x1 6 IRQ_TYPE_LEVEL_HIGH>,
+				<0xf 0x1 7 IRQ_TYPE_LEVEL_HIGH>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				#io-channel-cells = <1>;
+				base_addr = <TOP_REG_BASE_ADDR>;
+				mode = <1>;
+				status = "okay";
+
+				adc_ch0@0 {
+					chan = <0>;
+				};
+				adc_ch1@1 {
+					chan = <1>;
+				};
+				adc_ch2@2 {
+					chan = <2>;
+				};
+				adc_ch3@3 {
+					chan = <3>;
+				};
+				adc_ch4@4 {
+					chan = <4>;
+				};
+				adc_ch5@5 {
+					chan = <5>;
+				};
+				adc_ch6@6 {
+					chan = <6>;
+				};
+				adc_ch7@7 {
+					chan = <7>;
+				};
+				adc_ch8@8 {
+					chan = <8>;
+				};
+				adc_ch9@9 {
+					chan = <9>;
+				};
+				adc_cha@a {
+					chan = <0xa>;
+				};
+				adc_chb@b {
+					chan = <0xb>;
+				};
+			};
+		};
+	};
+};

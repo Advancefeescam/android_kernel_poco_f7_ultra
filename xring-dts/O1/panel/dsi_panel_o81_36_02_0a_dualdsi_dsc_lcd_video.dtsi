@@ -1,0 +1,183 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * DSI panel device tree for O81
+ *
+ * (C) Copyright 2023 - 2024, X-Ring, Inc.
+ */
+&{/} {
+	dsi_panel_o81_0a_dualdsi_dsc_lcd_video: dsi_panel_o81_0a_dualdsi_dsc_lcd_video {
+		status = "disabled";
+		dsi-panel-name = "xiaomi o81 36 02 0a dualdsi dsc lcd video panel";
+		dsi-panel-id = <0x4>;
+		dsi-panel-type = "dsi_video_mode";
+		dsi-burst-mode = "non_burst_sync_events";
+		dsi-panel-width = <1600>;
+		dsi-panel-height = <2136>;
+		dsi-panel-backlight-setting-type = "i2c";
+		dsi-panel-brightness-max-level = <2047>;
+		dsi-panel-brightness-min-level = <20>;
+		dsi-panel-brightness-init-level = <1023>;
+		dsi-panel-phy-type = "dphy";
+		dsi-panel-clk-type = "non_continuous";
+		dsi-panel-lane-number = <4>;
+		dsi-panel-lane-rate = <1170892800>;
+		dsi-panel-pixel-clock = <24393600>;
+		dsi-panel-bpp = <30>;
+		dsi-panel-virtual-channel = <0>;
+		// dsi-panel-bta-enable;
+		// dsi-panel-eotp-enable;
+		dsi-panel-hdr-enabled;
+		dsi-panel-peak-brightness = <4200000>;
+		dsi-panel-blackness-level = <3230>;
+		dsi-panel-physical-width-dimension = <2387>;
+		dsi-panel-physical-height-dimension = <1632>;
+		dsi-panel-physical-type = "lcd";
+		dsi-panel-port-mask = /bits/ 8 <0x3>; // 0011
+		dsi-panel-boot-up-profile = <1>; //profile_1
+		dsi-panel-lowpower-ctrl = <0x0>;
+		dsi-panel-frame-power-mask = <0x0>;
+		dsi-panel-frame-power-max-refresh-rate = <0>;
+		dsi-panel-idle-policy = <0x0>;
+		dsi-panel-dsc-compression-mode = "dsc";
+		dsi-panel-dsc-version = <0x11>;
+		dsi-panel-dsc-scr-version = <0x0>;
+		dsi-panel-dsc-pic-width = <1600>;
+		dsi-panel-dsc-pic-height = <2136>;
+		dsi-panel-dsc-slice-width = <800>;
+		dsi-panel-dsc-slice-height = <24>;
+		dsi-panel-dsc-bpc = /bits/ 8 <10>;
+		dsi-panel-dsc-bpp = /bits/ 8 <8>;
+		dsi-panel-dsc-pps-table = [
+			11 00 00 AB 30 80 08 58 0C 80 00 18 03 20 03
+			20 02 00 02 B2 00 20 02 9F 00 0B 00 0D 04 86
+			02 DC 18 00 10 F0 07 10 20 00 06 0F 0F 33 0E
+			1C 2A 38 46 54 62 69 70 77 79 7B 7D 7E 02 02
+			22 00 2A 40 2A BE 3A FC 3A FA 3A F8 3B 38 3B
+			78 3B B6 4B F6 4C 34 4C 74 5C 74 8C F4 00 00
+			00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+			00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+			00 00 00 00 00 00 00 00
+		];
+		dsi-panel-vrr-enable;
+		dsi-panel-reset-after-lp11;
+		// dsi-panel-esd-check-enable;
+		dsi-panel-esd-mode = "err_int";
+		dsi-display-timings {
+			default_index_00 {
+				dsi-panel-base-rate = <120>;
+				dsi-panel-frame-rate = <120>;
+				dsi-panel-h-pulse-width = <12>;
+				dsi-panel-h-back-porch = <4>;
+				dsi-panel-h-front-porch = <69>;
+				dsi-panel-h-sync-skew = <0>;
+				dsi-panel-v-pulse-width = <2>;
+				dsi-panel-v-back-porch = <146>;
+				dsi-panel-v-front-porch = <26>;
+				dsi-panel-vrr-type = <1>;
+
+				dsi-panel-timing-switch-command = [
+					39 00 00 40 00 00 02 FF 10
+					39 00 00 40 00 00 02 FB 01
+					39 00 00 40 00 00 02 B2 91
+					39 00 00 00 00 00 02 B3 40
+				];
+				dsi-panel-timing-switch-command-state = "dsi_hs_mode";
+
+				dsi-panel-on-command = [
+					#include "dsi_panel_o81_36_02_0a_on_common.dtsi"
+					39 00 00 40 00 00 02 B3 40
+					39 00 00 00 00 00 02 B2 91
+					39 00 00 00 78 00 01 11
+					39 00 00 00 00 00 01 29
+				];
+				dsi-panel-on-command-state = "dsi_lp_mode";
+
+				dsi-panel-off-command = [
+					05 00 00 00 14 00 01 28
+					05 00 00 00 64 00 01 10
+					05 00 00 00 00 00 01 4F
+				];
+				dsi-panel-off-command-state = "dsi_lp_mode";
+
+				dsi-panel-dispparam-pen-clear-command = [
+					39 00 00 40 00 00 02 FF 10
+					39 00 00 40 00 00 02 FB 01
+					39 00 00 00 00 00 02 B2 80
+				];
+				dsi-panel-dispparam-pen-clear-command-state = "dsi_lp_mode";
+			};
+			timing_144hz_index_01 {
+				dsi-panel-frame-rate = <144>;
+				dsi-panel-base-rate = <144>;
+				dsi-panel-h-pulse-width = <12>;
+				dsi-panel-h-back-porch = <4>;
+				dsi-panel-h-front-porch = <10>;
+				dsi-panel-h-sync-skew = <0>;
+				dsi-panel-v-pulse-width = <2>;
+				dsi-panel-v-back-porch = <146>;
+				dsi-panel-v-front-porch = <26>;
+				dsi-panel-vrr-type = <1>;
+
+				dsi-panel-timing-switch-command = [
+					39 00 00 40 00 00 02 FF 10
+					39 00 00 40 00 00 02 FB 01
+					39 00 00 40 00 00 02 B2 00
+					39 00 00 00 00 00 02 B3 00
+				];
+				dsi-panel-timing-switch-command-state = "dsi_hs_mode";
+
+				dsi-panel-on-command = [
+					#include "dsi_panel_o81_36_02_0a_on_common.dtsi"
+					39 00 00 40 00 00 02 B3 00
+					39 00 00 00 00 00 02 B2 00
+					39 00 00 00 78 00 01 11
+					39 00 00 00 00 00 01 29
+				];
+				dsi-panel-on-command-state = "dsi_lp_mode";
+
+				dsi-panel-off-command = [
+					05 00 00 00 14 00 01 28
+					05 00 00 00 64 00 01 10
+					05 00 00 00 00 00 01 4F
+				];
+				dsi-panel-off-command-state = "dsi_hs_mode";
+			};
+			timing_90hz_index_02 {
+				dsi-panel-frame-rate = <90>;
+				dsi-panel-base-rate = <90>;
+				dsi-panel-h-pulse-width = <12>;
+				dsi-panel-h-back-porch = <4>;
+				dsi-panel-h-front-porch = <186>;
+				dsi-panel-h-sync-skew = <0>;
+				dsi-panel-v-pulse-width = <2>;
+				dsi-panel-v-back-porch = <146>;
+				dsi-panel-v-front-porch = <26>;
+				dsi-panel-vrr-type = <1>;
+
+				dsi-panel-timing-switch-command = [
+					39 00 00 40 00 00 02 FF 10
+					39 00 00 40 00 00 02 FB 01
+					39 00 00 40 00 00 02 B2 00
+					39 00 00 00 00 00 02 B3 80
+				];
+				dsi-panel-timing-switch-command-state = "dsi_hs_mode";
+
+				dsi-panel-on-command = [
+					#include "dsi_panel_o81_36_02_0a_on_common.dtsi"
+					39 00 00 40 00 00 02 B3 80
+					39 00 00 00 00 00 02 B2 00
+					39 00 00 00 78 00 01 11
+					39 00 00 00 00 00 01 29
+				];
+				dsi-panel-on-command-state = "dsi_lp_mode";
+
+				dsi-panel-off-command = [
+					05 00 00 00 14 00 01 28
+					05 00 00 00 64 00 01 10
+					05 00 00 00 00 00 01 4F
+				];
+				dsi-panel-off-command-state = "dsi_lp_mode";
+			};
+		};
+	};
+};

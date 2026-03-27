@@ -1,0 +1,17 @@
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+filegroup(
+    name = "xiaomi_violin_configs",
+    srcs = glob(
+                ["**"],
+                exclude = [
+                    "BUILD.bazel",
+                    "**/*.bzl",
+                    ".git/**",
+                ],
+            ),
+    visibility = ["//visibility:public",],
+)

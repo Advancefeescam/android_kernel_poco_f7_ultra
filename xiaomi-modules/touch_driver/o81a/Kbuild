@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: GPL-2.0-only
+ifeq ($(CONFIG_FACTORY_BUILD), m)
+    CDEFINES += -DCONFIG_TOUCH_FACTORY_BUILD
+else ifeq ($(CONFIG_FACTORY_BUILD), y)
+    CDEFINES += -DCONFIG_TOUCH_FACTORY_BUILD
+endif
+
+LINUX_INC += -Iinclude/linux \
+			 -Iinclude/linux/drm
+
+CDEFINES += -Wall\
+	-Werror\
+	-D__linux__
+
+KBUILD_CPPFLAGS += $(CDEFINES)
+
+CDEFINES += \
+	-DTOUCH_PLATFORM_XRING \
+	-DTOUCH_THP_SUPPORT \
+	-DTOUCH_STYLUS_SUPPORT
+
+ccflags-y += $(LINUX_INC)
+ccflags-y += -I$(KERNEL_SRC)/../xring-modules/include/
+ccflags-y += -I$(KERNEL_SRC)/../xiaomi-modules/touch_driver/o81a/
+
+ifeq ($(call cc-option-yn, -Wmaybe-uninitialized),y)
+EXTRA_CFLAGS += -Wmaybe-uninitialized
+endif
+
+ifeq ($(call cc-option-yn, -Wheader-guard),y)
+EXTRA_CFLAGS += -Wheader-guard
+endif
+
+#LINUXINCLUDE += -I$(MMRM_ROOT)/driver/src
+
+# First build xiaomi_touch
+XIAOMI_TOUCH_DIR = ./xiaomi
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE_O81A) += xiaomi_touch_violin.o
+xiaomi_touch_violin-m := \
+			$(XIAOMI_TOUCH_DIR)/xiaomi_touch_knock_data.o \
+			$(XIAOMI_TOUCH_DIR)/xiaomi_touch_core.o \
+			$(XIAOMI_TOUCH_DIR)/xiaomi_touch_proc.o \
+			$(XIAOMI_TOUCH_DIR)/xiaomi_touch_operations.o \
+			$(XIAOMI_TOUCH_DIR)/xiaomi_touch_sys.o \
+			$(XIAOMI_TOUCH_DIR)/xiaomi_touch_mode.o \
+			$(XIAOMI_TOUCH_DIR)/xiaomi_touch_evdev.o \
+			$(XIAOMI_TOUCH_DIR)/xiaomi_touch_device.o
+
+# DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
+DIR := ../o81a/
+
+obj-$(CONFIG_TOUCHSCREEN_NT36XXX_TCH) += nt36532_tc_touch.o
+nt36532_tc_touch-y := nt36xxx.o \
+	nt36xxx_fw_update.o \
+	nt36xxx_ext_proc.o \
+	nt36xxx_mp_ctrlram.o \
+
+

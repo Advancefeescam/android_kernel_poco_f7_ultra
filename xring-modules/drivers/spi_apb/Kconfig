@@ -1,0 +1,4 @@
+config SPI_APB_DRV
+	tristate "support kernel spi apb driver"
+	help
+	  Say yes here to support kernel spi apb

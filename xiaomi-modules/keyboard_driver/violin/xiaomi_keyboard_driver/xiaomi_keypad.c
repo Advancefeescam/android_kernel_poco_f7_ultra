@@ -1,0 +1,43 @@
+#include "xiaomi_keyboard_macro.h"
+#include "xiaomi_keypad.h"
+#include "xiaomi_keypad_sysfs.h"
+
+
+int xiaomi_keypad_init(struct class *class, dev_t dev_num, struct xiaomi_keypad_pdata *pdata)
+{
+    int ret = 0;
+
+    pdata->class = class;
+    pdata->dev_num = dev_num;
+    pdata->dev = device_create(pdata->class, NULL, dev_num, pdata, "keypad");
+    if (IS_ERR_OR_NULL(pdata->dev))
+    {
+        ret = -ENODEV;
+        goto err_keypad_create;
+    }
+
+    ret = xiaomi_keypad_sysfs_init(pdata);
+    if (ret)
+    {
+        MI_KB_ERR("xiaomi_keypad_sysfs_init fail! ret = %d", ret);
+        goto err_xiaomi_keypad_sysfs_init;
+    }
+
+    MI_KB_LOG("xiaomi_keypad_init success!");
+
+    return 0;
+
+    xiaomi_keypad_sysfs_deinit(pdata);
+err_xiaomi_keypad_sysfs_init:
+    device_destroy(pdata->class, pdata->dev_num);
+err_keypad_create:
+    return ret;
+}
+
+void xiaomi_keypad_deinit(struct xiaomi_keypad_pdata *pdata)
+{
+    xiaomi_keypad_sysfs_deinit(pdata);
+    device_destroy(pdata->class, pdata->dev_num);
+    MI_KB_LOG("xiaomi_keypad_deinit success!");
+}
+

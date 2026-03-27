@@ -1,0 +1,391 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Display subsystem overlay dts for X-Ring Franklin
+ *
+ * (C) Copyright 2023 - 2023, X-Ring, Inc.
+ */
+#include "../../../panel/fake_dsi_panel.dtsi"
+#include "../../../panel/dsi_panel_m1_42_02_0a_dsc_cmd.dtsi"
+#include "../../../panel/dsi_panel_m1_42_02_0a_no_dsc_cmd.dtsi"
+#include "../../../panel/dsi_panel_n16_42_02_0b_dsc_vid.dtsi"
+#include <dt-bindings/xring/platform-specific/pmic/pmic_regulator_def.h>
+
+&dsi_panel_m1_dsc_cmd {
+	status = "okay";
+
+	pinctrl-names = "work", "sleep", "te_work", "te_gpio";
+	pinctrl-0 = <&gpio_011_default &gpio_086_work &gpio_180_work &ddic0_te_default>;
+	pinctrl-1 = <&gpio_011_sleep &gpio_086_sleep &gpio_180_sleep &ddic0_te_sleep>;
+	pinctrl-2 = <&ddic0_te_default>;
+	pinctrl-3 = <&ddic0_gpio_default>;
+
+	/* used in kernel
+	 * dsi-panel-power-seq: the sequence of the power on IO property name
+	 * dsi-panel-power-type: the power supply type
+	 * dsi-panel-power-on-state: the power on state sequeue pair <level delay>
+	 * level:   0-pull down  1-pull up
+	 * delay:   the delay(ms) after IO operation
+	 */
+	dsi-panel-vddio-supply = <&mldo7>;
+	dsi-panel-dvdd-en-gpio = <&dw_gpio3 5 0>; // 86
+	dsi-panel-vci-en-supply = <&hldo9>;
+	dsi-panel-power-seq = "dsi-panel-vddio",
+			"dsi-panel-dvdd-en-gpio",
+			"dsi-panel-vci-en";
+	dsi-panel-power-type = "LDO", "GPIO", "LDO";
+	dsi-panel-power-on-state = <1 1>, <1 1>, <1 10>;
+	dsi-panel-power-off-state = <0 1>, <0 1>, <0 1>;
+
+	dsi-panel-reset-gpio = <&dw_gpio5 29 0>;  // 180
+	dsi-panel-reset-state = <1 1>, <0 1>, <1 10>;
+	dsi-panel-esd-err-irq-gpio-0 = <&dw_gpio0 11 0x2008>; // 11
+	/* IRQF_ONESHOT | IRQF_TRIGGER_LOW */
+	dsi-panel-erd-err-irq-gpio-0-flag = <0x2008>;
+	dsi-panel-te-gpio = <&dw_gpio6 27 0>;  // 210
+
+	/* used in uefi
+	 * Sequence Pattern: io_type io_id seq_num level_0 delay_0 [level_1 delay_1 ...]
+	 * io_type: 0-INVALID 1-GPIO 2-LDO
+	 * seq_num: number of sequeue pair{level delay}
+	 * level:   0-pull down  1-pull up
+	 * delay:   the delay(ms) after IO operation
+	 */
+	dsi-panel-power-on-seq = <2 MPMIC_MLDO7 1 1 2>, /* vddio */
+			<1 86 1 1 2>, /* dvdd_en */
+			<2 MPMIC_HLDO9 1 1 10>; /* vci */
+
+	dsi-panel-reset-on-seq = <1 180 3 1 1 0 1 1 10>; /* reset */
+
+	dsi-panel-power-off-seq = <2 MPMIC_HLDO9 1 0 2>, /* vci */
+			<1 86 1 0 2>, /* dvdd_en */
+			<2 MPMIC_MLDO7 1 0 2>; /* vddio */
+
+	dsi-panel-reset-off-seq = <1 180 1 0 2>; /* reset */
+
+	dsi-panel-port-mask = /bits/ 8 <0x01>; // 0001
+	dsi-panel-idle-policy = <0x386>; /* P0/1/2 power down */
+	dsi-panel-aod-enable;
+	partial-update-enabled;
+	dsi-panel-te-gpio-num = <210>; // 210
+};
+
+&dsi_panel_m1_no_dsc_cmd {
+	status = "okay";
+
+	pinctrl-names = "work", "sleep";
+	pinctrl-0 = <&gpio_086_work &gpio_180_work &ddic0_te_default>;
+	pinctrl-1 = <&gpio_086_sleep &gpio_180_sleep &ddic0_te_sleep>;
+
+	/* used in kernel
+	 * dsi-panel-power-seq: the sequence of the power on IO property name
+	 * dsi-panel-power-type: the power supply type
+	 * dsi-panel-power-on-state: the power on state sequeue pair <level delay>
+	 * level:   0-pull down  1-pull up
+	 * delay:   the delay(ms) after IO operation
+	 */
+	dsi-panel-vddio-supply = <&mldo7>;
+	dsi-panel-dvdd-en-gpio = <&dw_gpio3 5 0>; // 86
+	dsi-panel-vci-en-supply = <&hldo9>;
+	dsi-panel-power-seq = "dsi-panel-vddio",
+			"dsi-panel-dvdd-en-gpio",
+			"dsi-panel-vci-en";
+	dsi-panel-power-type = "LDO", "GPIO", "LDO";
+	dsi-panel-power-on-state = <1 1>, <1 1>, <1 10>;
+	dsi-panel-power-off-state = <0 1>, <0 1>, <0 1>;
+
+	dsi-panel-reset-gpio = <&dw_gpio5 29 0>;  // 180
+	dsi-panel-reset-state = <1 1>, <0 1>, <1 10>;
+	// dsi-panel-err-int-gpio = <&dw_gpio0 11 0>; // 11
+
+	/* used in uefi
+	 * Sequence Pattern: io_type io_id seq_num level_0 delay_0 [level_1 delay_1 ...]
+	 * io_type: 0-INVALID 1-GPIO 2-LDO
+	 * seq_num: number of sequeue pair{level delay}
+	 * level:   0-pull down  1-pull up
+	 * delay:   the delay(ms) after IO operation
+	 */
+	dsi-panel-power-on-seq = <2 MPMIC_MLDO7 1 1 2>, /* vddio */
+			<1 86 1 1 2>, /* dvdd_en */
+			<2 MPMIC_HLDO9 1 1 10>; /* vci */
+
+	dsi-panel-reset-on-seq = <1 180 3 1 1 0 1 1 10>; /* reset */
+
+	dsi-panel-power-off-seq = <2 MPMIC_HLDO9 1 0 2>, /* vci */
+			<1 86 1 0 2>, /* dvdd_en */
+			<2 MPMIC_MLDO7 1 0 2>; /* vddio */
+
+	dsi-panel-reset-off-seq = <1 180 1 0 2>; /* reset */
+
+	dsi-panel-port-mask = /bits/ 8 <0x01>; // 0001
+	dsi-panel-idle-policy = <0x0>;
+	dsi-panel-te-gpio-num = <210>; // 210
+};
+
+&dsi_panel_n16_dsc_vid {
+	status = "okay";
+
+	pinctrl-names = "work", "sleep";
+	pinctrl-0 = <&gpio_118_work &gpio_136_work &gpio_137_work
+			&gpio_144_work &gpio_212_te_default>;
+	pinctrl-1 = <&gpio_118_sleep &gpio_136_sleep &gpio_137_sleep
+			&gpio_144_sleep &gpio_212_te_sleep>;
+
+	/* used in kernel
+	 * dsi-panel-power-seq: the sequence of the power on IO property name
+	 * dsi-panel-power-type: the power supply type
+	 * dsi-panel-power-on-state: the power on state sequeue pair <level delay>
+	 * level:   0-pull down  1-pull up
+	 * delay:   the delay(ms) after IO operation
+	 */
+	dsi-panel-vddio-gpio = <&dw_gpio4 24 0>; // 137
+	dsi-panel-dvdd-en-gpio = <&dw_gpio4 31 0>; // 144
+	dsi-panel-vci-gpio = <&dw_gpio4 23 0>; // 136
+	dsi-panel-power-seq = "dsi-panel-vddio-gpio",
+			"dsi-panel-dvdd-en-gpio",
+			"dsi-panel-vci-gpio";
+	dsi-panel-power-type = "GPIO", "GPIO", "GPIO";
+	dsi-panel-power-on-state = <1 1>, <1 1>, <1 10>;
+	dsi-panel-power-off-state = <0 1>, <0 1>, <0 1>;
+
+	dsi-panel-reset-gpio = <&dw_gpio4 5 0>;  // 118
+	dsi-panel-reset-state = <1 11>, <0 1>, <1 11>;
+	// dsi-panel-err-int-gpio = <&dw_gpio0 11 0>; // 11
+
+	/* used in uefi
+	 * Sequence Pattern: io_type io_id seq_num level_0 delay_0 [level_1 delay_1 ...]
+	 * io_type: 0-INVALID 1-GPIO 2-LDO
+	 * seq_num: number of sequeue pair{level delay}
+	 * level:   0-pull down  1-pull up
+	 * delay:   the delay(ms) after IO operation
+	 */
+	dsi-panel-power-on-seq = <1 137 1 1 1>, /* vddio */
+			<1 144 1 1 1>, /* dvdd_en */
+			<1 136 1 1 10>; /* vci */
+
+	dsi-panel-reset-on-seq = <1 118 3 1 11 0 1 1 11>; /* reset */
+
+	dsi-panel-power-off-seq = <2 136 1 0 2>, /* vci */
+			<1 144 1 0 2>, /* dvdd_en */
+			<2 137 1 0 2>; /* vddio */
+
+	dsi-panel-reset-off-seq = <1 118 1 0 2>; /* reset */
+
+	dsi-panel-port-mask = /bits/ 8 <0x02>; // DSI-1: 0010
+	dsi-panel-idle-policy = <0x0>;
+	dsi-panel-te-gpio-num = <212>;
+};
+
+&fake_dsi_panel {
+	status = "okay";
+	dsi-panel-port-mask = /bits/ 8 <0x01>; // 0001
+	dsi-panel-idle-policy = <0x0>;
+};
+
+&xring_veu {
+	status = "okay";
+};
+
+&pinctrl_configs {
+	/* Only for display */
+	gpio_086_work: gpio_086_work {
+		mux {
+			pins = "PAD_GPIO_086";
+			function = "GPIO";
+		};
+		pinconf {
+			pins = "PAD_GPIO_086";
+			bias-disable;
+			drive-strength= <1>;
+			slew-rate= <0>;
+			input-schmitt-disable;
+		};
+	};
+	gpio_180_work: gpio_180_work {
+		mux {
+			pins = "PAD_GPIO_180";
+			function = "GPIO";
+		};
+		pinconf {
+			pins = "PAD_GPIO_180";
+			bias-disable;
+			drive-strength= <1>;
+			slew-rate= <0>;
+			input-schmitt-disable;
+		};
+	};
+	gpio_118_work: gpio_118_work {
+		mux {
+			pins = "PAD_GPIO_118";
+			function = "GPIO";
+		};
+		pinconf {
+			pins = "PAD_GPIO_118";
+			bias-disable;
+			drive-strength= <1>;
+			slew-rate= <0>;
+			input-schmitt-disable;
+		};
+	};
+	gpio_118_sleep: gpio_118_sleep {
+		mux {
+			pins = "PAD_GPIO_118";
+			function = "GPIO";
+		};
+		pinconf {
+			pins = "PAD_GPIO_118";
+			bias-pull-down;
+			drive-strength= <1>;
+			slew-rate= <0>;
+			input-schmitt-disable;
+			input-enable;
+		};
+	};
+	gpio_136_work: gpio_136_work {
+		mux {
+			pins = "PAD_GPIO_136";
+			function = "GPIO";
+		};
+		pinconf {
+			pins = "PAD_GPIO_136";
+			bias-disable;
+			drive-strength= <1>;
+			slew-rate= <0>;
+			input-schmitt-disable;
+		};
+	};
+	gpio_136_sleep: gpio_136_sleep {
+		mux {
+			pins = "PAD_GPIO_136";
+			function = "GPIO";
+		};
+		pinconf {
+			pins = "PAD_GPIO_136";
+			bias-pull-down;
+			drive-strength= <1>;
+			slew-rate= <0>;
+			input-schmitt-disable;
+			input-enable;
+		};
+	};
+	gpio_137_work: gpio_137_work {
+		mux {
+			pins = "PAD_GPIO_137";
+			function = "GPIO";
+		};
+		pinconf {
+			pins = "PAD_GPIO_137";
+			bias-disable;
+			drive-strength= <1>;
+			slew-rate= <0>;
+			input-schmitt-disable;
+		};
+	};
+	gpio_137_sleep: gpio_137_sleep {
+		mux {
+			pins = "PAD_GPIO_137";
+			function = "GPIO";
+		};
+		pinconf {
+			pins = "PAD_GPIO_137";
+			bias-pull-down;
+			drive-strength= <1>;
+			slew-rate= <0>;
+			input-schmitt-disable;
+			input-enable;
+		};
+	};
+	gpio_144_work: gpio_144_work {
+		mux {
+			pins = "PAD_GPIO_144";
+			function = "GPIO";
+		};
+		pinconf {
+			pins = "PAD_GPIO_144";
+			bias-disable;
+			drive-strength= <1>;
+			slew-rate= <0>;
+			input-schmitt-disable;
+		};
+	};
+	gpio_144_sleep: gpio_144_sleep {
+		mux {
+			pins = "PAD_GPIO_144";
+			function = "GPIO";
+		};
+		pinconf {
+			pins = "PAD_GPIO_144";
+			bias-pull-down;
+			drive-strength= <1>;
+			slew-rate= <0>;
+			input-schmitt-disable;
+			input-enable;
+		};
+	};
+	ddic0_gpio_default: ddic0_gpio_default {
+		mux {
+			pins = "PAD_GPIO_210";
+			function = "GPIO";
+		};
+		pinconf {
+			pins = "PAD_GPIO_210";
+			bias-disable;
+			drive-strength= <1>;
+			slew-rate= <0>;
+			input-schmitt-disable;
+			input-enable;
+		};
+	};
+	gpio_212_te_default: gpio_212_te_default {
+		mux {
+			pins = "PAD_GPIO_212";
+			function = "DDIC1";
+		};
+		pinconf {
+			pins = "PAD_GPIO_212";
+			bias-disable;
+			drive-strength= <2>;
+			slew-rate= <0>;
+			input-schmitt-disable;
+			input-enable;
+		};
+	};
+	gpio_212_te_sleep: gpio_212_te_sleep {
+		mux {
+			pins = "PAD_GPIO_212";
+			function = "GPIO";
+		};
+		pinconf {
+			pins = "PAD_GPIO_212";
+			bias-pull-down;
+			drive-strength= <2>;
+			slew-rate= <0>;
+			input-schmitt-disable;
+			input-enable;
+		};
+	};
+};
+
+&xring_dsi_display {
+	/* select lcd_name according to hw id
+	 * hw_id: the array of product sub lot id
+	 * hw_id_name：the string array of panel dts node name
+	 */
+
+	/*
+	 * 0: detect by lcd_name
+	 * 1: detect by lcd_gpio_id
+	 */
+	lcd_detect_type = <1>;
+	/* the enabled panel node name */
+	lcd_name = "dsi_panel_m1_dsc_cmd";
+	lcd_vddio_id = <MPMIC_MLDO7>;
+	lcd_gpio_id = <142>;
+	lcd_id = <1>;
+
+	scene_id = <0>;
+
+	dsi-panel = <&dsi_panel_m1_dsc_cmd>,
+			<&dsi_panel_m1_no_dsc_cmd>,
+			<&dsi_panel_n16_dsc_vid>,
+			<&fake_dsi_panel>;
+};

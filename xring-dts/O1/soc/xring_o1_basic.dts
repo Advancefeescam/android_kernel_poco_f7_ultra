@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 XiaoMi
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/xring/xring_dt_debug.h>
+#include "xring_o1.dtsi"
+#include "xring_o1_pinctrl.dtsi"
+#include "xring_o1_peri_dvfs.dtsi"
+#include "xring_o1_media_dvfs.dtsi"
+#include "xring_o1_ddr_devfreq.dtsi"
+#include "xring_o1_ddr_vote_dev.dtsi"
+#include "xring_o1_ddr_info.dtsi"
+#include "xring_o1_ddr_flux.dtsi"
+#include "xring_o1_l3_devfreq.dtsi"
+#include "franklin1_display.dtsi"
+#include "O1_audio.dtsi"
+#include "O1_bt.dtsi"
+#include "xring_o1_wifi.dtsi"
+#include "O1_camera.dtsi"
+#include "franklin1_gpu.dtsi"
+#include "xring_o1_npu_freq.dtsi"
+#include "xring_o1_lpctrl.dtsi"
+#include "O1_hpc.dtsi"
+#include "xring_o1_sensorhub.dtsi"
+#include "xring_o1_vote_mng.dtsi"
+#include "xring_o1_gpufreq.dtsi"
+#include "xring_o1_vpu.dtsi"
+#include "xring_o1_mmc.dtsi"
+#include "xring_o1_smmu.dtsi"
+#include "xring_o1_timer.dtsi"
+#include "franklin1_noc.dtsi"
+#include "xring_o1_ipc.dtsi"
+#include "xring_o1_pcie.dtsi"
+#include "xring_o1_spi.dtsi"
+#include "xring_o1_i2c.dtsi"
+#include "xring_o1_uart.dtsi"
+#include "xring_o1_gic.dtsi"
+#include "xring_o1_dmac.dtsi"
+#include "O1_ocm.dtsi"
+#include "xring_o1_usb.dtsi"
+#include "xring_o1_reset.dtsi"
+#include "xring_o1_mpam.dtsi"
+#include "xring_o1_doze_vote.dtsi"
+#include "xring_o1_pmic.dtsi"
+#include "xring_o1_pm_comm.dtsi"
+#include "xring_o1_x_sys_pm.dtsi"
+#include "xring_o1_thermal.dtsi"
+#include "xring_o1_xrse.dtsi"
+#include "xring_o1_ufs.dtsi"
+#include "xring_o1_mitee.dtsi"
+#include "xring_o1_reserved_memory.dtsi"
+
+// For debug dts node
+#ifdef CONFIG_XRING_DEBUG
+#include "franklin1_debug.dtsi"
+#include "xring_o1_coresight.dtsi"
+#endif
+
+/ {
+    model = "XiaoMi Franklin1 Basic";
+    compatible = "XiaoMi,Franklin1-basic";
+    #size-cells = <2>;
+    #address-cells = <2>;
+
+    xring_memory: memory@0 {
+        device_type = "memory";
+        /*DDR_LOW:  start=0x0,size=0xC0000000
+          DDR_HIGH: start=0x100000000, size=0x740000000
+          On UDP Pad Used 8G DDR*/
+        reg = <0x00000000 0x00000000 0x00000000 0xC0000000
+        0x00000001 0x00000000 0x00000001 0x00000000
+        0x00000008 0x00000000 0x00000000 0x40000000>;
+    };
+
+    chosen: chosen {
+        bootargs = "kasan=off rdinit=/init printk.devkmsg=on rcupdate.rcu_expedited=1 rcu_nocbs=0-9";
+    };
+
+    aliases {
+        serial0 = &serial0;
+        serial1 = &serial1;
+    };
+};

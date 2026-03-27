@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 XiaoMi
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/xring/platform-specific/asic/memory_layout.h>
+
+&{/} {
+    model = "XiaoMi Franklin1 UDP PHONE";
+    compatible = "XiaoMi,Franklin1-udp-phone";
+    #size-cells = <2>;
+    #address-cells = <2>;
+};
+
+&usb {
+    // u2-eye-param-host = <0x01090386>;
+    // u2-eye-param-device = <0x01090386>;
+    u3-eye-param-host = <0x9600 0xC0007E00 0x80032608 0x7F>;
+    u3-eye-param-device = <0x9600 0xC0007E00 0x80032608 0x7F>;
+};
+
+&dwc3 {
+    snps,usb3_lpm_capable;
+    snps,dis_enblslpm_quirk;
+    snps,usb2-gadget-lpm-disable;
+    snps,dis-u1-entry-quirk;
+    snps,dis-u2-entry-quirk;
+    maximum-speed = "super-speed-plus";
+};
+
+&bt {
+    sleep-en = <1>;
+    hub-en = <0>;
+    baudrate = <12000000>;
+    flavor-bin = "x12_dx3";
+    bt-gpio = <&dw_gpio1 5 0>;	 /*gpio37  bt wake ap gpio*/
+    pinctrl-0 = <&uart3_4_txd_init>;
+    pinctrl-1 = <&uart3_4_rxd_init>;
+    pinctrl-2 = <&uart3_4_cts_init>;
+    pinctrl-3 = <&uart3_4_rts_init>;
+    pinctrl-4 = <&uart3_4_txd_default>;
+    pinctrl-5 = <&uart3_4_rxd_default>;
+    pinctrl-6 = <&uart3_4_cts_default>;
+    pinctrl-7 = <&uart3_4_rts_default>;
+    pinctrl-8 = <&gpio_114_default>; /*gpio114 bt rst en*/
+    pinctrl-9 = <&gpio_114_init>; /*gpio114 bt rst off*/
+};

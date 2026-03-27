@@ -1,0 +1,5 @@
+MODULE_NAME := spi-apb-drv
+obj-$(CONFIG_SPI_APB_DRV) += $(MODULE_NAME).o
+$(MODULE_NAME)-objs += spi_apb_drv.o
+$(MODULE_NAME)-objs += spi_apb_regops.o
+$(MODULE_NAME)-objs += spi_apb_regops_test.o

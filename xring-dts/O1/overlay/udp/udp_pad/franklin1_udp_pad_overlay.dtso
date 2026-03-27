@@ -1,0 +1,429 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 XiaoMi
+ */
+
+/dts-v1/;
+/plugin/;
+#include "franklin1_udp_pad.dtsi"
+#include "../franklin1_udp.dtsi"
+#include "franklin1_udp_pad_display_overlay.dtsi"
+#include "franklin1_udp_pad_camera_overlay.dtsi"
+#include "franklin1_udp_pad_audio_overlay.dtsi"
+#include "xring_o1_udp_pad_pinctrl.dtsi"
+#include "xring_o1_udp_pad_wifi_overlay.dtsi"
+#include "franklin1_udp_pad_memory.dtsi"
+#include "xring_o1_udp_pad_vpu_overlay.dtsi"
+#include "xring_o1_udp_pad_uefi_pinctrl.dtsi"
+#include "franklin1_udp_pad_thermal_overlay.dtsi"
+#include <dt-bindings/xring/xr-id.h>
+#include <dt-bindings/xring/xr-o1-clock.h>
+#include <dt-bindings/gpio/gpio.h>
+
+#define PRODUCT_ID          0x00        // product id, ADC6 coded value
+#define PRODUCT_LOT         0x00        // product lot id, ADC7 coded value
+#define PRODUCT_SUB_LOT     0x02        // product sub lot id, ADC8 coded value
+
+//Splice the BoardId
+#define BOARD_ID            ((F1_CS_CHIPID << 24) | (PRODUCT_ID << 16) | (PRODUCT_LOT << 8) | PRODUCT_SUB_LOT)
+
+/ {
+    board_id = <BOARD_ID>;
+    board_rev = <0x00000000>;
+};
+
+&chosen {
+    // Add vendor board bootargs at here!
+    bootargs_ext = " ";
+};
+
+&ufs {
+    status = "okay";
+};
+
+&dw_mmc {
+    status = "disabled";
+    clocks = <&xr_clk XR_CLK_EMMC_CCLK_BASE_INI>, <&xr_clk XR_HCLK_EMMC>;
+};
+
+&dw_i2c0 {
+    status = "okay";
+    clock-frequency = <1000000>;
+    pinctrl-names = "init", "default", "sleep";
+    pinctrl-0 = <&i2c0_scl_init>, <&i2c0_sda_init>;
+    pinctrl-1 = <&i2c0_scl_default>, <&i2c0_sda_default>;
+    pinctrl-2 = <&i2c0_scl_sleep>, <&i2c0_sda_sleep>;
+};
+
+&dw_i2c1 {
+    status = "okay";
+    clock-frequency = <1000000>;
+    pinctrl-names = "init", "default", "sleep";
+    pinctrl-0 = <&i2c1_scl_init>, <&i2c1_sda_init>;
+    pinctrl-1 = <&i2c1_scl_default>, <&i2c1_sda_default>;
+    pinctrl-2 = <&i2c1_scl_sleep>, <&i2c1_sda_sleep>;
+};
+
+&dw_i2c2 {
+    status = "okay";
+    clock-frequency = <400000>;
+    pinctrl-names = "init", "default", "sleep";
+    pinctrl-0 = <&i2c2_scl_init>, <&i2c2_sda_init>;
+    pinctrl-1 = <&i2c2_scl_default>, <&i2c2_sda_default>;
+    pinctrl-2 = <&i2c2_scl_sleep>, <&i2c2_sda_sleep>;
+};
+
+&dw_i2c3 {
+    status = "okay";
+    clock-frequency = <400000>;
+    pinctrl-names = "init", "default", "sleep";
+    pinctrl-0 = <&i2c3_scl_init>, <&i2c3_sda_init>;
+    pinctrl-1 = <&i2c3_scl_default>, <&i2c3_sda_default>;
+    pinctrl-2 = <&i2c3_scl_sleep>, <&i2c3_sda_sleep>;
+};
+
+&dw_i2c4 {
+    status = "okay";
+    clock-frequency = <400000>;
+    pinctrl-names = "init", "default", "sleep";
+    pinctrl-0 = <&i2c4_scl_init>, <&i2c4_sda_init>;
+    pinctrl-1 = <&i2c4_scl_default>, <&i2c4_sda_default>;
+    pinctrl-2 = <&i2c4_scl_sleep>, <&i2c4_sda_sleep>;
+};
+
+&dw_i2c5 {
+    status = "okay";
+    clock-frequency = <400000>;
+    #address-cells = <1>;
+    #size-cells = <0>;
+    pinctrl-names = "init", "default", "sleep";
+    pinctrl-0 = <&i2c5_scl_init>, <&i2c5_sda_init>;
+    pinctrl-1 = <&i2c5_scl_default>, <&i2c5_sda_default>;
+    pinctrl-2 = <&i2c5_scl_sleep>, <&i2c5_sda_sleep>;
+    hw-spinlock = <82>;
+    HL5281@42 {
+        compatible = "audio_switch_stub,HL5281";
+        reg = <0x42>;
+        status = "okay";
+    };
+};
+
+&dw_i2c6 {
+    status = "okay";
+    clock-frequency = <1000000>;
+    #address-cells = <1>;
+    #size-cells = <0>;
+    pinctrl-names = "init", "default", "sleep";
+    pinctrl-0 = <&i2c6_scl_init>, <&i2c6_sda_init>;
+    pinctrl-1 = <&i2c6_scl_default>, <&i2c6_sda_default>;
+    pinctrl-2 = <&i2c6_scl_sleep>, <&i2c6_sda_sleep>;
+    SC6601@61 {
+        compatible = "pd_stub,SC6601";
+        reg = <0x61>;
+        status = "okay";
+
+        connector {
+            compatible = "usb-c-connector";
+
+            power-role = "source";
+            data-role = "dual";
+            self-powered;
+        };
+    };
+};
+
+&dw_i2c9 {
+    status = "okay";
+    #address-cells = <1>;
+    #size-cells = <0>;
+    clock-frequency = <400000>;
+    pinctrl-names = "init", "default", "sleep";
+    pinctrl-0 = <&i2c9_scl_init>, <&i2c9_sda_init>;
+    pinctrl-1 = <&i2c9_scl_default>, <&i2c9_sda_default>;
+    pinctrl-2 = <&i2c9_scl_sleep>, <&i2c9_sda_sleep>;
+
+    ktz8866@11 {
+        compatible = "ktz,ktz8866";
+        reg = <0x11>;
+        status = "okay";
+    };
+};
+
+&dw_i2c11 {
+    status = "okay";
+    clock-frequency = <400000>;
+};
+
+&dw_i2c12 {
+    status = "okay";
+    clock-frequency = <400000>;
+    #address-cells = <1>;
+    #size-cells = <0>;
+    pinctrl-names = "init", "default", "sleep";
+    pinctrl-0 = <&i2c12_scl_init>, <&i2c12_sda_init>;
+    pinctrl-1 = <&i2c12_scl_default>, <&i2c12_sda_default>;
+    pinctrl-2 = <&i2c12_scl_sleep>, <&i2c12_sda_sleep>;
+    repeater_PTN3222: PTN3222@4f {
+        compatible = "usb-repeater,PTN3222";
+        reg = <0x4f>;
+        device-repeater =
+                <0x21 0x07
+                 0x64 0x08
+                 0x03 0x0A>;
+        host-repeater =
+                <0x21 0x07
+                 0x64 0x08
+                 0x03 0x0A>;
+
+        pinctrl-names = "init","release","reset";
+        pinctrl-0 = <&gpio_154_init>;
+        pinctrl-1 = <&gpio_154_default>;
+        pinctrl-2 = <&gpio_154_sleep>;
+        status = "okay";
+    };
+};
+
+&dw_i2c13 {
+    clock-frequency = <400000>;
+    pinctrl-names = "init", "default", "sleep";
+    pinctrl-0 = <&i2c13_scl_init>, <&i2c13_sda_init>;
+    pinctrl-1 = <&i2c13_scl_default>, <&i2c13_sda_default>;
+    pinctrl-2 = <&i2c13_scl_sleep>, <&i2c13_sda_sleep>;
+};
+
+&npu_smmu {
+	status = "okay";
+};
+
+&pcie1 {
+        status = "okay";
+        max-link-speed = <3>;
+        reset-assert-ms = <100>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&pcie1_clk_req_n_init>;
+        num-lanes = <1>;
+        bypass-smmu;
+        l2-diffbuf-shutdown;
+        fw-upd-workaround;
+        l12-doze-unmask;
+        ep-pmic-en-gpio = <&dw_gpio4 2 0>;
+        ep-device-type = "wifi";
+};
+
+&pcie0_pcie_test {
+        modem-pmic-en = <&dw_gpio7 6 0>;
+        modem-pmic-rst = <&dw_gpio6 28 0>;
+        wf-pmic-rst = <&dw_gpio4 0 0>;
+        wf-pmic-en = <&dw_gpio4 2 0>;
+        max-link-speed = <4>;
+};
+
+&pcie1_pcie_test {
+        modem-pmic-en = <&dw_gpio7 6 0>;
+        modem-pmic-rst = <&dw_gpio6 28 0>;
+        wf-pmic-rst = <&dw_gpio4 0 0>;
+        wf-pmic-en = <&dw_gpio4 2 0>;
+        max-link-speed = <4>;
+};
+
+&{/} {
+    xring_hw_test_led {
+        compatible = "xring,hw_test_led";
+        red-led-gpio = <&dw_gpio7 14 0>;
+        green-led-gpio = <&dw_gpio7 15 0>;
+        blue-led-gpio = <&dw_gpio7 16 0>;
+        status = "okay";
+    };
+};
+
+&usb_hsphy {
+    usb-repeater = <&repeater_PTN3222>;
+};
+
+&dw_spi4 {
+    #address-cells = <1>;
+    #size-cells = <0>;
+    pinctrl-0 = <&spi4_mosi_init>;
+    pinctrl-1 = <&spi4_mosi_default>;
+    pinctrl-2 = <&spi4_mosi_sleep>;
+    pinctrl-names = "init", "default", "sleep";
+    status = "okay";
+    spidev@0 {
+        compatible = "linux,spidev";
+        spi-max-frequency = <1000000>;
+        reg = <0>;
+    };
+};
+
+&dw_spi9 {
+    #address-cells = <1>;
+    #size-cells = <0>;
+    pinctrl-0 = <&spi9_clk_init>, <&spi9_mosi_init>,
+                <&spi9_miso_init>;
+    pinctrl-1 = <&spi9_clk_default>, <&spi9_mosi_default>,
+                <&spi9_miso_default>;
+    pinctrl-2 = <&spi9_clk_sleep>, <&spi9_mosi_sleep>,
+                <&spi9_miso_sleep>;
+    pinctrl-names = "init", "default", "sleep";
+    cs-gpios = <&dw_gpio2 16 GPIO_ACTIVE_LOW>;
+    status = "okay";
+    autosuspend-delay = <10>;
+    novatek@0 {
+        compatible = "novatek,NVT-ts-spi";
+        dsi-panel = <&dsi_panel_m81_dualdsi_dsc_lcd_video>;
+        reg = <0>;
+        status = "ok";
+        pinctrl-0 = <&gpio_076_init>, <&gpio_080_init>;
+        pinctrl-1 = <&gpio_076_default>, <&gpio_080_default>;
+        pinctrl-2 = <&gpio_076_sleep>, <&gpio_080_sleep>;
+        pinctrl-names = "init", "default", "sleep";
+        spi-max-frequency = <9600000>;	//4800000,9600000,15000000,19200000
+        novatek,irq-gpio = <&dw_gpio2 12 0>;
+        novatek,lcd_id-gpio = <&dw_gpio3 10 0>;
+
+        novatek,pen-support;
+        novatek,stylus-resol-double;
+
+        /* MP */
+        novatek,mp-support-dt;
+
+        /*new touch faeature default param*/
+        novatek,touch-game-param-config1 = <2 2 1 2 1>;
+        novatek,touch-game-param-config2 = <2 2 2 2 1>;
+        novatek,touch-game-param-config3 = <2 2 3 2 1>;
+    };
+};
+
+&pmic {
+	pmic-spmi-test {
+		compatible = "xr-pmic-spmi-test";
+		status = "okay";
+	};
+};
+
+&sensorhub {
+    conn {
+		sh_gnss {
+			status = "disabled";
+		};
+		sh_modem {
+			status = "disabled";
+		};
+    };
+    sensordriver {
+        status = "okay";
+        amg {
+            status = "okay";
+            amg1 {
+                compatible = "st,lsm6dsvq";
+                bus_type = <1>;
+                bus_num = <1>;
+                slave_address = <0>; // if i2c slave
+                bus_speed_khz = <0>;
+                i3c_device_id_flags = <0xF>;
+                i3c_device_id_dcr = <0x44>;
+                i3c_device_id_pid = /bits/ 64 <0x2080070120B>;
+                driver_id = "lsm6dsvq";
+                orientation = /bits/ 8 <1 4 6>;
+                irq_num = /bits/ 8 <13>;
+                chip_id_addr = <0xF>;
+                chip_id_value = <0x70>;
+                status = "okay";
+            };
+        };
+        ois {
+            status = "okay";
+            ois1 {
+                compatible = "st,ois";
+                bus_type = <2>;
+                bus_num = <11>;
+                slave_address = <0>; // if i2c slave
+                bus_speed_khz = <9800>;
+                driver_id = "ois";
+                orientation = /bits/ 8 <1 4 6>;
+                chip_id_addr = <0xF>;
+                chip_id_value = <0x73>;
+                bus_type_x = <0>;
+                bus_num_x = <16>;
+                slave_address_x = <0x0E>;
+                bus_speed_khz_x = <1000>;
+                bus_type_y = <0>;
+                bus_num_y = <16>;
+                slave_address_y = <0x4E>;
+                bus_speed_khz_y = <1000>;
+                status = "okay";
+            };
+        };
+        mag {
+            status = "okay";
+            mag1 {
+                compatible = "qmc,qmc6308";
+                bus_type = <0>;
+                bus_num = <18>;
+                slave_address = <0x2C>; // if i2c slave
+                bus_speed_khz = <400>;
+                driver_id = "qmc6308";
+                orientation = /bits/ 8 <2 4 5>;
+                chip_id_addr = <0x0>;
+                chip_id_value = <0x80>;
+                status = "okay";
+            };
+        };
+        als {
+            status = "okay";
+            als1 {
+                compatible = "ams,alsps";
+                bus_type = <0>;
+                bus_num = <19>;
+                slave_address = <0x39>; // if i2c slave
+                bus_speed_khz = <400>;
+                driver_id = "tcs3720";
+                chip_id_addr = <0x92>;
+                chip_id_value = <0x82>;
+                status = "okay";
+            };
+        };
+        flicker {
+            status = "okay";
+            flicker1 {
+                compatible = "sip,sip2326";
+                bus_type = <0>;
+                bus_num = <17>;
+                slave_address = <0x59>; // if i2c slave
+                bus_speed_khz = <400>;
+                driver_id = "sip2326";
+                chip_id_addr = <0x3>;
+                chip_id_value = <0x6>;
+                status = "okay";
+            };
+        };
+        bar {
+            status = "okay";
+            bar1 {
+                compatible = "spl,spl07";
+                bus_type = <0>;
+                bus_num = <19>;
+                slave_address = <0x76>; // if i2c slave
+                bus_speed_khz = <400>;
+                driver_id = "spl07";
+                chip_id_addr = <0x0D>;
+                chip_id_value = <0x11>;
+                status = "okay";
+            };
+        };
+        sar {
+            status = "okay";
+            sar1 {
+                compatible = "hx,hx9035";
+                bus_type = <0>;
+                bus_num = <17>;
+                slave_address = <0x1B>; // if i2c slave
+                bus_speed_khz = <400>;
+                driver_id = "hx9035";
+                chip_id_addr = <0x0001>;
+                chip_id_value = <0x2E>;
+                status = "okay";
+            };
+        };
+    };
+};

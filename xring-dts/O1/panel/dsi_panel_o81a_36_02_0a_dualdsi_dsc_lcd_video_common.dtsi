@@ -1,0 +1,41 @@
+mi,mdss-dsi-cabcuion-command = [
+    15 00 00 40 00 00 02 FF 10
+    15 00 00 40 00 00 02 FB 01
+    15 00 00 00 00 00 02 55 01
+];
+mi,mdss-dsi-cabcuion-command-state = "dsi_hs_mode";
+
+mi,mdss-dsi-cabcstillon-command = [
+    15 00 00 40 00 00 02 FF 10
+    15 00 00 40 00 00 02 FB 01
+    15 00 00 00 00 00 02 55 02
+];
+mi,mdss-dsi-cabcstillon-command-state = "dsi_hs_mode";
+
+mi,mdss-dsi-cabcmovieon-command = [
+    15 00 00 40 00 00 02 FF 10
+    15 00 00 40 00 00 02 FB 01
+    15 00 00 00 00 00 02 55 03
+];
+mi,mdss-dsi-cabcmovieon-command-state = "dsi_hs_mode";
+
+mi,mdss-dsi-cabcoff-command = [
+    15 00 00 40 00 00 02 FF 10
+    15 00 00 40 00 00 02 FB 01
+    15 00 00 00 00 00 02 55 00
+];
+mi,mdss-dsi-cabcoff-command-state = "dsi_hs_mode";
+
+mi,dsi-panel-dimmingon-command = [
+    /* ESD Detection Signal */
+    15 00 00 40 00 00 02 FF 27
+    39 00 00 40 00 00 03 D1 02 08
+    /* CABC DIMMING ON */
+    15 00 00 00 00 00 02 FF 10
+    15 00 00 00 00 00 02 53 2C
+];
+mi,dsi-panel-dimmingon-command-state = "dsi_hs_mode";
+mi,dsi-panel-dimmingoff-command = [
+
+];
+mi,dsi-panel-dimmingoff-command-state = "dsi_hs_mode";

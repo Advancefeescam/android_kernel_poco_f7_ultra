@@ -1,0 +1,11 @@
+menu "Xiaomi Modules"
+source "../xiaomi-modules/consumerir/Kconfig"
+source "../xiaomi-modules/touch_driver/o81a/Kconfig"
+source "../xiaomi-modules/mi_led/deco_led/Kconfig"
+source "../xiaomi-modules/fingerprint/mi_fp/Kconfig"
+source "../xiaomi-modules/vendor_stability/Kconfig"
+source "../xiaomi-modules/keyboard_driver/jinghu/Kconfig"
+source "../xiaomi-modules/keyboard_driver/violin/Kconfig"
+source "../xiaomi-modules/mi_net/Kconfig"
+source "../xiaomi-modules/mi_hall/Kconfig"
+endmenu

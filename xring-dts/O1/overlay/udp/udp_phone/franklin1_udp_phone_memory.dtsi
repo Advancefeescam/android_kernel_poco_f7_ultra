@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 XiaoMi
+ */
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/xring/platform-specific/asic/memory_layout.h>
+
+&{/} {
+    xring_smmu_dma_test: xring_smmu_dma_test {
+        compatible = "xring,smmu_dma_test";
+        status = "okay";
+        iommus = <&media1_smmu 0x23 0x23>;
+        iova-info {
+                iova-reserve= /bits/ 64 <0x0 0xff000000>;
+                limit-4g;
+        };
+    };
+};

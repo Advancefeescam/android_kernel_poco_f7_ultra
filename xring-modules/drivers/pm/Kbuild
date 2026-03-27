@@ -1,0 +1,8 @@
+ccflags-y += -I$(KERNEL_SRC)/include/dt-bindings/xring/common/pm/include
+ccflags-y += -I$(KERNEL_SRC)/include/dt-bindings/xring/platform-specific
+ccflags-y += -I$(KERNEL_SRC)/../xring-modules/include/soc
+
+# sys_pm plat driver
+obj-$(CONFIG_XRING_SYS_PM) := xring_sys_pm.o
+
+xring_sys_pm-y := x_sys_pm.o

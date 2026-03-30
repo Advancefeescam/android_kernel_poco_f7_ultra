@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: GPL-2.0
+# common utils
+source "drivers/power/supply/hq_chg/common/Kconfig"
+
+# charge_policy
+source "drivers/power/supply/hq_chg/charger_policy/Kconfig"
+
+# charger class
+source "drivers/power/supply/hq_chg/charger_class/Kconfig"
+
+# subpmic
+source "drivers/power/supply/hq_chg/subpmic/Kconfig"
+
+# chargepump
+source "drivers/power/supply/hq_chg/chargepump/Kconfig"
+
+# fuelgauge
+source "drivers/power/supply/hq_chg/fuelgauge/Kconfig"
+
+# battery secret
+source "drivers/power/supply/hq_chg/battery_secrete/Kconfig"
+
+config CHARGE_ARCH_SUBPMIC
+	tristate "charge hardware architecture with subpmic"
+	default n
+	help
+	  Say Y to support charge hardware architecture with subpmic.
+	  Say M here if you want to compile this driver as a module.
+
+config CHARGE_ARCH_CHARGEPUMP
+	tristate "charge hardware architecture with chargepump"
+	default n
+	help
+	  Say Y to support charge hardware architecture with chargepump.
+	  Say M here if you want to compile this driver as a module.
+
+config CHARGE_ARCH_DUAL_CHARGEPUMP
+	tristate "charge hardware architecture with dual chargepump"
+	default n
+	help
+	  Say Y to support charge hardware architecture with dual chargepump.
+	  Say M here if you want to compile this driver as a module.
+
+config CHARGE_ARCH_FUELGAUGE
+	tristate "charge hardware architecture with fuelgauge"
+	default n
+	help
+	  Say Y to support charge hardware architecture with fuelgauge.
+	  Say M here if you want to compile this driver as a module.
+
+config CHARGE_ARCH_BATT_AUTH
+	tristate "charge hardware architecture with battery authentication"
+	  default n
+	  help
+	    Say Y to support charge hardware architecture with battery authentication.
+	    Say M here if you want to compile this driver as a module.
+
+config PD_BATTERY_SECRET
+	tristate "pd battery secret"
+	default n
+	help
+	  Say Y here to support pd battery secret.
+
+config XM_CHG_ANIMATION
+	tristate "support xiaomi charge animation"
+	default n
+	help
+	  Say Y here to support xiaomi charge animation.
+
+config XM_FG_I2C_ERR
+	tristate "support xiaomi fg i2c error"
+	default n
+	help
+	  Say Y here to support xiaomi fg i2c error.
+
+config HUAQIN_ERP_SUPPORT
+	tristate "support erp law"
+	default n
+	help
+	  Say Y here to support erp law
+
+config HUAQIN_SOH2_SUPPORT
+	tristate "support soh2 algo"
+	default n
+	help
+	  Say Y here to support soh2 algo
+
+config RUST_DETECTION
+	bool "support rust detection"
+	default n
+	help
+	support rust detection
+
+config ISC_PROTECT
+	bool "support isc protect"
+	default n
+	help
+	support isc protect

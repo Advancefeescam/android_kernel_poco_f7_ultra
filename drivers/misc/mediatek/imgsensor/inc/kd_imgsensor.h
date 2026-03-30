@@ -160,6 +160,10 @@
 #define IMX582_SENSOR_ID                        0x0582
 #define IMX596_SENSOR_ID                        0x0596
 /*OV*/
+/*P6 code for HQFEAT-120415 by zhangxiaohu at 20250610 start*/
+#define OV32D40_SUNNY_FRONT_SENSOR_ID           0x3244
+#define OV32D40_AAC_FRONT_SENSOR_ID             (0x3244 + 1)
+/*P6 code for HQFEAT-120415 by zhangxiaohu at 20250610 end*/
 #define OV23850_SENSOR_ID                       0x023850
 #define OV16880_SENSOR_ID                       0x016880
 #define OV16825MIPI_SENSOR_ID                   0x016820
@@ -257,6 +261,16 @@
 #define S5K5E9_SENSOR_ID                        0x559b
 #define S5KHM2SP_SENSOR_ID                      0x1AD2
 #define S5K4H7ALPHA_SENSOR_ID                   0x487B
+/*P6 code for HQFEAT-117955 by geyanjie start*/
+#define S5KHP3_OFILM_MAIN_SENSOR_ID             0x1B73
+/*P6 code for HQFEAT-178146 by p-niekangyu at 2025-08-25 start*/
+#define S5KHP3_AACIII_MAIN_SENSOR_ID            0x1B76
+/*P6 code for HQFEAT-178146 by p-niekangyu at 2025-08-25 end*/
+/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 start*/
+#define S5KHP3_AACII_MAIN_SENSOR_ID             0x1B75
+/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 end*/
+#define S5KHP3_AAC_MAIN_SENSOR_ID               0x1B74
+/*P6 code for HQFEAT-117955 by geyanjie end*/
 /*HI*/
 #define HI841_SENSOR_ID                         0x0841
 #define HI707_SENSOR_ID                         0x00b8
@@ -316,6 +330,11 @@
 #define GC8034_SENSOR_ID                        0x8044
 #define GC8C34_SENSOR_ID                        0x80C4
 #define GC02M1_SENSOR_ID                        0x2E0
+/*P6 code for  HQFEAT-120414  by yangxiongwei at 20250603 start*/
+#define GC08A8_SUNNY_ULTRA_SENSOR_ID            0x08a8
+#define GC08A8_AAC_ULTRA_SENSOR_ID              0x08a9
+/*P6 code for  HQFEAT-120414  by yangxiongwei at 20250603 end*/
+
 /*SP*/
 #define SP0A19_YUV_SENSOR_ID                    0xA6
 #define SP2518_YUV_SENSOR_ID                    0x53
@@ -424,6 +443,10 @@
 #define SENSOR_DRVNAME_IMX582_MIPI_RAW          "imx582_mipi_raw"
 #define SENSOR_DRVNAME_IMX596_MIPI_RAW          "imx596_mipi_raw"
 /*OV*/
+/*P6 code for HQFEAT-120415 by zhangxiaohu at 20250610 start*/
+#define SENSOR_DRVNAME_OV32D40_SUNNY_FRONT_MIPI_RAW    "ov32d40_sunny_front_mipi_raw"
+#define SENSOR_DRVNAME_OV32D40_AAC_FRONT_MIPI_RAW      "ov32d40_aac_front_mipi_raw"
+/*P6 code for HQFEAT-120415 by zhangxiaohu at 20250610 end*/
 #define SENSOR_DRVNAME_OV23850_MIPI_RAW         "ov23850_mipi_raw"
 #define SENSOR_DRVNAME_OV16880_MIPI_RAW         "ov16880_mipi_raw"
 #define SENSOR_DRVNAME_OV16885_MIPI_RAW         "ov16885_mipi_raw"
@@ -514,6 +537,16 @@
 #define SENSOR_DRVNAME_S5K5E9_MIPI_RAW          "s5k5e9_mipi_raw"
 #define SENSOR_DRVNAME_S5KHM2SP_MIPI_RAW        "s5khm2sp_mipi_raw"
 #define SENSOR_DRVNAME_S5K4H7ALPHA_MIPI_RAW     "s5k4h7alpha_mipi_raw"
+/*P6 code for HQFEAT-117955 by geyanjie start*/
+#define SENSOR_DRVNAME_S5KHP3_OFILM_MAIN_MIPI_RAW    "s5khp3_ofilm_main_mipi_raw"
+/*P6 code for HQFEAT-178146 by p-niekangyu at 2025-08-25 start*/
+#define SENSOR_DRVNAME_S5KHP3_AACIII_MAIN_MIPI_RAW    "s5khp3_aaciii_main_mipi_raw"
+/*P6 code for HQFEAT-178146 by p-niekangyu at 2025-08-25 end*/
+/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 start*/
+#define SENSOR_DRVNAME_S5KHP3_AACII_MAIN_MIPI_RAW    "s5khp3_aacii_main_mipi_raw"
+/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 end*/
+#define SENSOR_DRVNAME_S5KHP3_AAC_MAIN_MIPI_RAW    "s5khp3_aac_main_mipi_raw"
+/*P6 code for HQFEAT-117955 by geyanjie end*/
 /*HI*/
 #define SENSOR_DRVNAME_HI841_MIPI_RAW           "hi841_mipi_raw"
 #define SENSOR_DRVNAME_HI707_YUV                "hi707_yuv"
@@ -560,6 +593,11 @@
 #define SENSOR_DRVNAME_GC8C34_MIPI_RAW          "gc8c34_mipi_raw"
 #define SENSOR_DRVNAME_GC8034_MIPI_RAW          "gc8034_mipi_raw"
 #define SENSOR_DRVNAME_GC02M1_MIPI_RAW          "gc02m1_mipi_raw"
+/*O6 code for  HQFEAT-109507  by yangxiongwei at 20240615 start*/
+#define SENSOR_DRVNAME_GC08A8_SUNNY_ULTRA_MIPI_RAW       "gc08a8_sunny_ultra_mipi_raw"
+#define SENSOR_DRVNAME_GC08A8_AAC_ULTRA_MIPI_RAW         "gc08a8_aac_ultra_mipi_raw"
+/*O6 code for  HQFEAT-109507  by yangxiongwei at 20240615 end*/
+
 /*SP*/
 #define SENSOR_DRVNAME_SP0A19_YUV               "sp0a19_yuv"
 #define SENSOR_DRVNAME_SP2518_YUV               "sp2518_yuv"

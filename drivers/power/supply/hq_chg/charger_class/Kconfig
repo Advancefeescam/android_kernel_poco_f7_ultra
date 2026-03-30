@@ -1,0 +1,43 @@
+#SPDX-License-Identifier: GPL-2.0
+
+config HQ_ADAPTER_CLASS
+	tristate "support huaqin adapter class"
+	default n
+	help
+		Say Y here to support huaqin charger adapter class.
+		Say M here if you want to compile this driver as a module.
+
+config HQ_CHARGER_CLASS
+	tristate "support huaqin charger class"
+	default n
+	help
+		Say Y here to support huaqin charger class.
+		Say M here if you want to compile this driver as a module.
+
+config HQ_FG_CLASS
+	tristate "support huaqin fuel gauge class"
+	default n
+	help
+		Say Y here to support huaqin chager pump class.
+		Say M here if you want to compile this driver as a module.
+
+config HQ_CP_CLASS
+	tristate "support huaqin chager pump class"
+	default n
+	help
+		Say Y here to support huaqin chager pump class.
+		Say M here if you want to compile this driver as a module.
+
+config HQ_LED_CLASS
+	tristate "support huaqin led class"
+	default n
+	help
+		Say Y here to support huaqin chager pump class.
+		Say M here if you want to compile this driver as a module.
+
+config XM_ADAPTER_CLASS
+	tristate "support xiaomi adapter class"
+	default n
+	help
+		Say Y here to support xiaomi adapter class.
+		Say M here if you want to compile this driver as a module.

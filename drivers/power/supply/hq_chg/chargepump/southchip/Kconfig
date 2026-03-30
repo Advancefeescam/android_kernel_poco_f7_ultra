@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0
+config SC_CHARGEPUMP_SC8541
+	tristate "southchip sc8541 chargepump device driver"
+	default n
+	help
+	  Say Y to support southchip chargepump sc8541 device driver.
+	  Say M here if you want to compile this driver as a module.

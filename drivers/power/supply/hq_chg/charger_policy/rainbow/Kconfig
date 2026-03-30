@@ -1,0 +1,97 @@
+#SPDX-License-Identifier: GPL-2.0
+
+config HUAQIN_CHARGER_MANAGER
+	tristate "support hauqin charger manger"
+	default n
+	help
+		Say Y here to support hauqin charger manger.
+
+config HUAQIN_CP_POLICY
+	tristate "support hauqin charger pump policy"
+	default n
+	help
+		Say Y here to support hauqin charger class.
+
+config HUAQIN_QC_POLICY
+	tristate "support hauqin qc policy"
+	default n
+	help
+		Say Y here to support hauqin charger class.
+
+config HQ_JEITA_POLICY
+	tristate "support huaqin jeita policy feature"
+	default n
+	help
+	  Say Y or M to support huaqin jeita policy feature.
+
+config HQ_THERMAL_POLICY
+	tristate "support huaqin thermal policy feature"
+	default n
+	help
+	  Say Y or M to support huaqin thermal policy feature.
+
+config HQ_TERM_RECHARGE_POLICY
+	tristate "support huaqin terminate and recharge policy feature"
+	default n
+	help
+	  Say Y or M to support huaqin terminate and recharge policy feature.
+
+config HQ_SHUTDOWN_POLICY
+	tristate "support huaqin shutdown policy feature"
+	default n
+	help
+	  Say Y or M to support huaqin shutdown policy feature.
+
+config HQ_HIGH_VOLTAGE_DCP
+	tristate "support huaqin high voltage dcp feature"
+	default n
+	help
+	  Say Y or M to support high voltage dcp feature.
+
+config HQ_REVERSE_CHARGE_POLICY
+	tristate "support huaqin reverse charge feature"
+	default n
+	help
+	  Say Y or M to support huaqin reverse charge feature.
+
+config XM_BATTERY_HEALTH
+	tristate "support xiaomi battery health features"
+	default n
+	help
+	  Say Y or M to support xiaomi battery health features.
+
+config XM_SMART_CHG
+	tristate "support xiaomi smart charge features"
+	default n
+	help
+	  Say Y or M to support xiaomi smart charge features.
+
+config XM_CHG_DFS
+	tristate "support xiaomi charge dfs features"
+	default n
+	help
+	  Say Y or M to support xiaomi charge dfs features.
+
+config BC12_RETRY_FOR_MI_PD
+	tristate "support retry BC1.2"
+	default n
+	help
+		Say Y here to support retry BC1.2.
+
+config HUAQIN_SOFT_ITERM_SUPPORT
+	tristate "support soft iterm support"
+	default n
+	help
+		Say Y here to support soft iterm.
+
+config XM_CHG_UEVENT
+	tristate "support xiaomi charge uevent features"
+	default n
+	help
+		Say Y or M to support xiaomi charge uevent features.
+
+config CHG_ERP_SUPPORT
+	tristate "support erp chg features"
+	default n
+	help
+		Say Y here to support erp.

@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: GPL-2.0
+# southchip subpmic
+source "drivers/power/supply/hq_chg/subpmic/southchip/Kconfig"
+
+# silergy subpmic
+source "drivers/power/supply/hq_chg/subpmic/silergy/Kconfig"
+
+# nuvolta subpmic
+source "drivers/power/supply/hq_chg/subpmic/nuvolta/Kconfig"
+
+config SUBPMIC_SOUTHCHIP
+	tristate "use southchip subpmic charge architecture"
+	default n
+	help
+	  Say Y to support southchip subpmic charge architecture.
+	  Say M here if you want to compile this driver as a module.
+
+config SUBPMIC_SILERGY
+	tristate "use silergy subpmic charge architecture"
+	default n
+	help
+	  Say Y to support silergy subpmic charge architecture.
+	  Say M here if you want to compile this driver as a module.
+
+config SUBPMIC_NUVOLTA
+	tristate "use nuvolta subpmic charge architecture"
+	default n
+	help
+	  Say Y to support nuvolta subpmic charge architecture.
+	  Say M here if you want to compile this driver as a module.

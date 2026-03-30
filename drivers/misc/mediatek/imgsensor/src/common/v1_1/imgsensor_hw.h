@@ -47,6 +47,9 @@ struct IMGSENSOR_HW_POWER_SEQ {
 struct IMGSENSOR_HW_DEVICE_COMMON {
 	struct platform_device *pplatform_device;
 	struct mutex            pinctrl_mutex;
+	/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 start*/
+	struct mutex            cam_mutex;
+	/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 end*/
 };
 
 struct IMGSENSOR_HW_DEVICE {

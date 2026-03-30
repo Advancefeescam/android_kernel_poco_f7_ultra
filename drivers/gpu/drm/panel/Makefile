@@ -86,6 +86,11 @@ obj-$(CONFIG_DRM_PANEL_SAMSUNG_S68FC01_VDO_AOD) += panel-samsung-s68fc01-vdo-aod
 obj-$(CONFIG_DRM_PANEL_ALPHA_SAMSUNG_S6E3HAE_CMD_120HZ) += panel-alpha-samsung-s6e3hae-wqhd-dphy-cmd-120hz.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_NT36672C_CPHY_VDO_90HZ_RT4801) += panel-tianma-nt36672c-cphy-vdo-90hz-rt4801.o
 obj-$(CONFIG_DRM_PANEL_NT37801_MSYNC2_RTE) += panel-nt37801-msync2-rte.o
+obj-$(CONFIG_DRM_PANEL_P6_36_0D_0B_DSC_VDO) += panel-p6-36-0d-0b-dsc-vdo.o
+obj-$(CONFIG_DRM_PANEL_P6_41_0F_0A_DSC_VDO) += panel-p6-41-0f-0a-dsc-vdo.o
+#P6 code for HQFEAT-190393 by p-chenchen79 at 2025/09/26 start
+obj-$(CONFIG_DRM_PANEL_P6_42_02_0C_DSC_VDO) += panel-p6-42-02-0c-dsc-vdo.o
+#P6 code for HQFEAT-190393 by p-chenchen79 at 2025/09/26 end
 
 mediatek-drm-gateic-y := mtk_drm_panel_i2c.o \
 		  mtk_drm_gateic_rt4801h.o \
@@ -107,3 +112,8 @@ obj-$(CONFIG_DRM_MEDIATEK_PANEL) += mediatek-drm-gateic.o
 obj-$(CONFIG_DRM_MEDIATEK_PANEL) += mediatek-drm-panel-drv.o
 
 ccflags-$(CONFIG_DRM_MEDIATEK_PANEL) += -I$(srctree)/drivers/leds/
+# P6 code for HQFEAT-126093 by p-chenchen79 at 2025/6/27 start
+ifeq ($(KERNEL_FACTORY_BUILD),1)
+KBUILD_CFLAGS += -DKERNEL_FACTORY_BUILD=1
+endif
+# P6 code for HQFEAT-126093 by p-chenchen79 at 2025/6/27 end

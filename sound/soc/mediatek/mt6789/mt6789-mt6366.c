@@ -21,6 +21,20 @@
 #include "../../codecs/mt6358-accdet.h"
 #endif
 
+/* P6 code for HQFEAT-118649 by p-dongfeiju1 at 20250706 start */
+#if IS_ENABLED(CONFIG_MIEV)
+#include <miev/mievent.h>
+#include <linux/timer.h>
+#include <linux/timex.h>
+#include <linux/rtc.h>
+#endif
+/* P6 code for HQFEAT-118649 by p-dongfeiju1 at 20250706 end */
+
+/* P6 code for HQFEAT-109485 by p-dongfeiju1 at 2025/06/06 start */
+#if IS_ENABLED(CONFIG_SND_SOC_FS181X)
+#include "../../codecs/fs1815/spkr-amp-mngr.h"
+#endif
+/* P6 code for HQFEAT-109485 by p-dongfeiju1 at 2025/06/06 end */
 #include "../common/mtk-sp-spk-amp.h"
 
 /*
@@ -1123,6 +1137,12 @@ static int mt6789_mt6366_dev_probe(struct platform_device *pdev)
 	struct device_node *scp_audio_node;
 	int spkProcessEnable = 0;
 #endif
+/* P6 code for HQFEAT-118649 by p-dongfeiju1 at 20250706 start */
+	#if IS_ENABLED(CONFIG_MIEV)
+	struct misight_mievent *mievent;
+	struct timespec64 curTime;
+	#endif
+/* P6 code for HQFEAT-118649 by p-dongfeiju1 at 20250706 end */
 
 	dev_info(&pdev->dev, "%s()\n", __func__);
 
@@ -1199,9 +1219,30 @@ static int mt6789_mt6366_dev_probe(struct platform_device *pdev)
 	card->dev = &pdev->dev;
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
-	if (ret)
+	if (ret) {
 		dev_err(&pdev->dev, "%s snd_soc_register_card fail %d\n",
 			__func__, ret);
+/* P6 code for HQFEAT-118649 by p-dongfeiju1 at 20250706 start */
+		#if IS_ENABLED(CONFIG_MIEV)
+		ktime_get_real_ts64(&curTime);
+		mievent  = cdev_tevent_alloc(906001001);
+		cdev_tevent_add_int(mievent, "CurrentTime", curTime.tv_sec);
+		cdev_tevent_add_str(mievent, "Keyword", "sound_card_not_registered");
+		cdev_tevent_write(mievent);
+		cdev_tevent_destroy(mievent);
+		#endif
+	}
+/* P6 code for HQFEAT-118649 by p-dongfeiju1 at 20250706 end */
+
+/* P6 code for HQFEAT-109485 by p-dongfeiju1 at 2025/06/06 start */
+	#if IS_ENABLED(CONFIG_SND_SOC_FS181X)
+	else {
+		ret = spkr_amp_dapm_init(card);
+		if (ret)
+			dev_err(&pdev->dev, "Failed to init fs1815 spkr amp mngr:%d\n", ret);
+	}
+	#endif
+/* P6 code for HQFEAT-109485 by p-dongfeiju1 at 2025/06/06 end */
 	return ret;
 }
 

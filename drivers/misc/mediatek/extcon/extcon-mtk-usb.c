@@ -20,6 +20,8 @@
 #include <linux/workqueue.h>
 #include <linux/proc_fs.h>
 
+#include <linux/delay.h>
+
 #include "extcon-mtk-usb.h"
 
 #if IS_ENABLED(CONFIG_TCPC_CLASS)
@@ -120,10 +122,12 @@ static bool usb_is_online(struct mtk_extcon_info *extcon)
 		return false;
 	}
 
-	dev_info(extcon->dev, "online=%d, type=%d\n", pval.intval, tval.intval);
-
+	
+	dev_info(extcon->dev, "online=%d, type=%d, tcpc_plug_out=%d\n",
+		pval.intval, tval.intval, atomic_read(&extcon->tcpc_plug_out));
 	if (pval.intval && (tval.intval == POWER_SUPPLY_TYPE_USB ||
-			tval.intval == POWER_SUPPLY_TYPE_USB_CDP))
+			tval.intval == POWER_SUPPLY_TYPE_USB_CDP) &&
+			(!atomic_read(&extcon->tcpc_plug_out)))
 		return true;
 	else
 		return false;
@@ -168,11 +172,13 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 	int ret = 0;
 	struct device *dev = extcon->dev;
 
-	extcon->usb_psy = devm_power_supply_get_by_phandle(dev, "charger");
+	
+	extcon->usb_psy = devm_power_supply_get_by_phandle(dev, "usb");
 	if (IS_ERR_OR_NULL(extcon->usb_psy)) {
-		dev_err(dev, "fail to get usb_psy\n");
-		return -EINVAL;
+		extcon->usb_psy = power_supply_get_by_name("usb");
+		dev_err(dev,"get usb_psy by_phandle failed, try by name\n");
 	}
+	
 
 	INIT_DELAYED_WORK(&extcon->wq_psy, mtk_usb_extcon_psy_detector);
 
@@ -244,6 +250,8 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 			container_of(nb, struct mtk_extcon_info, tcpc_nb);
 	struct device *dev = extcon->dev;
 	bool vbus_on;
+	
+	static int count;
 
 	switch (event) {
 	case TCP_NOTIFY_SOURCE_VBUS:
@@ -259,15 +267,19 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
 			dev_info(dev, "Type-C SRC plug in\n");
+			atomic_set(&extcon->tcpc_plug_out, 0);
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_HOST);
-		} else if (!(extcon->bypss_typec_sink) &&
-			noti->typec_state.old_state == TYPEC_UNATTACHED &&
+		} else if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
 			(noti->typec_state.new_state == TYPEC_ATTACHED_SNK ||
 			noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC ||
 			noti->typec_state.new_state == TYPEC_ATTACHED_CUSTOM_SRC ||
 			noti->typec_state.new_state == TYPEC_ATTACHED_DBGACC_SNK)) {
-			dev_info(dev, "Type-C SINK plug in\n");
-			mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
+			if (extcon->bypss_typec_sink) {
+				atomic_set(&extcon->tcpc_plug_out, 0);
+			} else {
+				dev_info(dev, "Type-C SINK plug in\n");
+				mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
+			}
 		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SRC ||
 			noti->typec_state.old_state == TYPEC_ATTACHED_SNK ||
 			noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC ||
@@ -275,22 +287,39 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 			noti->typec_state.old_state == TYPEC_ATTACHED_DBGACC_SNK) &&
 			noti->typec_state.new_state == TYPEC_UNATTACHED) {
 			dev_info(dev, "Type-C plug out\n");
+			atomic_set(&extcon->tcpc_plug_out, 1);
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 		}
 		break;
 	case TCP_NOTIFY_DR_SWAP:
-		dev_info(dev, "%s dr_swap, new role=%d\n",
-				__func__, noti->swap_state.new_role);
+
+DelayforSwap:
+		dev_info(dev, "%s dr_swap, new role=%d, c_role=%d\n",
+				__func__, noti->swap_state.new_role, extcon->c_role);
 		if (noti->swap_state.new_role == PD_ROLE_UFP &&
 				extcon->c_role == USB_ROLE_HOST) {
 			dev_info(dev, "switch role to device\n");
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
+			
+			count = 0;
 		} else if (noti->swap_state.new_role == PD_ROLE_DFP &&
 				extcon->c_role == USB_ROLE_DEVICE) {
 			dev_info(dev, "switch role to host\n");
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_HOST);
+		
+			count = 0;
+		} else {
+			count++;
+			if (count > 20) {
+				count = 0;
+				break;
+			}
+			dev_info(dev, "Delay for swap... count = %d \n", count);
+			msleep(100);
+			goto DelayforSwap;
+		
 		}
 		break;
 	}
@@ -324,6 +353,8 @@ static int mtk_usb_extcon_tcpc_init(struct mtk_extcon_info *extcon)
 		return -EINVAL;
 	}
 
+	
+	atomic_set(&extcon->tcpc_plug_out, 1);
 	extcon->tcpc_dev = tcpc_dev;
 
 	return 0;

@@ -125,6 +125,21 @@ UINT32 S5K8AAYX_PVI_YUV_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 UINT32 S5K5E8YX_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 UINT32 S5K3P9SP_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 UINT32 S5KHM2SP_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/*P6 code for HQFEAT-117955 by geyanjie start*/
+UINT32 S5KHP3_OFILM_MAIN_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/*P6 code for HQFEAT-178146 by p-niekangyu at 2025-08-25 start*/
+UINT32 S5KHP3_AACIII_MAIN_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/*P6 code for HQFEAT-178146 by p-niekangyu at 2025-08-25 end*/
+/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 start*/
+UINT32 S5KHP3_AACII_MAIN_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 end*/
+UINT32 S5KHP3_AAC_MAIN_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/*P6 code for HQFEAT-117955 by geyanjie end*/
+/*P6 code for HQFEAT-120415 by zhangxiaohu at 20250610 start*/
+UINT32 OV32D40_SUNNY_FRONT_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+UINT32 OV32D40_AAC_FRONT_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/*P6 code for HQFEAT-120415 by zhangxiaohu at 20250610 end*/
+
 /*HI*/
 UINT32 HI841_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 UINT32 HI707_YUV_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
@@ -163,6 +178,11 @@ UINT32 GC02M0_MIPI_MONO1_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 UINT32 GC02M0_MIPI_MONO2_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 UINT32 GC02K0_MIPI_MONO_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 UINT32 GC02M1B_MIPI_MONO_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/*P6 code for  HQFEAT-120414  by yangxiongwei at 20250603 start*/
+UINT32 GC08A8_SUNNY_ULTRA_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+UINT32 GC08A8_AAC_ULTRA_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/*P6 code for  HQFEAT-120414  by yangxiongwei at 20250603 end*/
+
 /*SP*/
 UINT32 SP0A19_YUV_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 /*A*/

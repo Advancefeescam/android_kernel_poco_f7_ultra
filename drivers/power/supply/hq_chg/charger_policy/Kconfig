@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0
+# rainbow charger policy
+source "drivers/power/supply/hq_chg/charger_policy/rainbow/Kconfig"
+
+config RAINBOW_CHARGER_POLICY
+	tristate "rainbow charger policy"
+	default n
+	help
+	  Say Y to support charger policy for rainbow customer.
+	  Say M here if you want to compile this driver as a module.

@@ -18,6 +18,8 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/suspend.h>
+#include <linux/notifier.h>
+#include <linux/power_supply.h>
 
 #include "ready.h"
 #include "sensor_comm.h"
@@ -26,6 +28,7 @@
 #include "timesync.h"
 #include "debug.h"
 #include "custom_cmd.h"
+#include "hq_notify.h"
 
 struct transceiver_config {
 	uint8_t length;
@@ -64,6 +67,13 @@ struct transceiver_device {
 	atomic_t normal_wp_dropped;
 	atomic_t super_wp_dropped;
 	struct task_struct *task;
+
+/*P6 code for HQFEAT-171686 by p-hudongjiao at 20250812 start*/
+	struct notifier_block charge_nb;
+	int charge_level;
+	struct work_struct charge_level_work;
+	struct workqueue_struct *charge_level_workqueue;
+/*P6 code for HQFEAT-171686 by p-hudongjiao at 20250812 end*/
 };
 
 static struct transceiver_device transceiver_dev;
@@ -295,10 +305,15 @@ static int transceiver_translate(struct transceiver_device *dev,
 		switch (src->sensor_type) {
 		case SENSOR_TYPE_ACCELEROMETER:
 		case SENSOR_TYPE_MAGNETIC_FIELD:
+			dst->word[0] = src->value[0];
+			dst->word[1] = src->value[1];
+			dst->word[2] = src->value[2];
+			break;
 		case SENSOR_TYPE_GYROSCOPE:
 			dst->word[0] = src->value[0];
 			dst->word[1] = src->value[1];
 			dst->word[2] = src->value[2];
+			dst->word[3] = src->value[3];
 			break;
 		case SENSOR_TYPE_ORIENTATION:
 		case SENSOR_TYPE_ROTATION_VECTOR:
@@ -531,7 +546,42 @@ static int transceiver_comm_with(int sensor_type, int cmd,
 	kfree(ctrl);
 	return ret;
 }
+/*P6 code for HQFEAT-171686 by p-hudongjiao at 20250812 start*/
+static int charge_current_notifier_callback(struct notifier_block *nb,
+				unsigned long event, void *data)
+{
+	int err = 0;
+	struct transceiver_device *dev = &transceiver_dev;
+	struct power_supply *psy = data;
+	union power_supply_propval pval;
 
+	if (dev->charge_level_workqueue == NULL) {
+		pr_err("%s: Uninitialized workqueue or work\n", __func__);
+		return -1;
+	}
+
+	if(0 == strcmp(psy->desc->name,"battery")){
+		if(!power_supply_get_property(psy,POWER_SUPPLY_PROP_CURRENT_NOW,&pval)){
+			dev->charge_level = pval.intval;
+			pr_info("sensorhub %s: charge_current = %d\n", __func__, dev->charge_level);
+			err = queue_work(dev->charge_level_workqueue, &dev->charge_level_work);
+			if (err < 0) {
+				pr_err("%s is failed!!\n", __func__);
+				return -1;
+			}
+		}
+	}
+
+	return 0;
+}
+static int sensorhub_register_charge_current(struct transceiver_device *dev)
+{
+	pr_info("%s\n", __func__);
+	memset(&dev->charge_nb, 0, sizeof(dev->charge_nb));
+	dev->charge_nb.notifier_call = charge_current_notifier_callback;
+	return  power_supply_reg_notifier(&dev->charge_nb);
+}
+/*P6 code for HQFEAT-171686 by p-hudongjiao at 20250812 end*/
 static int transceiver_enable(struct hf_device *hf_dev,
 		int sensor_type, int en)
 {
@@ -845,7 +895,24 @@ static int transceiver_shm_super_cfg(struct share_mem_config *cfg,
 	dev->shm_super_reader.buffer_full_detect = false;
 	return share_mem_init(&dev->shm_super_reader, cfg);
 }
+/*P6 code for HQFEAT-171686 by p-hudongjiao at 20250812 start*/
+static int transceiver_charge_current(struct hf_device *hf_dev,int sensor_type, void *data, uint8_t length)
+{
+	return transceiver_comm_with(sensor_type,
+		SENS_COMM_CTRL_CHARGE_CURRENT_CMD, data, length);
+}
 
+static void charge_current_work_func(struct work_struct *work)
+{
+	struct transceiver_device *dev = &transceiver_dev;
+	int ret = 0;
+	ret = transceiver_charge_current(&dev->hf_dev,2,&dev->charge_level,sizeof(int32_t));
+	if (ret < 0) {
+		pr_err("%s is failed!!\n", __func__);
+		return;
+	}
+}
+/*P6 code for HQFEAT-171686 by p-hudongjiao at 20250812 end*/
 static int __init transceiver_init(void)
 {
 	int ret = 0;
@@ -968,7 +1035,15 @@ static int __init transceiver_init(void)
 		pr_err("host ready init fail %d\n", ret);
 		goto out_ready;
 	}
-
+/*P6 code for HQFEAT-171686 by p-hudongjiao at 20250812 start*/
+	ret = sensorhub_register_charge_current(dev);
+	if (ret) {
+		pr_err("sensorhub_register_charge_current fail = %d\n", ret);
+	} else {
+		dev->charge_level_workqueue = create_singlethread_workqueue("sensorhub_charge_current_sensor");
+		INIT_WORK(&dev->charge_level_work, charge_current_work_func);
+    }
+/*P6 code for HQFEAT-171686 by p-hudongjiao at 20250812 end*/
 	return 0;
 
 out_ready:

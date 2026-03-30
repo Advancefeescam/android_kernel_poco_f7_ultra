@@ -3,11 +3,13 @@
  * Copyright (C) 2020 MediaTek Inc.
  */
 
+#include <linux/types.h>
+
 struct mtk_extcon_info {
 	struct device *dev;
 	struct extcon_dev *edev;
 	struct usb_role_switch *role_sw;
-	unsigned int c_role; /* current data role */
+	unsigned int c_role; 
 	struct workqueue_struct *extcon_wq;
 	struct regulator *vbus;
 	unsigned int vbus_vol;
@@ -20,8 +22,10 @@ struct mtk_extcon_info {
 	struct tcpc_device *tcpc_dev;
 	struct notifier_block tcpc_nb;
 #endif
+	
+	atomic_t tcpc_plug_out;
 	bool bypss_typec_sink;
-	/* id gpio */
+	
 	struct gpio_desc *id_gpiod;
 	int id_irq;
 	struct delayed_work wq_detcable;
@@ -30,7 +34,7 @@ struct mtk_extcon_info {
 struct usb_role_info {
 	struct mtk_extcon_info *extcon;
 	struct delayed_work dwork;
-	unsigned int d_role; /* desire data role */
+	unsigned int d_role; 
 };
 
 enum {

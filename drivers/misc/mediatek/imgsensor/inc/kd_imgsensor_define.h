@@ -123,7 +123,11 @@ enum ACDK_CAMERA_OPERATION_MODE_ENUM {
  ************************************************************************/
 
 /*  */
-#define MAX_NUM_OF_SUPPORT_SENSOR 32
+//P6 code for HQFEAT-149858 by xiexinli1 at 2025.07.10 start
+/*P6 code for HQFEAT-178146 by p-niekangyu at 2025-08-25 start*/
+#define MAX_NUM_OF_SUPPORT_SENSOR (8+1)
+/*P6 code for HQFEAT-178146 by p-niekangyu at 2025-08-25 end*/
+//P6 code for HQFEAT-149858 by xiexinli1 at 2025.07.10 end
 /*  */
 #define SENSOR_CLOCK_POLARITY_HIGH    0
 #define SENSOR_CLOCK_POLARITY_LOW 1
@@ -303,6 +307,9 @@ enum ACDK_SENSOR_FEATURE_ENUM {
 	SENSOR_FEATURE_SET_HDR_TRI_SHUTTER_FRAME_TIME,
 	SENSOR_FEATURE_GET_RAW_BIT_BY_SCENARIO,
 	SENSOR_FEATURE_GET_SATURATION_LEVEL_BY_SCENARIO,
+/*P6 code for HQFEAT-117955 by geyanjie start*/
+	SENSOR_FEATURE_SET_CURR_LENS_DATA,
+/*P6 code for HQFEAT-117955 by geyanjie start*/
 	SENSOR_FEATURE_MAX
 };
 

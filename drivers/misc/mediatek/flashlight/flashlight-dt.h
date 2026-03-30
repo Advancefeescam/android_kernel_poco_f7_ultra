@@ -19,6 +19,11 @@
 #define MT6336_DTNAME     "mediatek,flashlights_mt6336"
 #define MT6370_DTNAME     "mediatek,flashlights_mt6370"
 #define MT6360_DTNAME     "mediatek,flashlights_mt6360"
+/*P6 code for HQFEAT-120416 by changqi at 20250609 start*/
+#if defined(CONFIG_MTK_FLASHLIGHT_SUBPMIC)
+#define MT6789_DTNAME     "mediatek,flashlights_mt6789"
+#endif
+/*P6 code for HQFEAT-120416 by changqi at 20250609 end*/
 #define RT4505_DTNAME     "mediatek,flashlights_rt4505"
 #define RT4505_DTNAME_I2C "mediatek,strobe_main"
 #define RT5081_DTNAME     "mediatek,flashlights_rt5081"

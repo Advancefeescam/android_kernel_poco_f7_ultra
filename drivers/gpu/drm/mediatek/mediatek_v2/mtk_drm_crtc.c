@@ -90,6 +90,9 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "SKIP_CONFIG", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "OVL_DSI_SEQ", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "OUTPUT_SCENARIO", 0, UINT_MAX, 0},
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+	{DRM_MODE_PROP_ATOMIC, "FOD_SYNC_INFO", 0, UINT_MAX, 0},
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 };
 
 static struct cmdq_pkt *sb_cmdq_handle;
@@ -9313,7 +9316,9 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 	hdr_en = (bool)state->prop_val[CRTC_PROP_HDR_ENABLE];
-
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+	mi_drm_crtc_update_layer_state(crtc);
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 	if (mtk_crtc->fake_layer.fake_layer_mask)
 		mtk_drm_crtc_enable_fake_layer(crtc, old_crtc_state);
 	else if (mtk_crtc->fake_layer.first_dis) {

@@ -11,7 +11,12 @@
  * Following tracepoints are not exported in tracefs and provide a
  * mechanism for vendor modules to hook and extend functionality
  */
+#ifdef __GENKSYMS__
 struct pt_regs;
+#else
+/* struct pt_regs */
+#include <asm/ptrace.h>
+#endif /* __GENKSYMS__ */
 DECLARE_RESTRICTED_HOOK(android_rvh_do_undefinstr,
 	TP_PROTO(struct pt_regs *regs, bool user),
 	TP_ARGS(regs, user),
@@ -30,6 +35,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_arm64_serror_panic,
 	TP_PROTO(struct pt_regs *regs, unsigned int esr),
 	TP_ARGS(regs, esr), 1);
 
+DECLARE_RESTRICTED_HOOK(android_rvh_handle_bad_stack,
+	TP_PROTO(struct pt_regs *regs, unsigned int esr, unsigned long far),
+	TP_ARGS(regs, esr, far), 1);
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_TRAPS_H */

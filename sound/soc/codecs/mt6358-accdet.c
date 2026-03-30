@@ -23,6 +23,9 @@
 #include <linux/init.h>
 #include <linux/irqdomain.h>
 #include <linux/irq.h>
+#if IS_ENABLED(CONFIG_SWITCH)
+#include <linux/switch.h>
+#endif
 #include <linux/regmap.h>
 #include <sound/soc.h>
 #include <sound/jack.h>
@@ -63,6 +66,11 @@
 #define EINT_PLUG_OUT			(0)
 #define EINT_PLUG_IN			(1)
 #define EINT_MOISTURE_DETECTED	(2)
+
+/* BSP.AUDIO - 2025.06.28 - modify to Headphone wire control function start */
+#define MEDIA_PREVIOUS_SCAN_CODE 257
+#define MEDIA_NEXT_SCAN_CODE     258
+/* BSP.AUDIO - 2025.06.28 - modify to Headphone wire control function end */
 
 struct mt63xx_accdet_data {
 	u32 base;
@@ -167,6 +175,9 @@ static struct timer_list micbias_timer;
 static void dis_micbias_timerhandler(struct timer_list *t);
 static bool dis_micbias_done;
 static char accdet_log_buf[1280];
+#if IS_ENABLED(CONFIG_SWITCH)
+static struct switch_dev accdet_data;
+#endif
 static bool debug_thread_en;
 static bool dump_reg;
 static struct task_struct *thread;
@@ -828,6 +839,11 @@ static void send_status_event(u32 cable_type, u32 status)
 		}
 		pr_info("accdet HEADPHONE(3-pole) %s\n",
 			status ? "PlugIn" : "PlugOut");
+		#if IS_ENABLED(CONFIG_SWITCH)
+		/* BSP.AUDIO - 2025.06.10 - modify to Headphone node start*/
+		switch_set_state(&accdet_data, status == 0 ? EINT_PLUG_OUT : EINT_PLUG_IN);
+		#endif
+		/* BSP.AUDIO - 2025.06.10 - modify to Headphone node end*/
 		break;
 	case HEADSET_MIC:
 		/* when plug 4-pole out, 3-pole plug out should also be
@@ -847,6 +863,11 @@ static void send_status_event(u32 cable_type, u32 status)
 				SND_JACK_MICROPHONE);
 		pr_info("accdet MICROPHONE(4-pole) %s\n",
 			status ? "PlugIn" : "PlugOut");
+		#if IS_ENABLED(CONFIG_SWITCH)
+		/* BSP.AUDIO - 2025.06.10 - modify to Headphone node start*/
+		switch_set_state(&accdet_data, status == 0 ? EINT_PLUG_OUT : EINT_PLUG_IN);
+		/* BSP.AUDIO - 2025.06.10 - modify to Headphone node end*/
+		#endif
 		/* when press key for a long time then plug in
 		 * even recoginized as 4-pole
 		 * disable micbias timer still timeout after 6s
@@ -865,6 +886,11 @@ static void send_status_event(u32 cable_type, u32 status)
 				SND_JACK_LINEOUT);
 		pr_info("accdet LineOut %s\n",
 			status ? "PlugIn" : "PlugOut");
+		#if IS_ENABLED(CONFIG_SWITCH)
+		/* BSP.AUDIO - 2025.06.10 - modify to Headphone node start*/
+		switch_set_state(&accdet_data, status == 0 ? EINT_PLUG_OUT : EINT_PLUG_IN);
+		/* BSP.AUDIO - 2025.06.10 - modify to Headphone node end*/
+		#endif
 		break;
 	default:
 		pr_info("%s Invalid cableType\n", __func__);
@@ -1996,7 +2022,7 @@ static void accdet_init_once(void)
 	accdet_eint_high_level_support();
 
 	/* accdet eint enable*/
-	accdet_write(0x250a, 0x4);
+	// accdet_write(0x250a, 0x4);
 
 	pr_info("%s done!\n", __func__);
 }
@@ -2082,8 +2108,15 @@ int mt6358_accdet_init(struct snd_soc_component *component,
 
 	accdet->jack.jack->input_dev->id.bustype = BUS_HOST;
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
+/* BSP.AUDIO - 2025.06.28 - modify to Headphone node start*/
+#ifdef KERNEL_FACTORY_BUILD
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+#else
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, MEDIA_NEXT_SCAN_CODE);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, MEDIA_PREVIOUS_SCAN_CODE);
+#endif
+/* BSP.AUDIO - 2025.06.28 - modify to Headphone node end*/
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
 
 	snd_soc_component_set_jack(component, &accdet->jack, NULL);
@@ -2255,6 +2288,20 @@ static int mt6358_accdet_probe(struct platform_device *pdev)
 		}
 	}
 
+	#if IS_ENABLED(CONFIG_SWITCH)
+	/* BSP.AUDIO - 2025.06.10 - modify to Headphone node start*/
+	accdet_data.name = "h2w";
+	accdet_data.index = 0;
+	accdet_data.state = 0;
+	ret = switch_dev_register(&accdet_data);
+	if (ret) {
+		pr_err("%s switch_dev_register fail:%d!\n", __func__, ret);
+	} else {
+		dev_dbg(&pdev->dev,"accdet select success\n");
+	}
+	/* BSP.AUDIO - 2025.06.10 - modify to Headphone node end*/
+	#endif
+
 	/* register char device number, Create normal device for auido use */
 	ret = alloc_chrdev_region(&accdet->accdet_devno, 0, 1, ACCDET_DEVNAME);
 	if (ret)
@@ -2339,6 +2386,21 @@ err_chrdevregion:
 	return ret;
 }
 
+
+#if IS_ENABLED(CONFIG_AUDIO_TYPEC_SWITCH)
+void mt6358_accdet_eint_callback_wrapper(unsigned int plug_status)
+{
+	int ret = 0;
+	pr_info("%s: call ex eint handler, plug_status %d\n", __func__, plug_status);
+	accdet->cur_eint_state = (plug_status == 1 ? EINT_PLUG_IN : EINT_PLUG_OUT);
+	disable_irq_nosync(accdet->gpioirq);
+	pr_info("accdet %s(), cur_eint_state=%d\n", __func__, accdet->cur_eint_state);
+	ret = queue_work(accdet->eint_workqueue, &accdet->eint_work);
+	pr_info("%s: exit queue work\n", __func__);
+}
+EXPORT_SYMBOL(mt6358_accdet_eint_callback_wrapper);
+#endif
+
 static int mt6358_accdet_remove(struct platform_device *pdev)
 {
 	destroy_workqueue(accdet->eint_workqueue);
@@ -2347,6 +2409,11 @@ static int mt6358_accdet_remove(struct platform_device *pdev)
 	destroy_workqueue(accdet->delay_init_workqueue);
 	class_destroy(accdet->accdet_class);
 	unregister_chrdev_region(accdet->accdet_devno, 1);
+	#if IS_ENABLED(CONFIG_SWITCH)
+	/* BSP.AUDIO - 2025.06.10 - modify to Headphone node start*/
+	switch_dev_unregister(&accdet_data);
+	/* BSP.AUDIO - 2025.06.10 - modify to Headphone node end*/
+	#endif
 	devm_kfree(&pdev->dev, accdet);
 	return 0;
 }

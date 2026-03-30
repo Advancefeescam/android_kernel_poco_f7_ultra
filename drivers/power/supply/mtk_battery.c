@@ -903,11 +903,13 @@ int force_get_tbat(struct mtk_battery *gm, bool update)
 	bat_temperature_val = force_get_tbat_internal(gm, true);
 
 	if (bat_temperature_val == -EHOSTDOWN)
-		return gm->cur_bat_temp;
+		return 25;
 
 	gm->cur_bat_temp = bat_temperature_val;
 
-	return bat_temperature_val;
+	gm->cur_bat_temp = 25;
+
+	return 25;
 }
 
 /* ============================================================ */

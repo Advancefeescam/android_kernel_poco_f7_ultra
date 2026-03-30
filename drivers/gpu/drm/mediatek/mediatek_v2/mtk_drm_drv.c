@@ -55,6 +55,13 @@
 #include "mtk_disp_chist.h"
 #include "platform/mtk_drm_6789.h"
 
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_feature.h"
+#include "mi_disp/mi_disp_log.h"
+#endif
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
+
 #include "mtk_drm_mmp.h"
 /* *******Panel Master******** */
 #include "mtk_fbconfig_kdebug.h"
@@ -89,6 +96,12 @@ void disp_dbg_init(struct drm_device *dev);
 static atomic_t top_isr_ref; /* irq power status protection */
 static atomic_t top_clk_ref; /* top clk status protection*/
 spinlock_t top_clk_lock; /* power status protection*/
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 start */
+#ifdef CONFIG_MI_ESD_SUPPORT
+bool is_fts_fisrt_esd = false;
+EXPORT_SYMBOL(is_fts_fisrt_esd);
+#endif
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 end */
 
 unsigned long long mutex_time_start;
 unsigned long long mutex_time_end;
@@ -962,15 +975,15 @@ static bool mtk_atomic_skip_plane_update(struct mtk_drm_private *private,
 	for_each_old_crtc_in_state(state, crtc, old_crtc_state, i) {
 		struct mtk_crtc_state *mtk_state =
 			to_mtk_crtc_state(crtc->state);
-		if (mtk_state->doze_changed ||
-			(drm_atomic_crtc_needs_modeset(crtc->state) &&
-			mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE])) {
+/* P6 code for HQFEAT-118666 by p-liaoxianguo at 2025/6/19 start */
+		if (drm_atomic_crtc_needs_modeset(crtc->state) &&
+			mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
 			DDPINFO("%s doze changed, skip self-update\n",
 				__func__);
 			return true;
 		}
 	}
-
+/* P6 code for HQFEAT-118666 by p-liaoxianguo at 2025/6/19 end */
 	return false;
 #ifdef IF_ZERO
 	/* The CRTC would be enabled in LK stage and the content of
@@ -1033,8 +1046,22 @@ static void drm_atomic_esd_chk_first_enable(struct drm_device *dev,
 	if (is_first) {
 		for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 			if (drm_crtc_index(crtc) == 0) {
-				if  (mtk_drm_lcm_is_connect())
+				if (mtk_drm_lcm_is_connect()) {
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 start */
+#ifdef CONFIG_MI_ESD_SUPPORT
+					if (is_fts_fisrt_esd) {
+						atomic_set(&lcm_valid_irq, 1);
+						DDPINFO("%s lcm_valid_irq = 1\n", __func__);
+					} else {
+						atomic_set(&lcm_valid_irq, 0);
+						DDPINFO("%s lcm_valid_irq = 0\n", __func__);
+					}
+					atomic_set(&is_lcm_inited_esd, 1);
+#endif
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 end */
 					mtk_disp_esd_check_switch(crtc, true);
+				}
+
 				break;
 			}
 		}
@@ -3682,7 +3709,9 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 	caps_info->lcm_degree = 180;
 #endif
 
-	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_NATIVE;
+// P6 code for HQFEAT-118237 by p-xuyongjie at 20250618 start
+	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3;
+// P6 code for HQFEAT-118237 by p-xuyongjie at 20250618 end
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_OVL_WCG)) {
 		if (params)
 			caps_info->lcm_color_mode = params->lcm_color_mode;
@@ -5730,7 +5759,6 @@ static void mtk_drm_shutdown(struct platform_device *pdev)
 {
 	struct mtk_drm_private *private = platform_get_drvdata(pdev);
 	struct drm_device *drm = private->drm;
-
 	if (drm) {
 		DDPMSG("%s\n", __func__);
 		drm_atomic_helper_shutdown(drm);
@@ -5910,6 +5938,11 @@ static int __init mtk_drm_init(void)
 	int i;
 
 	DDPINFO("%s+\n", __func__);
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+#ifdef CONFIG_MI_DISP
+	mi_disp_feature_init();
+#endif
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 	for (i = 0; i < ARRAY_SIZE(mtk_drm_drivers); i++) {
 		DDPINFO("%s register %s driver\n",
 			__func__, mtk_drm_drivers[i]->driver.name);

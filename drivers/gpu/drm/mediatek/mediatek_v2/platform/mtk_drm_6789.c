@@ -158,7 +158,13 @@ const struct mtk_dsi_driver_data mt6789_dsi_driver_data = {
 	.reg_vm_cmd_data30_ofs = 0x238,
 	.poll_for_idle = mtk_dsi_poll_for_idle,
 	.irq_handler = mtk_dsi_irq_status,
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 start */
+#ifdef CONFIG_MI_ESD_SUPPORT
+	.mi_esd_eint_compat = "mediatek, ESD_FLAG-eint",
+#else
 	.esd_eint_compat = "mediatek, DSI_TE-eint",
+#endif
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 end */
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.need_wait_fifo = true,

@@ -1,8 +1,24 @@
 # SPDX-License-Identifier: GPL-2.0
 subdir-ccflags-$(CONFIG_POWER_SUPPLY_DEBUG) := -DDEBUG
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
+#subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
+
+
+
+subdir-ccflags-y += -I$(srctree)/drivers/misc/hq_typec/tcpc/inc
+
+#subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
+
+
+subdir-ccflags-y += -I$(srctree)/drivers/misc/hqsysfs
+
+ifdef CONFIG_HQ_CHARGER_CLASS
+subdir-ccflags-y += -I$(srctree)/drivers/power/supply/hq_chg/charger_class/include
+endif
+
+obj-$(CONFIG_HQ_CHARGER_FRAMEWORK)     += hq_chg/
+
 
 power_supply-y				:= power_supply_core.o
 power_supply-$(CONFIG_SYSFS)		+= power_supply_sysfs.o

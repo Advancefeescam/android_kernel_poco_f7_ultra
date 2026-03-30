@@ -611,7 +611,11 @@ void disp_pq_notify_backlight_changed(int bl_1024)
 		return;
 
 	DDPINFO("%s: %d\n", __func__, bl_1024);
-
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+#if CONFIG_MI_DISP
+	mi_disp_feature_event_notify_by_type(mi_get_disp_id("primary"), MI_DISP_EVENT_BACKLIGHT, sizeof(bl_1024), bl_1024);
+#endif
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS]) {
 		if (default_comp != NULL &&
 			g_ccorr_relay_value[index_of_ccorr(default_comp->id)] != 1) {

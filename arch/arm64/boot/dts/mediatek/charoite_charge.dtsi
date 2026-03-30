@@ -1,0 +1,163 @@
+/* Start of this file, DO NOT ADD ANYTHING HERE */
+#include "mediatek/hq_chg/hq_chg.dtsi"
+
+&i2c5 {
+	nu6601-pd@33{
+		pd-data {
+			pd,sink-pdo-size = <2>;
+			pd,sink-pdo-data = <0x3601912c 0x3602d12c 0xc0dc2452>; /* <5V3A 9V3A 3.6-11V/4.1A> */
+		};
+	};
+
+	sc660x-pd@62{
+		pd-data {
+			pd,sink-pdo-size = <2>;
+			pd,sink-pdo-data = <0x3601912c 0x3602d12c 0xc0dc2452>; /* <5V3A 9V3A 3.6-11V/4.1A> */
+		};
+	};
+
+	sy6976-pd@3e{
+		pd-data {
+			pd,sink-pdo-size = <2>;
+			pd,sink-pdo-data = <0x3601912c 0x3602d12c 0xc0dc2452>; /* <5V3A 9V3A 3.6-11V/4.1A> */
+		};
+	};
+};
+
+&i2c7 {
+	/* No BQ25960 charge pump on O6 */
+	bq25960-charger@65 {
+		status = "okay";
+		ti,bq25960,bus-ocp-threshold = <4350>;
+		ti,bq25960,bus-ocp-alarm-threshold = <4150>;
+	};
+
+	nu2115@master{
+		status = "disabled";
+	};
+
+	sc8541@master{
+		status = "okay";
+	};
+};
+
+&hq_chg_manager {
+	hq_chg_manager,input_power_over = <18>;
+	hq_chg_manager,model_name = "p6_6500mah_45w";
+	hq_chg_manager,charge_control_limit_max = <18>;
+
+	hq,pd-thermal-mitigation =
+		<8000 7000 6000 5400 5000
+		4500 4000 3500 3000 2700
+		2500 2300 2100 1800 1500
+		900  500  300>;
+
+	hq,qc2-thermal-mitigation =
+		<4000 3500 3000 2700 2500
+		2000 2000 1500 1500 1000
+		1000 1000 1000 1000 500
+		500  300  300>;
+
+	hq,pd-thermal-mitigation-fast =
+		<8000 7200 6700 6300 6000
+		5500 5000 4500 4000 3700
+		3500 3100 2900 2000 900
+		500 300 300 300>;
+
+	step_jeita {
+		max_charger_voltage = <12000000>;
+		rechg_fv_offset_cfg =
+			<(-100)	0	200
+			0	50	200
+			50	100	200
+			100	150	100
+			150	350	100
+			350	450	100
+			450	580	100>;
+
+		jeita_normal_cfg =
+		<(-100)	0	538	0	0	376	430	0	4500
+		1	50	1074	0	0	376	430	0	4500
+		51	100	2686	0	0	376	430	0	4500
+		101	150	4296	0	0	376	430	0	4500
+		151	350	8000	4100	5400	376	430	0	4480
+		351	450	8000	4100	5400	376	430	0	4480
+		451	580	2686	0	0	376	430	0	4500>;
+
+		jeita_ffc_cfg =
+		<151 350 8000 4100 6000 4300 5400 4500 4296 914 1074 0 4530
+		351 450 8000 4100 6000 4300	5400 4500 4296 1182	1396 0 4530>;
+	};
+
+
+	ffc_chg_cfg_bat_cycle {
+		cycle_count_data = <0 100 300 800>;
+		cycle_temp_data = <150 450>;
+
+		cycle_vol_data =
+		<4100 4300 4500 4530>, /* cycle 0 ~ 100, temp 15 ~ 45 */
+		<4050 4250 4450 4510>, /* cycle 101 ~ 300, temp 15 ~ 45 */
+		<4020 4220 4420 4490>, /* cycle 301 ~ 800, temp 15 ~ 45 */
+		<4000 4200 4400 4480>; /* cycle > 800 , temp 15 ~ 45 */
+
+		cycle_curr_data =
+		<8000 6000 5400 4296>, /* cycle 0 ~ 100, temp 15 ~ 45 */
+		<8000 6000 5400 4296>, /* cycle 101 ~ 300, temp 15 ~ 45 */
+		<8000 6000 5400 4296>, /* cycle 301 ~ 800, temp 15 ~ 45 */
+		<5400 4800 4320 1721>; /* cycle > 800 , temp 15 ~ 45 */
+	};
+
+	normal_chg_cfg_bat_cycle {
+		cycle_count_data = <0 100 300 800>;
+		cycle_temp_data = <150 450>;
+		cycle_vol_data = <4480>,<4470>,<4460>,<4440>;
+		cycle_curr_data = <5400>,<5400>,<5400>,<4320>;
+	};
+
+	eea_normal_chg_cfg_bat_cycle {
+		cycle_count_data = <0 100 300 800>;
+		cycle_temp_data = <150 450>;
+
+		cycle_vol_data =
+			<4100 4480>,
+			<4070 4470>,
+			<4070 4460>,
+			<4070 4440>;
+
+		cycle_curr_data =
+			<8000 5400>,
+			<8000 5400>,
+			<8000 5400>,
+			<5400 4320>;
+	};
+};
+
+&hq_cp_policy {
+	hq_cp_policy,max_ibat = <8000>;
+	hq_cp_policy,max_vbat = <4560>;
+};
+
+&xm_chg_uevent {
+	compatible = "xiaomi,xm-chg-uevent";
+	status = "okay";
+};
+
+&u2port0{
+	mediatek,rev6 = <2>;
+	mediatek,eye-vrt = <7>;
+	mediatek,eye-term = <4>;
+	mediatek,eye-src = <1>;
+	mediatek,eye-vrt-host = <7>;
+	mediatek,eye-term-host = <3>;
+	mediatek,rev6-host = <3>;
+};
+
+&mtk_gauge {
+	CAR_TUNE_VALUE = <(100)>;
+	/* Tune value for current measurement */
+
+};
+
+&lk_charger {
+	charging_host_charger_current = <900000>;
+};

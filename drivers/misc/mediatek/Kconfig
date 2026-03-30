@@ -144,7 +144,14 @@ source "drivers/misc/mediatek/usb20/Kconfig"
 source "drivers/misc/mediatek/irtx/Kconfig"
 source "drivers/misc/mediatek/pwm/Kconfig"
 source "drivers/misc/mediatek/sensor/Kconfig"
+# ultral bringup start
+source "drivers/misc/mediatek/elliptic/Kconfig"
+# ultral bringup end
 source "drivers/misc/mediatek/gate_ic/Kconfig"
+# P6 code for HQFEAT-109124 by tangjianxiong at 2025/6/10 start
+source "drivers/misc/mediatek/simtray/Kconfig"
+# P6 code for HQFEAT-109124 by tangjianxiong at 2025/6/10 end
+
 endmenu # Other Peripheral
 
 menu "Performance"

@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config SC_SUBPMIC_SC6601
+	tristate "southchip subpmic sc6601 device driver"
+	default n
+	help
+	  Say Y to support southchip subpmic sc6001 device driver.
+	  Say M here if you want to compile this driver as a module.
+
+config SC_SUBPMIC_BC12_PROTOCOL
+	tristate "southchip subpmic soft bc1.2 protocol"
+	default n
+	help
+	  Say Y to support southchip subpmic soft bc1.2 protocol.
+	  Say M here if you want to compile this driver as a module.

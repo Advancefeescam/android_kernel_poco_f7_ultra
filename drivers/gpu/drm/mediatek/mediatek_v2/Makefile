@@ -73,6 +73,11 @@ obj-y += mtk_dp_hdcp1x.o \
 endif
 
 mediatek-drm-$(CONFIG_DRM_FBDEV_EMULATION) += mtk_drm_fbdev.o
+# P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start
+ifeq ($(CONFIG_MI_DISP), y)
+include $(src)/mi_disp/Makefile
+endif
+# P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end
 
 obj-$(CONFIG_DRM_MEDIATEK) += mediatek-drm.o
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_sync.o
@@ -115,3 +120,8 @@ ccflags-y += -DCCORR_SUPPORT
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+# P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
+subdir-ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/
+# P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end

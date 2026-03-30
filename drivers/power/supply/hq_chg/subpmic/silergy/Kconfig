@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config SY_SUBPMIC_SY6976
+	tristate "silergy subpmic sy6976 device driver"
+	default n
+	help
+	  Say Y to support silergy subpmic sy6976 device driver.
+	  Say M here if you want to compile this driver as a module.
+
+config SY_SUBPMIC_BC12_PROTOCOL
+	tristate "silergy subpmic soft bc1.2 protocol"
+	default n
+	help
+	  Say Y to support silergy subpmic soft bc1.2 protocol.
+	  Say M here if you want to compile this driver as a module.

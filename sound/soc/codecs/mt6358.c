@@ -28,6 +28,12 @@
 #define MAX_DEBUG_WRITE_INPUT 256
 #define CODEC_SYS_DEBUG_SIZE (1024 * 32)
 
+/* P6 code for HQFEAT-109485 by p-dongfeiju1 at 2025/06/06 start */
+#if IS_ENABLED(CONFIG_SND_SOC_AW87XXX)
+extern int aw87xxx_add_codec_controls(void *codec);
+#endif
+/* P6 code for HQFEAT-109485 by p-dongfeiju1 at 2025/06/06 end */
+
 static ssize_t mt6358_codec_sysfs_read(struct file *filep, struct kobject *kobj,
 				       struct bin_attribute *attr,
 				       char *buf, loff_t offset, size_t size);
@@ -47,6 +53,14 @@ int mt6358_set_codec_ops(struct snd_soc_component *cmpnt,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt6358_set_codec_ops);
+
+/* P6 Ultral patch start */
+struct mic_timing {
+	bool m_amicenable;
+	unsigned int g_mux_pga_r;
+};
+static struct mic_timing m_mic_timing;
+/* P6 Ultral patch end */
 
 static struct bin_attribute codec_dev_attr_reg = {
 	.attr = {
@@ -2696,6 +2710,11 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 		 __func__, mic_type, mux_pga_l, mux_pga_r,
 		 mic_gain_l, mic_gain_r);
 
+	/* P6 Ultral patch start */
+	m_mic_timing.m_amicenable = true;
+	m_mic_timing.g_mux_pga_r = mux_pga_r;
+	/* P6 Ultral patch end */
+
 	if (IS_DCC_BASE(mic_type)) {
 		/* DCC 50k CLK (from 26M) */
 		regmap_write(priv->regmap, MT6358_AFE_DCCLK_CFG0, 0x2062);
@@ -2918,6 +2937,13 @@ static void mt6358_amic_disable(struct mt6358_priv *priv)
 		/* dcclk_div=11'b00100000011 */
 		regmap_write(priv->regmap, MT6358_AFE_DCCLK_CFG0, 0x2062);
 	}
+
+	/* P6 Ultral patch start */
+	if (m_mic_timing.m_amicenable) {
+		m_mic_timing.m_amicenable = false;
+	}
+	/* P6 Ultral patch end */
+
 }
 
 static int mt6358_dmic_enable(struct mt6358_priv *priv)
@@ -3388,6 +3414,35 @@ static int mt_pga_right_event(struct snd_soc_dapm_widget *w,
 		__func__, event, mux);
 
 	priv->mux_select[MUX_PGA_R] = mux;
+
+	/* P6 Ultral patch start */
+	if (m_mic_timing.m_amicenable) {
+		dev_info(priv->dev, "%s(), m_mic_timing.g_mux_pga_r %u, mux_pga_r %u\n",
+			__func__, m_mic_timing.g_mux_pga_r, mux);
+		if (m_mic_timing.g_mux_pga_r != mux) {
+			/* R preamplifier input sel */
+			regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
+				   RG_AUDPREAMPRINPUTSEL_MASK_SFT,
+				   mux << RG_AUDPREAMPRINPUTSEL_SFT);
+
+			/* R preamplifier enable */
+			regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
+				   RG_AUDPREAMPRON_MASK_SFT,
+				   0x1 << RG_AUDPREAMPRON_SFT);
+
+			/* R ADC input sel : R PGA. Enable audio R ADC */
+			regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
+				   RG_AUDADCRINPUTSEL_MASK_SFT,
+				   ADC_MUX_PREAMPLIFIER <<
+				   RG_AUDADCRINPUTSEL_SFT);
+			usleep_range(1000, 1050);
+			regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
+				   RG_AUDADCRPWRUP_MASK_SFT,
+				   0x1 << RG_AUDADCRPWRUP_SFT);
+		}
+		m_mic_timing.m_amicenable = false;
+	}
+	/* P6 Ultral patch end */
 
 	return 0;
 }
@@ -6569,8 +6624,10 @@ static void mt6358_codec_init_reg(struct mt6358_priv *priv)
 			   0x1 << RG_AUDLOLSCDISABLE_VAUDP15_SFT);
 
 	/* accdet s/w enable */
+#if !IS_ENABLED(CONFIG_SND_SOC_MT6366_ACCDET)
 	regmap_update_bits(priv->regmap, MT6358_ACCDET_CON13,
 			   0xFFFF, 0x700E);
+#endif
 
 	/* Set HP_EINT trigger level to 2.0v */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON11,
@@ -6656,6 +6713,14 @@ static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 				       mt6358_snd_vow_controls,
 				       ARRAY_SIZE(mt6358_snd_vow_controls));
 	mt6358_codec_init_reg(priv);
+/* P6 code for HQFEAT-109485 by p-dongfeiju1 at 2025/06/06 start */
+    #if IS_ENABLED(CONFIG_SND_SOC_AW87XXX)
+    pr_info("%s: aw87xxx_add_codec_controls enter \n", __func__);
+    if (aw87xxx_add_codec_controls(cmpnt) < 0) {
+        pr_err("%s: aw87xxx_add_codec_controls failed, ret= %d\n", __func__, ret);
+    }
+    #endif
+/* P6 code for HQFEAT-109485 by p-dongfeiju1 at 2025/06/06 end */
 
 #if !defined(SKIP_SB) && !defined(CONFIG_FPGA_EARLY_PORTING)
 	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
@@ -7673,6 +7738,11 @@ static int mt6358_platform_driver_probe(struct platform_device *pdev)
 
 	dev_info(priv->dev, "%s(), dev name %s\n",
 		 __func__, dev_name(&pdev->dev));
+
+	/* P6 Ultral patch start */
+	m_mic_timing.m_amicenable = false;
+	m_mic_timing.g_mux_pga_r = 0;
+	/* P6 Ultral patch end */
 
 	return devm_snd_soc_register_component(&pdev->dev,
 				      &mt6358_soc_component_driver,

@@ -6,3 +6,6 @@ imgsensor_isp6s-objs += \
 	../common/v1_1/camera_hw/regulator/regulator.o \
 	../common/v1_1/camera_hw/gpio/gpio.o \
 	../common/v1_1/camera_hw/mclk/mclk.o
+#P6 code for HQFEAT-117956 by geyanjie start
+imgsensor_isp6s-objs +=  ../common/v1_1/camera_hw/smartldo/smartldo.o
+#P6 code for HQFEAT-117956 by geyanjie end

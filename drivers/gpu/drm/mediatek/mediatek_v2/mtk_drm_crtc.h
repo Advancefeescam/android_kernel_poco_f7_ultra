@@ -28,7 +28,9 @@
 #include "mtk_disp_recovery.h"
 #include "mtk_drm_ddp_addon.h"
 #include "mtk_disp_pmqos.h"
-#include "slbc_ops.h"
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+#include "../../../misc/mediatek/slbc/slbc_ops.h"
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 
 #define MAX_CRTC 3
 #define OVL_LAYER_NR 12L
@@ -367,6 +369,10 @@ enum MTK_CRTC_PROP {
 	CRTC_PROP_SKIP_CONFIG,
 	CRTC_PROP_OVL_DSI_SEQ,
 	CRTC_PROP_OUTPUT_SCENARIO,
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+	/*MI FOD SYNC*/
+	CRTC_PROP_MI_FOD_SYNC_INFO,
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 	CRTC_PROP_MAX,
 };
 

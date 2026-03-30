@@ -29,3 +29,7 @@ obj-$(CONFIG_INPUT_MISC)	+= misc/
 obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
 
 obj-$(CONFIG_RMI4_CORE)		+= rmi4/
+obj-$(CONFIG_HAPTIC_NV)		+= haptic_86224/
+obj-$(CONFIG_INPUT_FS3XXX_HAPTIC)		+= fs3xxx_haptic_31/
+
+obj-$(CONFIG_XIAOMI_FINGERPRINT)	+= fingerprint/

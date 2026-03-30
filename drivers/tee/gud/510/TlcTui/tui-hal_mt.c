@@ -284,10 +284,11 @@ uint32_t hal_tui_deactivate(void)
 	 * This can be done by calling the fb_blank(FB_BLANK_POWERDOWN) function
 	 * on the appropriate framebuffer device
 	 */
-
+/*
 #ifdef TUI_ENABLE_TOUCH
 	tpd_enter_tui();
 #endif
+*/
 #ifdef TUI_LOCK_I2C
 	i2c_tui_clock_enable(0);
 #endif
@@ -330,10 +331,11 @@ uint32_t hal_tui_activate(void)
 	 * on the appropriate framebuffer device
 	 */
 	/* Clear linux TUI flag */
+/*
 #ifdef TUI_ENABLE_TOUCH
 	tpd_exit_tui();
 #endif
-
+*/
 #ifdef TUI_LOCK_I2C
 	i2c_tui_clock_disable(0);
 #endif

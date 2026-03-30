@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: GPL-2.0
+# southchip chargepump
+source "drivers/power/supply/hq_chg/chargepump/southchip/Kconfig"
+
+# nuvolta chargepump
+source "drivers/power/supply/hq_chg/chargepump/nuvolta/Kconfig"
+
+# ti chargepump
+source "drivers/power/supply/hq_chg/chargepump/ti/Kconfig"
+
+config CHARGEPUMP_SOUTHCHIP
+	tristate "use southchip chargepump charge architecture"
+	default n
+	help
+	  Say Y to support southchip chargepump charge architecture.
+	  Say M here if you want to compile this driver as a module.
+
+config CHARGEPUMP_NUVOLTA
+	tristate "use nuvolta chargepump charge architecture"
+	default n
+	help
+	  Say Y to support nuvolta chargepump charge architecture.
+	  Say M here if you want to compile this driver as a module.
+
+config CHARGEPUMP_TI
+	tristate "use ti chargepump charge architecture"
+	default n
+	help
+	  Say Y to support ti chargepump charge architecture.
+	  Say M here if you want to compile this driver as a module.

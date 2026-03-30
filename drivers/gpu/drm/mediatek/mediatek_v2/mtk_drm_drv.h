@@ -30,7 +30,12 @@
 #define CONFIG_MTK_DISPLAY_CMDQ
 #define MTK_FILL_MIPI_IMPEDANCE
 #endif
-
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 start */
+#ifdef CONFIG_MI_ESD_SUPPORT
+extern atomic_t is_lcm_inited_esd;
+extern atomic_t lcm_valid_irq;
+#endif
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 end */
 struct device;
 struct device_node;
 struct drm_crtc;

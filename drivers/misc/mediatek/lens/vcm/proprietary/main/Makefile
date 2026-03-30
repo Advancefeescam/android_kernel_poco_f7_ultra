@@ -66,4 +66,9 @@ mainaf-y  += common/bu63169af/OIS_func.o
 mainaf-y  += common/bu63169af/OIS_main.o
 mainaf-y  += common/bu63169af/OIS_user.o
 mainaf-y  += common/bu64253gwzaf/BU64253GWZAF.o
-
+# P6 code for HQFEAT-117953 by zhanziran at 20250609 start
+mainaf-y  += common/charoite_gt9764af/CHAROITE_GT9764AF.o
+# P6 code for HQFEAT-117953 by zhanziran at 20250609 end
+#P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 start
+mainaf-y  += common/charoite_chm9600/CHAROITE_CHM9600.o
+#P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 end

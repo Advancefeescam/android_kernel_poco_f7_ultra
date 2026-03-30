@@ -23,3 +23,9 @@ obj-$(CONFIG_MTK_THERMAL_INTERFACE)	+= thermal_interface.o
 obj-$(CONFIG_MTK_THERMAL_JATM)	+= thermal_jatm.o
 
 obj-$(CONFIG_MTK_BOARD_THERMAL)	+= board_temp.o
+
+# p6 code for charge by songweijie at 20250618 start
+obj-m += hq_charge_temp.o
+# p6 code for charge by songweijie at 20250618 end
+
+obj-m += mi_thermal_notify.o

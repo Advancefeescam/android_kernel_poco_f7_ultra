@@ -373,6 +373,11 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 		return;
 	}
 
+	if (curr_ctx->dev == NULL) {
+		mtk_v4l2_debug(0, "can't dump venc for NULL ctx->dev");
+		return;
+	}
+
 	dev = curr_ctx->dev;
 
 	mtk_v4l2_debug(0, "ctx: %p, is_codec_suspending: %d",
@@ -380,6 +385,10 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 
 	for (j = 0; j < MTK_VENC_CORE_1; j++) {
 		for (i = 0; i < REG1_COUNT; i++) {
+			if(dev->enc_reg_base[j] == NULL) {
+				mtk_v4l2_debug(0, "can't dump venc for NULL dev->enc_reg_base[%d]", j);
+				return;
+			}
 			value = readl(dev->enc_reg_base[j] + Reg_1[i]);
 			mtk_v4l2_debug(0, "[%d] 0x%x = 0x%lx",
 			    j, Reg_1[i], value);
@@ -391,6 +400,10 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 
 	for (j = 0; j < MTK_VENC_CORE_1; j++) {
 		for (i = 0; i < REG2_COUNT; i++) {
+			if(dev->enc_reg_base[j] == NULL) {
+				mtk_v4l2_debug(0, "can't dump venc for NULL dev->enc_reg_base[%d]", j);
+				return;
+			}
 			value = readl(dev->enc_reg_base[j] + Reg_2[i]);
 			mtk_v4l2_debug(0, "[%d] 0x%x = 0x%lx",
 			    j, Reg_2[i], value);

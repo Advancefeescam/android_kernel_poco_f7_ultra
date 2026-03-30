@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0
+config NU_SUBPMIC_NU6601
+	tristate "nuvolta nu6601 subpmic driver"
+	default n
+	help
+	  Say Y to support nuvolta subpmic nu6601 device driver.
+	  Say M here if you want to compile this driver as a module.

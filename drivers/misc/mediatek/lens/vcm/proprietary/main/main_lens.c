@@ -79,6 +79,14 @@ static struct stAF_OisPosInfo OisPosInfo;
 /* ------------------------- */
 
 static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
+	/* P6 code for HQFEAT-117953 by zhanziran at 20250609 start */
+	{1, AFDRV_CHAROITE_GT9764AF, CHAROITE_GT9764AF_SetI2Cclient, CHAROITE_GT9764AF_Ioctl,
+	 CHAROITE_GT9764AF_Release, CHAROITE_GT9764AF_GetFileName, NULL},
+	/* P6 code for HQFEAT-117953 by zhanziran at 20250609 end */
+	/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 start*/
+	{1, AFDRV_CHAROITE_CHM9600, CHAROITE_CHM9600_SetI2Cclient, CHAROITE_CHM9600_Ioctl,
+	 CHAROITE_CHM9600_Release, CHAROITE_CHM9600_GetFileName, NULL},
+	/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 end*/
 	{1, AFDRV_DW9718TAF, DW9718TAF_SetI2Cclient, DW9718TAF_Ioctl,
 	 DW9718TAF_Release, DW9718TAF_GetFileName, NULL},
 	{1, AFDRV_AK7371AF, AK7371AF_SetI2Cclient, AK7371AF_Ioctl,

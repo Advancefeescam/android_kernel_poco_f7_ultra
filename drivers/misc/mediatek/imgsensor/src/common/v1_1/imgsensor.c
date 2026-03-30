@@ -55,6 +55,9 @@
 #include "imgsensor_ca.h"
 #endif
 
+/*P6 code for HQFEAT-117956 by geyanjie start*/
+#include "camera_hw/smartldo/smartldo.h"
+/*P6 code for HQFEAT-117956 by geyanjie end*/
 #include "seninf_drv.h"
 
 static DEFINE_MUTEX(gimgsensor_mutex);
@@ -62,7 +65,11 @@ static DEFINE_MUTEX(gimgsensor_open_mutex);
 
 struct IMGSENSOR gimgsensor;
 MUINT32 last_id;
-
+/*P6 code for HQFEAT-144148 by xiexinli at 2025-7-3 start*/
+extern unsigned int iovdd_cnt;
+extern unsigned int avdd_cnt;
+extern unsigned int dvdd_cnt;
+/*P6 code for HQFEAT-144148 by xiexinli at 2025-7-3 end*/
 /******************************************************************************
  * Profiling
  ******************************************************************************/
@@ -555,6 +562,9 @@ static inline int imgsensor_check_is_alive(struct IMGSENSOR_SENSOR *psensor)
 	imgsensor_hw_power(&pimgsensor->hw,
 			psensor,
 			IMGSENSOR_HW_POWER_STATUS_OFF);
+/*P6 code for HQFEAT-117956 by geyanjie start*/
+	mdelay(5);
+/*P6 code for HQFEAT-117956 by geyanjie end*/
 	IMGSENSOR_PROFILE(&psensor_inst->profile_time, "CheckIsAlive");
 
 	return err ? -EIO : err;
@@ -1085,6 +1095,11 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 			(struct IMGSENSOR_SENSOR_LIST *)pFeaturePara;
 		/* NOTICE: MUINT32 (*init)(struct SENSOR_FUNCTION_STRUCT **pfFunc) */
 		/* Not used and don't use due to A32+K64 no support ioctl of address type */
+/*P6 code for HQFEAT-144148 by xiexinli at 2025-7-3 start*/
+		iovdd_cnt = 0;
+		avdd_cnt = 0;
+		dvdd_cnt = 0;
+/*P6 code for HQFEAT-144148 by xiexinli at 2025-7-3 end*/
 		if (FeatureParaLen < (1 * sizeof(MUINT32) + 32 * sizeof(MUINT8))) {
 			PK_DBG("FeatureParaLen is too small %d\n", FeatureParaLen);
 			kfree(pFeaturePara);
@@ -1972,6 +1987,14 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 		set_sensor_streaming_state((int)psensor->inst.sensor_idx, 1);
 		break;
 #endif
+/*P6 code for HQFEAT-117955 by geyanjie start*/
+	case SENSOR_FEATURE_SET_CURR_LENS_DATA:
+		ret = imgsensor_sensor_feature_control(psensor,
+					pFeatureCtrl->FeatureId,
+					(unsigned char *)pFeaturePara,
+					(unsigned int *)&FeatureParaLen);
+		break;
+/*P6 code for HQFEAT-117955 by geyanjie end*/
 	default:
 		ret = imgsensor_sensor_feature_control(psensor,
 					pFeatureCtrl->FeatureId,
@@ -2415,7 +2438,10 @@ static int imgsensor_probe(struct platform_device *pplatform_device)
 	}
 
 	phw->common.pplatform_device = pplatform_device;
-
+/*P6 code for HQFEAT-117956 by geyanjie start*/
+  	smartldo_i2c_create();
+/*P6 code for HQFEAT-117956 by geyanjie end*/
+  
 	imgsensor_hw_init(phw);
 	imgsensor_i2c_create();
 	imgsensor_proc_init();
@@ -2431,7 +2457,9 @@ static int imgsensor_probe(struct platform_device *pplatform_device)
 static int imgsensor_remove(struct platform_device *pplatform_device)
 {
 	struct IMGSENSOR *pimgsensor = &gimgsensor;
-
+/*P6 code for HQFEAT-117956 by geyanjie start*/
+  	smartldo_i2c_delete();
+/*P6 code for HQFEAT-117956 by geyanjie start*/
 	imgsensor_i2c_delete();
 
 	/* Release char driver */

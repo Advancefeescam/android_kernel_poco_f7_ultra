@@ -413,3 +413,9 @@ config MTK_SCP_AUDIO
 	  that can be used with other platforms
 	  Select Y if you have such device.
 	  If unsure select "N".
+
+config HQ_AUDIO_SUPPORT
+  tristate "Enable Huaqin Audio Driver"
+  default n
+  help
+    Huaqin Audio records whether the audio device is turned on or not

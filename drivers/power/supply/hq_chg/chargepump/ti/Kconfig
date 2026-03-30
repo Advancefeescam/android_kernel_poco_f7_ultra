@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0
+config TI_CHARGEPUMP_BQ25960
+	tristate "ti bq25960 chargepump driver"
+	default n
+	help
+	  Say Y to support ti chargepump bq25960 device driver.
+	  Say M here if you want to compile this driver as a module.

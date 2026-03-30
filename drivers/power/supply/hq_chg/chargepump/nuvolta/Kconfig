@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0
+config NU_CHARGEPUMP_NU2115
+	tristate "nuvolta nu2115 chargepump device driver"
+	default n
+	help
+	  Say Y to support nuvolta chargepump nu2115 device driver.
+	  Say M here if you want to compile this driver as a module.

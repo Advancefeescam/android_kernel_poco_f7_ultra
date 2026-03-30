@@ -47,10 +47,23 @@
 #include "mtk_disp_notify.h"
 #include "mtk_dsi.h"
 #include "platform/mtk_drm_6789.h"
-
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 start*/
+#ifdef CONFIG_MI_DISP_DFS_EVENT
+#include "mi_disp/mi_disp_event.h"
+#endif
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 end*/
 /* ************ Panel Master ********** */
 #include "mtk_fbconfig_kdebug.h"
 /* ********* end Panel Master *********** */
+
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 start */
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_feature.h"
+#include "mi_disp/mi_dsi_display.h"
+#include "mi_disp/mi_panel_ext.h"
+#endif
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 end */
+
 //#define DSI_SELF_PATTERN
 #define DSI_START 0x00
 #define SLEEPOUT_START BIT(2)
@@ -240,7 +253,9 @@
 
 #define DSI_SELF_PAT_CON0	0x178
 #define DSI_SELF_PAT_CON1	0x17c
-
+/* P6 code for HQFEAT-118666 by p-liaoxianguo at 2025/6/19 start */
+#define REFRESH_AOD 30
+/* P6 code for HQFEAT-118666 by p-liaoxianguo at 2025/6/19 end */
 //#define DSI_VM_CMD_CON 0x130
 #define VM_CMD_EN BIT(0)
 #define TS_VFP_EN BIT(5)
@@ -321,7 +336,11 @@
 
 struct phy;
 struct mtk_dsi;
-
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 start */
+#ifdef CONFIG_MI_DISP_NOTIFIER
+static int blank = 0;
+#endif
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 end */
 #define DSI_DCS_SHORT_PACKET_ID_0 0x05
 #define DSI_DCS_SHORT_PACKET_ID_1 0x15
 #define DSI_DCS_LONG_PACKET_ID 0x39
@@ -357,10 +376,14 @@ static const char * const mtk_dsi_porch_str[] = {
 
 #define AS_UINT32(x) (*(u32 *)((void *)x))
 
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+#ifndef CONFIG_MI_DISP
 struct mtk_dsi_mgr {
 	struct mtk_dsi *master;
 	struct mtk_dsi *slave;
 };
+#endif
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 
 enum DSI_MODE_CON {
 	MODE_CON_CMD = 0,
@@ -511,140 +534,95 @@ static void mtk_dsi_post_cmd(struct mtk_dsi *dsi,
 		cmdq_pkt_destroy(handle);
 	}
 }
-
+/* P6 code for HQFEAT-118317 by p-liaoxianguo at 2025/8/1 start */
 static void mtk_dsi_dphy_timconfig(struct mtk_dsi *dsi, void *handle)
 {
-	struct mtk_dsi_phy_timcon *phy_timcon = NULL;
-	u32 lpx = 0, hs_prpr = 0, hs_zero = 0, hs_trail = 0;
-	u32 ta_get = 0, ta_sure = 0, ta_go = 0, da_hs_exit = 0;
-	u32 clk_zero = 0, clk_trail = 0, da_hs_sync = 0;
-	u32 clk_hs_prpr = 0, clk_hs_exit = 0, clk_hs_post = 0;
+	u32 lpx = 0;
+	u32 da_hs_prep = 0, da_hs_zero = 0, da_hs_trail = 0, da_hs_exit = 0;
+	u32 clk_hs_prep = 0, clk_hs_zero = 0, clk_hs_trail = 0;
+	u32 clk_hs_post = 0, clk_hs_exit = 0;
+	u32 ta_get = 0, ta_sure = 0, ta_go = 0;
+	u32 da_hs_sync = 0;
 	u32 cont_det = 0;
-	u32 ui = 0, cycle_time = 0;
 	u32 value = 0;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 
+
 	DDPINFO("%s, line: %d, data rate=%d\n", __func__, __LINE__, dsi->data_rate);
-	ui = (1000 / dsi->data_rate > 0) ? 1000 / dsi->data_rate : 1;
-	cycle_time = 8000 / dsi->data_rate;
 
-	/* spec. lpx > 50ns */
-	lpx = NS_TO_CYCLE(75, cycle_time) + 1;
-	/* spec.  40ns+4ui < hs_prpr < 85ns+6ui */
-	hs_prpr = NS_TO_CYCLE((64 + 5 * ui), cycle_time) + 1;
-	/* spec.  hs_zero+hs_prpr > 145ns+10ui */
-	hs_zero = NS_TO_CYCLE((200 + 10 * ui), cycle_time);
-	hs_zero = hs_zero > hs_prpr ? hs_zero - hs_prpr : hs_zero;
 
-	/* spec.  hs_trail > max(8ui, 60ns+4ui) */
-	if (dsi->driver_data->dsi_new_trail)
-		hs_trail = (65 * dsi->data_rate + 4000) / 8000 + 5;
-	else
-		hs_trail = NS_TO_CYCLE((9 * ui), cycle_time)
-			> NS_TO_CYCLE((80 + 5 * ui), cycle_time) ? NS_TO_CYCLE((9 * ui), cycle_time)
-			: NS_TO_CYCLE((80 + 5 * ui), cycle_time);
+	lpx = (dsi->data_rate * 0x50) / 0x1F40 + 0x1;
+	da_hs_prep = (dsi->data_rate * 0x3B + 0xFA0) / 0x1F40 + 0x1;
+	da_hs_zero = (dsi->data_rate * 0xA3 + 0x2AF8) / 0x1F40 + 0x1 - da_hs_prep;
+	da_hs_trail = (dsi->data_rate * 0x4E + 0x1B58) / 0x1F40 + 0x1;
+	da_hs_exit = (dsi->data_rate * 0x76) / 0x1F40 + 0x1;
 
-	/* spec. ta_get = 5*lpx */
-	ta_get = 5 * lpx;
-	/* spec. ta_sure = 1.5*lpx */
-	ta_sure = 3 * lpx / 2;
-	/* spec. ta_go = 4*lpx */
-	ta_go = 4 * lpx;
-	/* spec. da_hs_exit > 100ns */
-	da_hs_exit = NS_TO_CYCLE(125, cycle_time) + 1;
 
-	/* spec. 38ns < clk_hs_prpr < 95ns */
-	clk_hs_prpr = NS_TO_CYCLE(64, cycle_time);
-	/* spec. clk_zero+clk_hs_prpr > 300ns */
-	clk_zero = NS_TO_CYCLE(350, cycle_time);
-	clk_zero = clk_zero > clk_hs_prpr ? clk_zero - clk_hs_prpr : clk_zero;
-	/* spec. clk_trail > 60ns */
-	if (dsi->driver_data->dsi_new_trail)
-		clk_trail = (80 * dsi->data_rate + 5000) / 8000 + 5;
-	else
-		clk_trail = NS_TO_CYCLE(80, cycle_time);
-	da_hs_sync = 1;
-	cont_det = 3;
+	clk_hs_prep = (dsi->data_rate * 0x39) / 0x1F40 + 0x1;
+	clk_hs_zero = (dsi->data_rate * 0x14A) / 0x1F40 + 0x1 - clk_hs_prep;
+	clk_hs_trail = (dsi->data_rate * 0x4E + 0x1B58) / 0x1F40 + 0x1;
+	clk_hs_post = (dsi->data_rate * 0x41 + 0xCF08) / 0x1F40 + 0x1;
+	clk_hs_exit = (dsi->data_rate * 0x76) / 0x1F40 + 0x1;
 
-	/* spec. clk_hs_exit > 100ns */
-	clk_hs_exit = NS_TO_CYCLE(125, cycle_time) + 1;
-	/* spec. clk_hs_post > 60ns+52ui */
-	clk_hs_post = NS_TO_CYCLE(90 + 52 * ui, cycle_time);
 
-	if (!(dsi->ext && dsi->ext->params))
-		goto CONFIG_REG;
+	ta_go = 0x4 * lpx;
+	ta_get = 0x5 * lpx;
+	ta_sure = 0x3 * lpx / 0x2;
+	da_hs_sync = 0x1;
+	cont_det = 0x0;
 
-	phy_timcon = &dsi->ext->params->phy_timcon;
-
-	lpx = CHK_SWITCH(phy_timcon->lpx, lpx);
-	hs_prpr = CHK_SWITCH(phy_timcon->hs_prpr, hs_prpr);
-	hs_zero = CHK_SWITCH(phy_timcon->hs_zero, hs_zero);
-	hs_trail = CHK_SWITCH(phy_timcon->hs_trail, hs_trail);
-
-	ta_get = CHK_SWITCH(phy_timcon->ta_get, ta_get);
-	ta_sure = CHK_SWITCH(phy_timcon->ta_sure, ta_sure);
-	ta_go = CHK_SWITCH(phy_timcon->ta_go, ta_go);
-	da_hs_exit = CHK_SWITCH(phy_timcon->da_hs_exit, da_hs_exit);
-
-	clk_zero = CHK_SWITCH(phy_timcon->clk_zero, clk_zero);
-	clk_trail = CHK_SWITCH(phy_timcon->clk_trail, clk_trail);
-	da_hs_sync = CHK_SWITCH(phy_timcon->da_hs_sync, da_hs_sync);
-
-	clk_hs_prpr = CHK_SWITCH(phy_timcon->clk_hs_prpr, clk_hs_prpr);
-	clk_hs_exit = CHK_SWITCH(phy_timcon->clk_hs_exit, clk_hs_exit);
-	clk_hs_post = CHK_SWITCH(phy_timcon->clk_hs_post, clk_hs_post);
-
-CONFIG_REG:
-	//N4/5 must add this constraint, N6 is option, so we use the same
-	lpx = (lpx % 2) ? lpx + 1 : lpx; //lpx must be even
-	hs_prpr = (hs_prpr % 2) ? hs_prpr + 1 : hs_prpr; //hs_prpr must be even
-	hs_prpr = hs_prpr >= 6 ? hs_prpr : 6; //hs_prpr must be more than 6
-	da_hs_exit = (da_hs_exit % 2) ? da_hs_exit : da_hs_exit + 1; //must be odd
 
 	value = REG_FLD_VAL(FLD_LPX, lpx)
-		| REG_FLD_VAL(FLD_HS_PREP, hs_prpr)
-		| REG_FLD_VAL(FLD_HS_ZERO, hs_zero)
-		| REG_FLD_VAL(FLD_HS_TRAIL, hs_trail);
+		| REG_FLD_VAL(FLD_HS_PREP, da_hs_prep)
+		| REG_FLD_VAL(FLD_HS_ZERO, da_hs_zero)
+		| REG_FLD_VAL(FLD_HS_TRAIL, da_hs_trail);
+
 
 	if (handle)
 		cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
-			comp->regs_pa+DSI_PHY_TIMECON0, value, ~0);
+			comp->regs_pa + DSI_PHY_TIMECON0, value, ~0);
 	else
 		writel(value, dsi->regs + DSI_PHY_TIMECON0);
+
 
 	value = REG_FLD_VAL(FLD_TA_GO, ta_go)
 		| REG_FLD_VAL(FLD_TA_SURE, ta_sure)
 		| REG_FLD_VAL(FLD_TA_GET, ta_get)
 		| REG_FLD_VAL(FLD_DA_HS_EXIT, da_hs_exit);
 
+
 	if (handle)
 		cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
-			comp->regs_pa+DSI_PHY_TIMECON1, value, ~0);
+			comp->regs_pa + DSI_PHY_TIMECON1, value, ~0);
 	else
 		writel(value, dsi->regs + DSI_PHY_TIMECON1);
 
+
 	value = REG_FLD_VAL(FLD_CONT_DET, cont_det)
 		| REG_FLD_VAL(FLD_DA_HS_SYNC, da_hs_sync)
-		| REG_FLD_VAL(FLD_CLK_HS_ZERO, clk_zero)
-		| REG_FLD_VAL(FLD_CLK_HS_TRAIL, clk_trail);
+		| REG_FLD_VAL(FLD_CLK_HS_ZERO, clk_hs_zero)
+		| REG_FLD_VAL(FLD_CLK_HS_TRAIL, clk_hs_trail);
+
 
 	if (handle)
 		cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
-			comp->regs_pa+DSI_PHY_TIMECON2, value, ~0);
+			comp->regs_pa + DSI_PHY_TIMECON2, value, ~0);
 	else
 		writel(value, dsi->regs + DSI_PHY_TIMECON2);
 
-	value = REG_FLD_VAL(FLD_CLK_HS_PREP, clk_hs_prpr)
+
+	value = REG_FLD_VAL(FLD_CLK_HS_PREP, clk_hs_prep)
 		| REG_FLD_VAL(FLD_CLK_HS_POST, clk_hs_post)
 		| REG_FLD_VAL(FLD_CLK_HS_EXIT, clk_hs_exit);
 
+
 	if (handle)
 		cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
-			comp->regs_pa+DSI_PHY_TIMECON3, value, ~0);
+			comp->regs_pa + DSI_PHY_TIMECON3, value, ~0);
 	else
 		writel(value, dsi->regs + DSI_PHY_TIMECON3);
 }
-
+/* P6 code for HQFEAT-118317 by p-liaoxianguo at 2025/8/1 end */
 static void mtk_dsi_cphy_timconfig(struct mtk_dsi *dsi, void *handle)
 {
 	struct mtk_drm_private *priv = dsi->ddp_comp.mtk_crtc->base.dev->dev_private;
@@ -1186,6 +1164,26 @@ static void mtk_dsi_set_mode(struct mtk_dsi *dsi)
 	}
 	writel(vid_mode, dsi->regs + DSI_MODE_CTRL);
 }
+
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+static u32 mtk_dsi_get_mode(struct mtk_dsi *dsi)
+{
+	u32 vid_mode = CMD_MODE;
+	if(!dsi) {
+		DDPPR_ERR("%s:dsi is NULL\n", __func__);
+		return 0;
+	}
+	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
+		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST)
+			vid_mode = BURST_MODE;
+		else if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE)
+			vid_mode = SYNC_PULSE_MODE;
+		else
+			vid_mode = SYNC_EVENT_MODE;
+	}
+	return vid_mode;
+}
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 
 static void mtk_dsi_set_vm_cmd(struct mtk_dsi *dsi)
 {
@@ -1973,6 +1971,11 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 					MTK_DRM_OPT_DSI_UNDERRUN_AEE)) {
 				DDPAEE("[IRQ] %s:buffer underrun\n",
 					mtk_dump_comp_str(&dsi->ddp_comp));
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 start*/
+#ifdef CONFIG_MI_DISP_DFS_EVENT
+				mi_disp_mievent_int(MI_DISP_PRIMARY, MI_EVENT_PANEL_UNDERRUN);
+#endif
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 end*/
 			}
 
 			if (dsi_underrun_trigger == 1 && dsi->encoder.crtc) {
@@ -2056,7 +2059,16 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 		if (status & FRAME_DONE_INT_FLAG) {
 			struct mtk_drm_private *priv = NULL;
 			int vrefresh = 0;
-
+			/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+			#ifdef CONFIG_MI_DISP_FOD_SYNC
+			if (panel_ext && panel_ext->params->aod_delay_enable) {
+				if (!dsi->mi_cfg.aod_wait_frame) {
+					complete(&dsi->aod_wait_completion);
+					dsi->mi_cfg.aod_wait_frame = true;
+				}
+			}
+			#endif
+			/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 			if (mtk_crtc && mtk_crtc->base.dev)
 				priv = mtk_crtc->base.dev->dev_private;
 			if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
@@ -2257,8 +2269,10 @@ static void mtk_dsi_exit_ulps(struct mtk_dsi *dsi)
 
 static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle);
 
-static void mipi_dsi_dcs_write_gce2(struct mtk_dsi *dsi, struct cmdq_pkt *dummy,
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+void mipi_dsi_dcs_write_gce2(struct mtk_dsi *dsi, struct cmdq_pkt *dummy,
 					  const void *data, size_t len);
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 
 static void mtk_dsi_cmdq_pack_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 					struct mtk_ddic_dsi_cmd *para_table);
@@ -2289,7 +2303,17 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 	else if (!doze_enabled && panel_funcs->doze_disable)
 		panel_funcs->doze_disable(dsi->panel, dsi,
 			mipi_dsi_dcs_write_gce2, NULL);
-
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 start */
+#ifdef CONFIG_MI_DISP_NOTIFIER
+	if (doze_enabled) {
+		blank = MI_DISP_DPMS_LP1;
+		g_notify_data.data = &blank;
+		g_notify_data.disp_id = MI_DISPLAY_PRIMARY;
+		mi_disp_notifier_call_chain(MI_DISP_DPMS_EVENT, &g_notify_data);
+		mi_disp_feature_event_notify_by_type(mi_get_disp_id("primary"), MI_DISP_EVENT_POWER, sizeof(blank), blank);
+	}
+#endif
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 end */
 	/* Display mode switch */
 	if (panel_funcs->doze_get_mode_flags) {
 		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
@@ -2341,10 +2365,22 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 			mtk_dsi_start(dsi);
 		}
 	}
-
-	if (doze_enabled && panel_funcs->doze_enable)
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+	if (doze_enabled && panel_funcs->doze_enable) {
 		panel_funcs->doze_enable(dsi->panel, dsi,
 			mipi_dsi_dcs_write_gce2, NULL);
+		#ifdef CONFIG_MI_DISP_FOD_SYNC
+		if (dsi->ext && dsi->ext->params &&
+			dsi->ext->params->aod_delay_enable) {
+			dsi->mi_cfg.aod_wait_frame = false;
+			reinit_completion(&dsi->aod_wait_completion);
+		}
+		if (dsi->ext && dsi->ext->params &&
+				dsi->ext->params->bl_sync_enable)
+			dsi->mi_cfg.bl_enable = false;
+		#endif
+	}
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 
 	if (doze_enabled && panel_funcs->doze_area)
 		panel_funcs->doze_area(dsi->panel, dsi,
@@ -2482,10 +2518,26 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 	unsigned int mode_id = mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
 	unsigned int mode_chg_index = 0;
-
+/* P6 code for HQFEAT-180675 by p-liaoxianguo at 2025/9/10 start */
+	struct mtk_drm_private *priv = NULL;
+	if (mtk_crtc && mtk_crtc->base.dev)
+		priv = mtk_crtc->base.dev->dev_private;
+/* P6 code for HQFEAT-180675 by p-liaoxianguo at 2025/9/10 end */
 	DDPINFO("%s +\n", __func__);
 
 	if (dsi->output_en) {
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 start */
+#ifdef CONFIG_MI_DISP_NOTIFIER
+		if (!new_doze_state) {
+			blank = MI_DISP_DPMS_ON;
+			g_notify_data.data = &blank;
+			g_notify_data.disp_id = MI_DISPLAY_PRIMARY;
+			mi_disp_notifier_call_chain(MI_DISP_DPMS_EVENT, &g_notify_data);
+			mi_disp_feature_event_notify_by_type(mi_get_disp_id("primary"),
+				MI_DISP_EVENT_POWER, sizeof(blank), blank);
+		}
+#endif
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 end */
 		if (mtk_dsi_doze_status_change(dsi)) {
 			mtk_dsi_pre_cmd(dsi, crtc);
 			mtk_output_en_doze_switch(dsi);
@@ -2503,12 +2555,23 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 		}
 	}
 
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+	if (dsi->panel && dsi->ext->funcs->init_power) {
+		dsi->ext->funcs->init_power(dsi->panel);
+		DDPINFO("lcm power up before dsi\n");
+	}
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
+
 	ret = mtk_preconfig_dsi_enable(dsi);
 	if (ret < 0) {
 		dev_err(dsi->dev, "config dsi fail: %d", ret);
 		return;
 	}
-
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 start */
+#ifdef CONFIG_MI_ESD_SUPPORT
+	atomic_set(&lcm_valid_irq,1);
+#endif
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 end */
 	if (dsi->panel) {
 		DDP_PROFILE("[PROFILE] %s panel init start\n", __func__);
 		if ((!dsi->doze_enabled || force_lcm_update)
@@ -2516,6 +2579,11 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 			DDPPR_ERR("failed to prepare the panel\n");
 			return;
 		}
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 start */
+#ifdef CONFIG_MI_ESD_SUPPORT
+		atomic_set(&is_lcm_inited_esd,1);
+#endif
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 end */
 		DDP_PROFILE("[PROFILE] %s panel init end\n", __func__);
 		mode_chg_index = mtk_crtc->mode_change_index;
 
@@ -2531,14 +2599,33 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 					mode_id, AFTER_DSI_POWERON);
 			}
 		}
-
+/* P6 code for HQFEAT-180675 by p-liaoxianguo at 2025/9/10 start */
+		if (!IS_ERR_OR_NULL(priv->data)
+			&& (priv->data->mmsys_id == MMSYS_MT6789)
+			&& !(dsi->mode_flags & MIPI_DSI_MODE_LPM)) {
+			mtk_dsi_clk_hs_mode(dsi, 1);
+			if (dsi->slave_dsi)
+				mtk_dsi_clk_hs_mode(dsi->slave_dsi, 1);
+		}
+/* P6 code for HQFEAT-180675 by p-liaoxianguo at 2025/9/10 end */
 		if (new_doze_state && !dsi->doze_enabled) {
 			if (ext && ext->funcs &&
 				ext->funcs->doze_enable_start)
 				ext->funcs->doze_enable_start(dsi->panel, dsi,
 					mipi_dsi_dcs_write_gce2, NULL);
+			/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+			#ifdef CONFIG_MI_DISP_FOD_SYNC
+			if (ext && ext->params && ext->params->aod_delay_enable) {
+				dsi->mi_cfg.aod_wait_frame = false;
+				reinit_completion(&dsi->aod_wait_completion);
+			}
+			if (ext && ext->params && ext->params->bl_sync_enable)
+				dsi->mi_cfg.bl_enable = false;
+			#endif
+			}
+			/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 			if (ext && ext->funcs
-				&& ext->funcs->doze_enable)
+				&& ext->funcs->doze_enable) {
 				ext->funcs->doze_enable(dsi->panel, dsi,
 					mipi_dsi_dcs_write_gce2, NULL);
 			if (ext && ext->funcs
@@ -2606,7 +2693,27 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 
 	dsi->output_en = true;
 	dsi->doze_enabled = new_doze_state;
-
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 start */
+#ifdef CONFIG_MI_DISP_NOTIFIER
+	if (new_doze_state)
+		blank = MI_DISP_DPMS_LP1;
+	else
+		blank = MI_DISP_DPMS_ON;
+	g_notify_data.data = &blank;
+	g_notify_data.disp_id = MI_DISPLAY_PRIMARY;
+	mi_disp_notifier_call_chain(MI_DISP_DPMS_EVENT, &g_notify_data);
+	mi_disp_feature_event_notify_by_type(mi_get_disp_id("primary"),
+		MI_DISP_EVENT_POWER, sizeof(blank), blank);
+#endif
+/* P6 code for BUGP6-551 by p-liaoxianguo at 2025/07/08 start */
+#ifdef CONFIG_MI_DISP
+	if (dsi && mi_disp_lhbm_fod_enabled(dsi)) {
+		mi_disp_lhbm_fod_allow_tx_lhbm(dsi, true);
+		//wake up lhbm_fod pending work
+	}
+#endif
+/* P6 code for BUGP6-551 by p-liaoxianguo at 2025/07/08 end */
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 end */
 	DDPINFO("%s -\n", __func__);
 	return;
 
@@ -2658,13 +2765,44 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 {
 	bool new_doze_state = mtk_dsi_doze_state(dsi);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
-
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+#ifdef CONFIG_MI_DISP_DOZE_SUSPEND
+	bool fod_anim_flag = false;
+#endif
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 	DDPINFO("%s+ doze_enabled:%d\n", __func__, new_doze_state);
 	if (!dsi->output_en)
 		return;
 
 	mtk_drm_crtc_wait_blank(mtk_crtc);
 
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+#ifdef CONFIG_MI_DISP_DOZE_SUSPEND
+	if (dsi->ext && dsi->ext->params)
+		fod_anim_flag = dsi->mi_cfg.fod_anim_flag;
+	DDPINFO("%s fod_anim_flag:%d\n", __func__, fod_anim_flag);
+#endif
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
+/* P6 code for BUGP6-551 by p-liaoxianguo at 2025/07/08 start */
+#ifdef CONFIG_MI_DISP
+	if (dsi && mi_disp_lhbm_fod_enabled(dsi)) {
+		mi_disp_lhbm_fod_allow_tx_lhbm(dsi, false);
+	}
+#endif
+/* P6 code for BUGP6-551 by p-liaoxianguo at 2025/07/08 end */
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 start */
+#ifdef CONFIG_MI_DISP_NOTIFIER
+	if (new_doze_state) {
+		blank = MI_DISP_DPMS_LP2;
+	} else {
+		blank = MI_DISP_DPMS_POWERDOWN;
+	}
+	g_notify_data.data = &blank;
+	g_notify_data.disp_id = MI_DISPLAY_PRIMARY;
+	mi_disp_notifier_call_chain(MI_DISP_DPMS_EARLY_EVENT, &g_notify_data);
+	mi_disp_feature_event_notify_by_type(mi_get_disp_id("primary"), MI_DISP_EVENT_POWER, sizeof(blank), blank);
+#endif
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 end */
 	/* 1. If not doze mode, turn off backlight */
 	if (dsi->panel && (!new_doze_state || force_lcm_update)) {
 		if (drm_panel_disable(dsi->panel)) {
@@ -2687,7 +2825,11 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 
 	if (dsi->slave_dsi)
 		mtk_dsi_dual_enable(dsi, false);
-
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 start */
+#ifdef CONFIG_MI_ESD_SUPPORT
+	atomic_set(&is_lcm_inited_esd,0);
+#endif
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 end */
 	/* 3. turn off panel or set to doze mode */
 	if (dsi->panel) {
 		if (!new_doze_state || force_lcm_update) {
@@ -2704,7 +2846,11 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 	mtk_dsi_disable(dsi);
 	mtk_dsi_stop(dsi);
 	mtk_dsi_poweroff(dsi);
-
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 start */
+#ifdef CONFIG_MI_DISP_NOTIFIER
+	mi_disp_notifier_call_chain(MI_DISP_DPMS_EVENT, &g_notify_data);
+#endif
+/* P6 code for HQFEAT-109484 by p-zhaobeidou3 at 2025/06/13 end */
 	if (dsi->slave_dsi) {
 		/* set DSI into ULPS mode */
 		mtk_dsi_reset_engine(dsi->slave_dsi);
@@ -2780,7 +2926,12 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 					&data);
 
 	mtk_output_dsi_disable(dsi, NULL, false, true);
-
+/* P6 code for HQFEAT-126105 by p-chenchen79 at 2025/6/27 start */
+	if (dsi->panel && dsi->ext->funcs->power_down) {
+		dsi->ext->funcs->power_down(dsi->panel);
+		DDPINFO("lcm power down after dsi\n");
+	}
+/* P6 code for HQFEAT-126105 by p-chenchen79 at 2025/6/27 end */
 	if (index == 0)
 		mtk_disp_notifier_call_chain(MTK_DISP_EVENT_BLANK,
 					&data);
@@ -3073,17 +3224,16 @@ static int mtk_dsi_trigger(struct mtk_ddp_comp *comp, void *handle)
 
 	return 0;
 }
-
+/* P6 code for HQFEAT-180675 by p-liaoxianguo at 2025/9/10 start */
 int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
-			struct DSI_T0_INS *t0, int i, void *ptr)
+			struct DSI_T0_INS *t0, struct DSI_T0_INS *t1,int i, void *ptr)
 {
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)ptr;
+	struct mtk_drm_private *priv = NULL;
 
-	if (mtk_crtc == NULL) {
-		DDPPR_ERR("%s dsi comp not configure CRTC yet", __func__);
-		return -EAGAIN;
-	}
+	if (mtk_crtc && mtk_crtc->base.dev)
+		priv = mtk_crtc->base.dev->dev_private;
 
 	mtk_dsi_poll_for_idle(dsi, handle);
 	if (dsi->slave_dsi) {
@@ -3091,12 +3241,28 @@ int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
 				dsi->slave_dsi->ddp_comp.regs_pa + DSI_CON_CTRL,
 				0x0, DSI_DUAL_EN);
 	}
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq0_ofs,
-		0x00013700, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq1_ofs,
-		AS_UINT32(t0), ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ_SIZE,
-		0x2, CMDQ_SIZE);
+
+	if (!IS_ERR_OR_NULL(priv) && !IS_ERR_OR_NULL(priv->data)
+		&& (priv->data->mmsys_id == MMSYS_MT6789)
+		&& !(dsi->mode_flags & MIPI_DSI_MODE_LPM)) {
+		mtk_ddp_write_mask(comp, 0, DSI_TXRX_CTRL, HSTX_CKLP_EN, handle);
+		mtk_ddp_write_mask(comp, DIS_EOT, DSI_TXRX_CTRL, DIS_EOT, handle);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq0_ofs,
+			AS_UINT32(t0), ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq0_ofs + 4 * 1,
+			AS_UINT32(t0), ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq0_ofs + 4 * 2,
+			AS_UINT32(t1), ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ_SIZE,
+			0x03, CMDQ_SIZE);
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq0_ofs,
+			AS_UINT32(t0), ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq1_ofs,
+			AS_UINT32(t1), ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ_SIZE,
+			0x2, CMDQ_SIZE);
+	}
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START,
 		0x0, ~0);
@@ -3128,6 +3294,12 @@ int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
 				dsi->slave_dsi->ddp_comp.regs_pa + DSI_CON_CTRL,
 				DSI_DUAL_EN, DSI_DUAL_EN);
 	}
+	if (!IS_ERR_OR_NULL(priv) && !IS_ERR_OR_NULL(priv->data)
+		&& (priv->data->mmsys_id == MMSYS_MT6789)
+		&& !(dsi->mode_flags & MIPI_DSI_MODE_LPM)) {
+		mtk_ddp_write_mask(comp, HSTX_CKLP_EN, DSI_TXRX_CTRL, HSTX_CKLP_EN, handle);
+		mtk_ddp_write_mask(comp, 0, DSI_TXRX_CTRL, DIS_EOT, handle);
+	}
 	return 0;
 }
 
@@ -3135,8 +3307,21 @@ int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 {
 	int i;
 	struct DSI_T0_INS t0;
+	struct DSI_T0_INS t1;
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	struct mtk_panel_params *params;
+	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)ptr;
+	struct mtk_drm_private *priv = NULL;
+
+	if (mtk_crtc && mtk_crtc->base.dev)
+		priv = mtk_crtc->base.dev->dev_private;
+
+/* P6 code for HQFEAT-118666 by p-liaoxianguo at 2025/6/19 start */
+/* P6 code for BUGP6-1193 by p-chenchen79 at 2025/8/7 start */
+	if (dsi->doze_enabled || dsi->mi_cfg.feature_val[DISP_FEATURE_DOZE_BRIGHTNESS] || dsi->mi_cfg.lhbm_en)
+		return 0;
+/* P6 code for BUGP6-1193 by p-chenchen79 at 2025/8/7 end */
+/* P6 code for HQFEAT-118666 by p-liaoxianguo at 2025/6/19 end */
 
 	if (dsi->ext && dsi->ext->params)
 		params = dsi->ext->params;
@@ -3148,14 +3333,27 @@ int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 		if (params->lcm_esd_check_table[i].cmd == 0)
 			break;
 
-		t0.CONFG = 0x04;
-		t0.Data0 = params->lcm_esd_check_table[i].cmd;
-		t0.Data_ID = (t0.Data0 < 0xB0)
-				     ? DSI_DCS_READ_PACKET_ID
-				     : DSI_GERNERIC_READ_LONG_PACKET_ID;
+		if (!IS_ERR_OR_NULL(priv) && !IS_ERR_OR_NULL(priv->data)
+		&& (priv->data->mmsys_id == MMSYS_MT6789)
+		&& !(dsi->mode_flags & MIPI_DSI_MODE_LPM)) {
+			t0.CONFG = 0x08;
+			t1.CONFG = 0x0c;
+		}else{
+			t0.CONFG = 0x00;
+			t1.CONFG = 0x04;
+		}
+
+		t0.Data_ID = 0x37;
+		t0.Data0 = params->lcm_esd_check_table[i].count;
 		t0.Data1 = 0;
 
-		mtk_dsi_read_gce(comp, handle, &t0, i, ptr);
+		t1.Data0 = params->lcm_esd_check_table[i].cmd;
+		t1.Data_ID = (t1.Data0 < 0xB0)
+				     ? DSI_DCS_READ_PACKET_ID
+				     : DSI_GERNERIC_READ_LONG_PACKET_ID;
+		t1.Data1 = 0;
+
+		mtk_dsi_read_gce(comp, handle, &t0, &t1,i, ptr);
 	}
 
 	return 0;
@@ -3163,8 +3361,8 @@ int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 
 int mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 {
-	int i, ret = 0;
-	u32 tmp0, tmp1, chk_val;
+	int i, j, ret = 0;
+	u32 tmp0, tmp1, chk_val[4] = {0};
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	struct esd_check_item *lcm_esd_tb;
 	struct mtk_panel_params *params;
@@ -3174,7 +3372,12 @@ int mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 		params = dsi->ext->params;
 	else /* can't find panel ext information, stop esd read */
 		return 0;
-
+/* P6 code for HQFEAT-118666 by p-liaoxianguo at 2025/6/19 start */
+/* P6 code for BUGP6-1193 by p-chenchen79 at 2025/8/7 start */
+	if (dsi->doze_enabled || dsi->mi_cfg.feature_val[DISP_FEATURE_DOZE_BRIGHTNESS] || dsi->mi_cfg.lhbm_en)
+		return 0;
+/* P6 code for BUGP6-1193 by p-chenchen79 at 2025/8/7 end */
+/* P6 code for HQFEAT-118666 by p-liaoxianguo at 2025/6/19 end */
 	for (i = 0; i < ESD_CHECK_NUM; i++) {
 		if (dsi->ext->params->lcm_esd_check_table[i].cmd == 0)
 			break;
@@ -3191,27 +3394,42 @@ int mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 
 		lcm_esd_tb = &params->lcm_esd_check_table[i];
 
-		if ((tmp0 & 0xff) == 0x1C)
-			chk_val = tmp1 & 0xff;
-		else
-			chk_val = (tmp0 >> 8) & 0xff;
-
-		if (lcm_esd_tb->mask_list[0])
-			chk_val = chk_val & lcm_esd_tb->mask_list[0];
-
-		if (chk_val == lcm_esd_tb->para_list[0]) {
-			ret = 0;
+		if ((tmp0 & 0xff) == 0x1C || (tmp0 & 0xff) == 0x1A){
+			for (j = 0; j < lcm_esd_tb->count && j < 4; j++) {
+				chk_val[j] = tmp1 & 0xff;
+				tmp1 = tmp1 >> 8;
+			}
 		} else {
-			DDPPR_ERR("[DSI]esd cmp fail:read(0x%x)!=expect(0x%x)\n",
-				  chk_val, lcm_esd_tb->para_list[0]);
-			ret = -1;
-			break;
+			tmp0 = tmp0 >> 8;
+			tmp1 = tmp1 & 0xff;
+			tmp0 = (tmp1 << 24) + tmp0;
+			for (j = 0; j < lcm_esd_tb->count && j < 4; j++) {
+				chk_val[j] = tmp0 & 0xff;
+				tmp0 = tmp0 >> 8;
+			}
+		}
+
+		for (j = 0; j < lcm_esd_tb->count && j < 4; j++) {
+			if (lcm_esd_tb->mask_list[j])
+				chk_val[j] = chk_val[j] & lcm_esd_tb->mask_list[j];
+	/* P6 code for HQFEAT-180675 by p-liaoxianguo at 2025/9/12 start */
+			if (chk_val[j] == lcm_esd_tb->para_list[j]) {
+				ret = 0;
+			} else {
+				for (j = 0; j < lcm_esd_tb->count && j < 4; j++) {
+					DDPPR_ERR("[DSI]esd cmp fail:read(0x%x)!=expect(0x%x)\n",
+							  chk_val[j], lcm_esd_tb->para_list[j]);
+				}
+				ret = -1;
+				return ret;
+			}
+	/* P6 code for HQFEAT-180675 by p-liaoxianguo at 2025/9/12 end */
 		}
 	}
 
 	return ret;
 }
-
+/* P6 code for HQFEAT-180675 by p-liaoxianguo at 2025/9/10 end */
 static const char *mtk_dsi_cmd_mode_parse_state(unsigned int state)
 {
 	switch (state) {
@@ -4081,12 +4299,28 @@ static void mtk_dsi_cmdq(struct mtk_dsi *dsi, const struct mipi_dsi_msg *msg)
 	u8 config, cmdq_size, cmdq_off, type = msg->type;
 	u32 reg_val, cmdq_mask, i;
 	unsigned long goto_addr;
+/* P6 code for HQFEAT-180675 by p-liaoxianguo at 2025/9/10 start */
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_drm_private *priv = NULL;
+
+	if (mtk_crtc && mtk_crtc->base.dev)
+		priv = mtk_crtc->base.dev->dev_private;
 
 	if (MTK_DSI_HOST_IS_READ(type))
 		config = BTA;
-	else
+	else{
 		config = (msg->tx_len > 2) ? LONG_PACKET : SHORT_PACKET;
-
+		if (!IS_ERR_OR_NULL(priv) && !IS_ERR_OR_NULL(priv->data)
+		&& (priv->data->mmsys_id == MMSYS_MT6789)
+		&& !(dsi->mode_flags & MIPI_DSI_MODE_LPM) &&
+		(tx_buf[0] == 0x28 || tx_buf[0] == 0x10 || (tx_buf[0] == 0xa4 && tx_buf[1] == 0x01) || (tx_buf[0] == 0xf0 && tx_buf[1] == 0xaa && tx_buf[2] == 0x10)
+			|| (tx_buf[0] == 0xd0 && tx_buf[1] == 0xa4 && tx_buf[2] == 0x68 && tx_buf[3] == 0x22 && tx_buf[4] == 0x22 && tx_buf[5] == 0x86) || (tx_buf[0] == 0xD1 && tx_buf[1] == 0x1a)
+			|| (tx_buf[0] == 0xa4 && tx_buf[1] == 0x00) || (tx_buf[0] == 0xa4 && tx_buf[1] == 0x02) || (tx_buf[0] == 0xa6 && tx_buf[1] == 0x0f))) {
+			config |= HSTX;
+		}
+	}
+/* P6 code for HQFEAT-180675 by p-liaoxianguo at 2025/9/10 end */
 	if (msg->tx_len > 2) {
 		cmdq_size = 1 + (msg->tx_len + 3) / 4;
 		cmdq_off = 4;
@@ -4186,12 +4420,25 @@ static void mtk_dsi_cmdq_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 	u8 config, cmdq_size, cmdq_off, type = msg->type;
 	u32 reg_val, cmdq_mask, i;
 	unsigned long goto_addr;
+/* P6 code for HQFEAT-180675 by p-liaoxianguo at 2025/9/10 start */
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_drm_private *priv = NULL;
+
+	if (mtk_crtc && mtk_crtc->base.dev)
+		priv = mtk_crtc->base.dev->dev_private;
 
 	if (MTK_DSI_HOST_IS_READ(type))
 		config = BTA;
-	else
+	else{
 		config = (msg->tx_len > 2) ? LONG_PACKET : SHORT_PACKET;
-
+		if (!IS_ERR_OR_NULL(priv) && !IS_ERR_OR_NULL(priv->data)
+		&& (priv->data->mmsys_id == MMSYS_MT6789)
+		&& !(dsi->mode_flags & MIPI_DSI_MODE_LPM)) {
+			config |= HSTX;
+		}
+	}
+/* P6 code for HQFEAT-180675 by p-liaoxianguo at 2025/9/10 end */
 	if (msg->tx_len > 2) {
 		cmdq_size = 1 + (msg->tx_len + 3) / 4;
 		cmdq_off = 4;
@@ -4842,7 +5089,13 @@ int mtk_mipi_dsi_write_gce(struct mtk_dsi *dsi,
 				i, j, *(char *)(cmd_msg->tx_buf[i] + j));
 		}
 	}
-
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+	if (dsi_mode == 0) {
+		dsi_mode = mtk_dsi_get_mode(dsi);
+		DDPINFO("%s: channel=%d, flags=0x%x, tx_cmd_num=%d, dsi_mode=%d\n",
+			__func__, cmd_msg->channel, cmd_msg->flags, (int)cmd_msg->tx_cmd_num, dsi_mode);
+	}
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 	msg.channel = cmd_msg->channel;
 	msg.flags = cmd_msg->flags;
 
@@ -5491,18 +5744,18 @@ static const struct mipi_dsi_host_ops mtk_dsi_ops = {
 	.detach = mtk_dsi_host_detach,
 	.transfer = mtk_dsi_host_transfer,
 };
-
+/* P6 code for HQFEAT-118666 by p-liaoxianguo at 2025/6/19 start */
 void mtk_dsi_send_switch_cmd(struct mtk_dsi *dsi,
 			struct cmdq_pkt *handle,
 			struct mtk_drm_crtc *mtk_crtc, unsigned int cur_mode, unsigned int dst_mode)
 {
-	unsigned int i;
+	int old_mode_fps = 0;
+	static int last_fps = 0;
+	unsigned int i, count, index = 0;
 	struct dfps_switch_cmd *dfps_cmd = NULL;
 	struct mtk_panel_params *params = NULL;
 	struct drm_display_mode *old_mode = NULL;
-
 	old_mode = &(mtk_crtc->avail_modes[cur_mode]);
-
 	if (dsi->ext && dsi->ext->params)
 		params = mtk_crtc->panel_ext->params;
 	else /* can't find panel ext information,stop */
@@ -5511,18 +5764,42 @@ void mtk_dsi_send_switch_cmd(struct mtk_dsi *dsi,
 		mtk_dsi_enter_idle(dsi->slave_dsi);
 	if (dsi->slave_dsi)
 		mtk_dsi_leave_idle(dsi->slave_dsi);
-
-	for (i = 0; i < MAX_DYN_CMD_NUM; i++) {
-		dfps_cmd = &params->dyn_fps.dfps_cmd_table[i];
-		if (dfps_cmd->cmd_num == 0)
-			break;
-
-		if (dfps_cmd->src_fps == 0 || drm_mode_vrefresh(old_mode) == dfps_cmd->src_fps)
-			mipi_dsi_dcs_write_gce_dyn(dsi, handle, dfps_cmd->para_list,
-				dfps_cmd->cmd_num);
+	old_mode_fps = drm_mode_vrefresh(old_mode);
+	if (params->dyn_fps.cmds_counts_switch_fps != 0 &&
+		params->dyn_fps.long_dfps_cmds_counts != 0 &&
+		params->dyn_fps.long_dfps_cmds_counts != 0) {
+		if (last_fps == params->dyn_fps.cmds_counts_switch_fps) {
+			count = params->dyn_fps.long_dfps_cmds_counts;
+/* P6 code for HQFEAT-178208 by p-chenchen79 at 2025/8/27 start */
+			complete(&dsi->aod_delay_wait_completion);
+/* P6 code for HQFEAT-178208 by p-chenchen79 at 2025/8/27 end */
+		} else {
+			count = params->dyn_fps.short_dfps_cmds_counts;
+			index = params->dyn_fps.short_dfps_cmds_start_index;
+		}
+		DDPMSG("%s: change fps from %d to %d, (last_fps:%d) send ic cmd counts = %d\n",
+			__func__, old_mode_fps, dst_mode, last_fps, count);
+		for (i = 0; i < count; i++) {
+			dfps_cmd = &params->dyn_fps.dfps_cmd_table[index+i];
+			if (dfps_cmd->cmd_num == 0)
+				break;
+			if (dfps_cmd->src_fps == 0 || old_mode_fps == dfps_cmd->src_fps)
+				mipi_dsi_dcs_write_gce_dyn(dsi, handle, dfps_cmd->para_list,
+					dfps_cmd->cmd_num);
+		}
+	} else {
+		for (i = 0; i < MAX_DYN_CMD_NUM; i++) {
+			dfps_cmd = &params->dyn_fps.dfps_cmd_table[i];
+			if (dfps_cmd->cmd_num == 0)
+				break;
+			if (dfps_cmd->src_fps == 0 || old_mode_fps == dfps_cmd->src_fps)
+				mipi_dsi_dcs_write_gce_dyn(dsi, handle, dfps_cmd->para_list,
+					dfps_cmd->cmd_num);
+		}
 	}
+	last_fps = dst_mode;
 }
-
+/* P6 code for HQFEAT-118666 by p-liaoxianguo at 2025/6/19 end */
 unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
 {
 	unsigned int compress_rate, bpp, bpc;
@@ -6396,13 +6673,26 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 			hfp = adjusted_mode.hsync_start -
 				adjusted_mode.hdisplay;
 		dsi->vm.hfront_porch = hfp;
-
+/* P6 code for HQFEAT-118666 by p-liaoxianguo at 2025/6/19 start */
+		if (dsi->mipi_hopping_sta && dsi->ext->params->dyn.vfp) {
+			DDPINFO("%s,mipi_clk_change_sta\n", __func__);
+			vfp = dsi->ext->params->dyn.vfp;
+		} else {
+			vfp = adjusted_mode.vsync_start -
+				adjusted_mode.vdisplay;
+		}
+		dsi->vm.vfront_porch = vfp;
 		mtk_dsi_calc_vdo_timing(dsi);
+		mtk_dsi_porch_setting(comp, handle, DSI_VFP, vfp);
 		mtk_dsi_porch_setting(comp, handle, DSI_HFP, dsi->hfp_byte);
-
-		/*1.2 send cmd: send cmd*/
-		mtk_dsi_send_switch_cmd(dsi, handle, mtk_crtc, src_mode,
-					drm_mode_vrefresh(&adjusted_mode));
+		if (dsi->mi_cfg.lhbm_en && drm_mode_vrefresh(&adjusted_mode) == REFRESH_AOD) {
+			DDPPR_ERR("%s, %d, lhbm is on or aod exit, skip adjust 30hz\n", __func__, __LINE__);
+		} else {
+			/*1.2 send cmd: send cmd*/
+			mtk_dsi_send_switch_cmd(dsi, handle, mtk_crtc, src_mode,
+						drm_mode_vrefresh(&adjusted_mode));
+		}
+/* P6 code for HQFEAT-118666 by p-liaoxianguo at 2025/6/19 end */
 		/*1.3 send cmd: start vdo mode*/
 		mtk_dsi_start_vdo_mode(comp, handle);
 		/*clear EOF
@@ -6415,7 +6705,12 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 		mtk_dsi_trigger(comp, handle);
 	} else if (fps_chg_index & MODE_DSI_VFP) {
 		DDPINFO("%s, change VFP\n", __func__);
-
+/* P6 code for HQFEAT-137549 by p-liaoxianguo at 2025/6/17 start */
+		cmdq_pkt_wfe(handle,
+				mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+		/*1.1 send cmd: stop vdo mode*/
+		mtk_dsi_stop_vdo_mode(dsi, handle);
+#if 0
 		cmdq_pkt_clear_event(handle,
 				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
 
@@ -6428,7 +6723,8 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 			kfree(cb_data);
 			return;
 		}
-
+#endif
+/* P6 code for HQFEAT-137549 by p-liaoxianguo at 2025/6/17 end */
 		if (dsi && dsi->ext && dsi->ext->params
 			&& dsi->mipi_hopping_sta) {
 			DDPINFO("%s,mipi_clk_change_sta\n", __func__);
@@ -6464,8 +6760,22 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 					vfp = dsi->ext->params->max_vfp_for_msync;
 			}
 	    }
-
+/* P6 code for HQFEAT-137549 by p-liaoxianguo at 2025/6/17 start */
 		mtk_dsi_porch_setting(comp, handle, DSI_VFP, vfp);
+		/*1.2 send cmd: send cmd*/
+		mtk_dsi_send_switch_cmd(dsi, handle, mtk_crtc, src_mode,
+				drm_mode_vrefresh(&adjusted_mode));
+		/*1.3 send cmd: start vdo mode*/
+		mtk_dsi_start_vdo_mode(comp, handle);
+		/*clear EOF
+		 * avoid config continue after we trigger vdo mode
+		 */
+		cmdq_pkt_clear_event(handle,
+				mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+		/*1.3 send cmd: trigger*/
+		mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
+		mtk_dsi_trigger(comp, handle);
+/* P6 code for HQFEAT-137549 by p-liaoxianguo at 2025/6/17 end */
 	}
 
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
@@ -6704,8 +7014,13 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case REQ_ESD_EINT_COMPAT:
 		out_params = (void **)params;
-
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 start */
+#ifdef CONFIG_MI_ESD_SUPPORT
+		*out_params = (void *)dsi->driver_data->mi_esd_eint_compat;
+#else
 		*out_params = (void *)dsi->driver_data->esd_eint_compat;
+#endif
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 end */
 		break;
 	case COMP_REG_START:
 		mtk_dsi_trigger(comp, handle);
@@ -6940,6 +7255,20 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		}
 	}
 		break;
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 start */
+#ifdef CONFIG_MI_ESD_SUPPORT
+	case ESD_RESTORE_BACKLIGHT:
+	{
+		struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (panel_ext && panel_ext->funcs &&
+				panel_ext->funcs->esd_restore_backlight) {
+			panel_ext->funcs->esd_restore_backlight(dsi, dsi->panel);
+		}
+	}
+		break;
+#endif
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 end */
 	case LCM_RESET:
 	{
 		struct mtk_dsi *dsi =
@@ -7441,11 +7770,26 @@ static int mtk_dsi_bind(struct device *dev, struct device *master, void *data)
 		DRM_ERROR("Encoder create failed with %d\n", ret);
 		goto err_unregister;
 	}
-
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+#ifdef CONFIG_MI_DISP
+	ret = mi_disp_feature_attach_display(dsi,
+				MI_DISP_PRIMARY, MI_INTF_DSI);
+	if (ret) {
+		pr_err("failed to attach %s display(%s intf)\n",
+				get_disp_id_name(MI_DISP_PRIMARY),
+				get_disp_intf_type_name(MI_INTF_DSI));
+	}
+#endif
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 	DDPINFO("%s-\n", __func__);
 	return 0;
 
 err_unregister:
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 start*/
+#ifdef CONFIG_MI_DISP_DFS_EVENT
+	mi_disp_mievent_str(MI_EVENT_DSI_ERROR);
+#endif
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 end*/
 	mipi_dsi_host_unregister(&dsi->host);
 	mtk_ddp_comp_unregister(drm, &dsi->ddp_comp);
 	return ret;
@@ -7459,6 +7803,11 @@ static void mtk_dsi_unbind(struct device *dev, struct device *master,
 
 	if (dsi->is_slave)
 		return;
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+#ifdef CONFIG_MI_DISP
+	mi_disp_feature_detach_display(dsi, MI_DISP_PRIMARY, MI_INTF_DSI);
+#endif
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 
 	mtk_dsi_destroy_conn_enc(dsi);
 	mipi_dsi_host_unregister(&dsi->host);
@@ -7725,10 +8074,20 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	ret = mipi_dsi_host_register(&dsi->host);
 	if (ret < 0) {
 		dev_err(dev, "failed to register DSI host: %d\n", ret);
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 start*/
+#ifdef CONFIG_MI_DISP_DFS_EVENT
+		mi_disp_mievent_str(MI_EVENT_DSI_ERROR);
+#endif
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 end*/
 		return -EPROBE_DEFER;
 	}
 	of_id = of_match_device(mtk_dsi_of_match, &pdev->dev);
 	if (!of_id) {
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 start*/
+#ifdef CONFIG_MI_DISP_DFS_EVENT
+		mi_disp_mievent_str(MI_EVENT_DSI_ERROR);
+#endif
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 end*/
 		dev_err(dev, "DSI device match failed\n");
 		return -EPROBE_DEFER;
 	}
@@ -7752,6 +8111,11 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 				dev_info(dev, "Waiting for bridge or panel driver\n");
 				dsi->panel = NULL;
 				ret = -EPROBE_DEFER;
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 start*/
+#ifdef CONFIG_MI_DISP_DFS_EVENT
+				goto error_;
+#endif
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 end*/
 				goto error;
 			}
 			if (dsi->panel)
@@ -7889,6 +8253,12 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	return ret;
 
 error:
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 start*/
+#ifdef CONFIG_MI_DISP_DFS_EVENT
+	mi_disp_mievent_str(MI_EVENT_PANEL_HW_RESOURCE_GET_FAILED);
+error_:
+#endif
+/*P6 code for HQFEAT-118719 by p-chenchen79 at 2025/07/02 end*/
 	mipi_dsi_host_unregister(&dsi->host);
 	return -EPROBE_DEFER;
 }

@@ -17,6 +17,10 @@ struct GPIO_PINCTRL gpio_pinctrl_list_cam[
 	{"ldo_vcama_0"},
 	{"ldo_vcama1_1"},
 	{"ldo_vcama1_0"},
+/*P6 code for HQFEAT-117955 by geyanjie start*/
+	{"ldo_vcamaf_1"},
+	{"ldo_vcamaf_0"},
+/*P6 code for HQFEAT-117955 by geyanjie end*/
 	{"ldo_vcamd_1"},
 	{"ldo_vcamd_0"},
 	{"ldo_vcamio_1"},

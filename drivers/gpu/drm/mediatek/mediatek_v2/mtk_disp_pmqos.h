@@ -7,7 +7,9 @@
 #define _MTK_DRM_PMQOS_H_
 
 //#include <linux/interconnect-provider.h>
-#include "mtk-interconnect-provider.h"
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 start */
+#include "../../../misc/mediatek/mtk-interconnect/mtk-interconnect-provider.h"
+/* P6 code for HQFEAT-109456 by p-chenchen79 at 2025/6/16 end */
 #include <linux/pm_qos.h>
 
 enum DISP_QOS_BW_MODE {

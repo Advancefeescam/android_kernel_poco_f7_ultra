@@ -27,6 +27,10 @@
 #include "mtk_disp_dsc.h"
 #include "platform/mtk_drm_6789.h"
 
+/* P6 code for BUGP6-6559 by p-chenchen79 at 2025/10/31 start */
+#define PANEL_NAME_LENGTH 50
+/* P6 code for BUGP6-6559 by p-chenchen79 at 2025/10/31 end */
+
 #define DISP_REG_DSC_CON			0x0000
 	#define DSC_EN BIT(0)
 	#define DSC_DUAL_INOUT BIT(2)
@@ -336,7 +340,9 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 	unsigned int init_delay_height;
 	struct mtk_panel_dsc_params *dsc_params;
 	struct mtk_panel_spr_params *spr_params;
-
+/* P6 code for BUGP6-6559 by p-chenchen79 at 2025/10/31 start */
+	char panel_name[PANEL_NAME_LENGTH] = {0};
+/* P6 code for BUGP6-6559 by p-chenchen79 at 2025/10/31 end */
 	if (!comp->mtk_crtc || (!comp->mtk_crtc->panel_ext
 				&& !comp->mtk_crtc->is_dual_pipe))
 		return;
@@ -575,6 +581,16 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			mtk_ddp_write(comp, 0xD1E9D9C9, DISP_REG_DSC_PPS17, handle);
 			mtk_ddp_write(comp, 0xD20DD1E9, DISP_REG_DSC_PPS18, handle);
 			mtk_ddp_write(comp, 0x0000D230, DISP_REG_DSC_PPS19, handle);
+			/* P6 code for BUGP6-6559 by p-chenchen79 at 2025/10/31 start */
+			if (comp->mtk_crtc->panel_ext->funcs && comp->mtk_crtc->panel_ext->funcs->get_panel_info) {
+				comp->mtk_crtc->panel_ext->funcs->get_panel_info(NULL, panel_name);
+				if ((panel_name[0] != '\0') && (strlen(panel_name) < PANEL_NAME_LENGTH) && strstr(panel_name, "dsi_p6_42_02_0c_dsc_vdo")) {
+					mtk_ddp_write(comp, 0xD209D9E9, DISP_REG_DSC_PPS17, handle);
+					mtk_ddp_write(comp, 0xD22BD229, DISP_REG_DSC_PPS18, handle);
+					mtk_ddp_write(comp, 0x0000D271, DISP_REG_DSC_PPS19, handle);
+                                }
+                        }
+			/* P6 code for BUGP6-6559 by p-chenchen79 at 2025/10/31 end */
 		} else {
 			//8bpc_to_8bpp_20_slice_h
 			mtk_ddp_write(comp, 0x20000c03, DISP_REG_DSC_PPS6, handle);

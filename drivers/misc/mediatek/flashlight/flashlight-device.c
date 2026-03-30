@@ -10,6 +10,12 @@ const struct flashlight_device_id flashlight_id[] = {
 	/* {TYPE, CT, PART, "NAME", CHANNEL, DECOUPLE} */
 	{0, 0, 0, "flashlights-rt4505", 0, 0},
 };
+/*P6 code for HQFEAT-120416 by changqi at 20250609 start*/
+#elif defined(CONFIG_MTK_FLASHLIGHT_SUBPMIC)
+const struct flashlight_device_id flashlight_id[] = {
+        {0, 0, 0, "flashlights-mt6789", 0, 1},
+};
+/*P6 code for HQFEAT-120416 by changqi at 20250609 end*/
 #elif defined(mt6757)
 	#if defined(evb6757p_dm_64) || defined(k57pv1_dm_64) || \
 	defined(k57pv1_64_baymo) || defined(k57pv1_dm_64_bif) || \

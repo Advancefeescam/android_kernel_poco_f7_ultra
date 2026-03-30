@@ -359,4 +359,22 @@ extern long WV511AAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 extern int WV511AAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int WV511AAF_GetFileName(unsigned char *pFileName);
 
+/* P6 code for HQFEAT-117953 by zhanziran at 20250609 start */
+extern int CHAROITE_GT9764AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+	spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long CHAROITE_GT9764AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+	unsigned long a_u4Param);
+extern int CHAROITE_GT9764AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int CHAROITE_GT9764AF_GetFileName(unsigned char *pFileName);
+/* P6 code for HQFEAT-117953 by zhanziran at 20250609 end */
+
+/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 start*/
+extern int CHAROITE_CHM9600_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+	spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long CHAROITE_CHM9600_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+	unsigned long a_u4Param);
+extern int CHAROITE_CHM9600_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int CHAROITE_CHM9600_GetFileName(unsigned char *pFileName);
+/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 end*/
+
 #endif

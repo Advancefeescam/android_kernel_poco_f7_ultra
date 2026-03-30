@@ -11,6 +11,130 @@
 
 /* Legacy design */
 struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
+/*P6 code for HQFEAT-117955 by geyanjie start*/
+#if defined(S5KHP3_OFILM_MAIN_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_S5KHP3_OFILM_MAIN_MIPI_RAW,
+		{
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 start*/
+			{AFVDD, Vol_High, 3},
+			//{RST, Vol_Low, 1},
+			{SensorMCLK, Vol_High, 1},
+			//{AVDD, Vol_2200, 1},
+			//{DVDD, Vol_950, 1},
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 end*/
+			{DOVDD, Vol_1800, 1},
+			{RST, Vol_High, 7}
+		},
+	},
+#endif
+/*P6 code for HQFEAT-178146 by p-niekangyu at 2025-08-25 start*/
+#if defined(S5KHP3_AACIII_MAIN_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_S5KHP3_AACIII_MAIN_MIPI_RAW,
+		{
+			{AFVDD, Vol_High, 5},
+			//{RST, Vol_Low, 3},
+			{SensorMCLK, Vol_High, 1},
+			//{AVDD, Vol_2200, 1},
+			//{DVDD, Vol_950, 1},
+			{DOVDD, Vol_1800, 1},
+			{RST, Vol_High, 7}
+		},
+	},
+#endif
+/*P6 code for HQFEAT-178146 by p-niekangyu at 2025-08-25 end*/
+/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 start*/
+#if defined(S5KHP3_AACII_MAIN_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_S5KHP3_AACII_MAIN_MIPI_RAW,
+		{
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 start*/
+			{AFVDD, Vol_Low, 3},
+			//{RST, Vol_Low, 1},
+			{SensorMCLK, Vol_High, 1},
+			//{AVDD, Vol_2200, 1},
+			//{DVDD, Vol_950, 1},
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 end*/
+			{DOVDD, Vol_1800, 1},
+			{RST, Vol_High, 7}
+		},
+	},
+#endif
+/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 end*/
+#if defined(S5KHP3_AAC_MAIN_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_S5KHP3_AAC_MAIN_MIPI_RAW,
+		{
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 start*/
+			{AFVDD, Vol_High, 3},
+			//{RST, Vol_Low, 1},
+			{SensorMCLK, Vol_High, 1},
+			//{AVDD, Vol_2200, 1},
+			//{DVDD, Vol_950, 1},
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 end*/
+			{DOVDD, Vol_1800, 1},
+			{RST, Vol_High, 7}
+		},
+	},
+#endif
+/*P6 code for HQFEAT-117955 by geyanjie end*/
+/*P6 code for  HQFEAT-120414  by yangxiongwei at 20250603 start*/
+#if defined(GC08A8_SUNNY_ULTRA_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_GC08A8_SUNNY_ULTRA_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_1200, 1},
+			{AVDD, Vol_2800, 3},
+			{SensorMCLK, Vol_High, 3},
+			{RST, Vol_High, 3}
+		},
+	},
+#endif
+#if defined(GC08A8_AAC_ULTRA_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_GC08A8_AAC_ULTRA_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_1200, 1},
+			{AVDD, Vol_2800, 3},
+			{SensorMCLK, Vol_High, 3},
+			{RST, Vol_High, 3}
+		},
+	},
+#endif
+/*P6 code for  HQFEAT-120414  by yangxiongwei at 20250603 end*/
+/*P6 code for HQFEAT-120415 by zhangxiaohu at 20250610 start*/
+#if defined(OV32D40_SUNNY_FRONT_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV32D40_SUNNY_FRONT_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_1200, 1},
+			{SensorMCLK, Vol_High, 5},
+			{RST, Vol_High, 8}
+		},
+	},
+#endif
+#if defined(OV32D40_AAC_FRONT_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV32D40_AAC_FRONT_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_1200, 1},
+			{SensorMCLK, Vol_High, 5},
+			{RST, Vol_High, 8}
+		},
+	},
+#endif
+/*P6 code for HQFEAT-120415 by zhangxiaohu at 20250610 end*/
 #if defined(IMX766_MIPI_RAW)
 	{
 		SENSOR_DRVNAME_IMX766_MIPI_RAW,

@@ -42,7 +42,10 @@
 
 #include "aed.h"
 #include "mrdump_helper.h"
-
+/* P6 code for HQFEAT-118782 by p-zhoupeng35 at 2025/6/19 start */
+#include <mt-plat/mboot_params.h>
+#include <linux/sysfs.h>
+/* P6 code for HQFEAT-118782 by p-zhoupeng35 at 2025/6/19 end */
 struct aee_req_queue {
 	struct list_head list;
 	spinlock_t lock;
@@ -77,7 +80,11 @@ static DECLARE_RWSEM(ke_rw_ops_sem);
 
 static int ee_num;
 static int kernelapi_num;
-
+/* P6 code for HQFEAT-118782 by p-zhoupeng35 at 2025/6/19 start */
+#define MAX_CMDLINE_PARAM_LEN 256
+static char powerup_reason[MAX_CMDLINE_PARAM_LEN];
+static char poweroff_reason[MAX_CMDLINE_PARAM_LEN];
+/* P6 code for HQFEAT-118782 by p-zhoupeng35 at 2025/6/19 end */
 /******************************************************************************
  * DEBUG UTILITIES
  *****************************************************************************/
@@ -2469,7 +2476,65 @@ static int aed_proc_done(void)
 	remove_proc_entry("aed", NULL);
 	return 0;
 }
+/* P6 code for HQFEAT-118782 by p-zhoupeng35 at 2025/6/19 start */
+/******************************************************************************
+ * Add pureason
+ *****************************************************************************/
+static ssize_t powerup_reason_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, sizeof(powerup_reason), "%s\n", powerup_reason);
+};
 
+static struct kobj_attribute powerup_reason_attr ={ \
+	.attr = { .name = __stringify(powerup_reason), .mode = 0644 },
+	.show = powerup_reason_show,
+};
+
+/* P6 code for HQFEAT-118782 by p-zhoupeng35 at 2025/6/19 start */
+/* poweroff reason */
+static ssize_t poweroff_reason_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, sizeof(poweroff_reason), "%s\n", poweroff_reason);
+};
+static struct kobj_attribute poweroff_reason_attr ={ \
+	.attr = { .name = __stringify(poweroff_reason), .mode = 0644 },
+	.show = poweroff_reason_show,
+};
+
+static struct attribute *bootinfo_attrs[] = {
+	&powerup_reason_attr.attr,
+	&poweroff_reason_attr.attr,
+	NULL,
+};
+/* P6 code for HQFEAT-118782 by p-zhoupeng35 at 2025/6/19 end */
+
+static struct attribute_group bootinfo_attr_group = {
+	.attrs = bootinfo_attrs,
+};
+
+static struct kobject *bootinfo_kobj;
+
+int bootinfo_sys_init(void)
+{
+	int ret = -ENOMEM;;
+
+	bootinfo_kobj = kobject_create_and_add("bootinfo", NULL);
+	if (!bootinfo_kobj) {
+		pr_err("kobject_create_and_add : set powerup reason failed\n");
+		return ret;
+	}
+
+	ret = sysfs_create_group(bootinfo_kobj, &bootinfo_attr_group);
+	if (ret){
+		pr_err("sysfs_create_group : set powerup reason failed\n");
+		kobject_put(bootinfo_kobj);
+	}
+	return ret;
+
+}
+/* P6 code for HQFEAT-118782 by p-zhoupeng35 at 2025/6/19 end */
 /******************************************************************************
  * Module related
  *****************************************************************************/
@@ -2554,7 +2619,11 @@ static int __init aed_init(void)
 		return err;
 	}
 	pr_notice("aee kernel api ready");
-
+        /* P6 code for HQFEAT-118782 by p-zhoupeng35 at 2025/6/19 start */
+	pr_err("powerup reason: %s", powerup_reason);
+	pr_err("poweroff reason: %s", poweroff_reason);
+	bootinfo_sys_init();
+	/* P6 code for HQFEAT-118782 by p-zhoupeng35 at 2025/6/19 end */
 	mtk_slog_init();
 
 	return err;
@@ -2581,3 +2650,7 @@ module_exit(aed_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek AED Driver");
 MODULE_AUTHOR("MediaTek Inc.");
+/* P6 code for HQFEAT-118782 by p-zhoupeng35 at 2025/6/19 start */
+module_param_string(pureason, powerup_reason, MAX_CMDLINE_PARAM_LEN,0644);
+module_param_string(poffreason, poweroff_reason, MAX_CMDLINE_PARAM_LEN,0644);
+/* P6 code for HQFEAT-118782 by p-zhoupeng35 at 2025/6/19 end */

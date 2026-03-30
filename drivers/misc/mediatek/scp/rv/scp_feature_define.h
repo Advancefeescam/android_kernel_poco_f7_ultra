@@ -109,6 +109,9 @@ enum scp_sensor_id {
 	GYRO_SECONDARY_FEATURE_ID,
 	FLICKER_REAR_FEATURE_ID,
 	RGBW_REAR_FEATURE_ID,
+	/* ultral bringup start */
+	ELLIPTIC_FUSION_ID,
+	/* ultral bringup end */
 	NUM_SENSOR_TYPE,
 };
 

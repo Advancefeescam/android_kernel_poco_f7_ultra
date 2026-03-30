@@ -1,3 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-only
 source "drivers/power/reset/Kconfig"
 source "drivers/power/supply/Kconfig"
+
+source "drivers/power/supply/hq_chg/Kconfig"
+
+# P6 code for HQFEAT-123538 by p-gaobowei1 at 2025/06/11 start
+source "drivers/power/byp/Kconfig"
+# P6 code for HQFEAT-123538 by p-gaobowei1 at 2025/06/11 end

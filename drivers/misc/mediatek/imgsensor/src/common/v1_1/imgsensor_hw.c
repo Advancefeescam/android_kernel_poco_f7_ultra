@@ -26,12 +26,19 @@ char * const imgsensor_hw_pin_names[] = {
 	"mipi_switch_sel",
 	"mclk"
 };
-
+/*P6 code for HQFEAT-144148 by xiexinli at 2025-7-3 start*/
+unsigned int iovdd_cnt = 0;
+unsigned int avdd_cnt = 0;
+unsigned int dvdd_cnt = 0;
+/*P6 code for HQFEAT-144148 by xiexinli at 2025-7-3 end*/
 /*the index is consistent with enum IMGSENSOR_HW_ID*/
 char * const imgsensor_hw_id_names[] = {
 	"mclk",
 	"regulator",
-	"gpio"
+/*P6 code for HQFEAT-117956 by geyanjie start*/
+  	"gpio",
+	"smartldo",
+/*P6 code for HQFEAT-117956 by geyanjie end*/
 };
 
 enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
@@ -47,6 +54,9 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 	int ret_snprintf = 0;
 
 	mutex_init(&phw->common.pinctrl_mutex);
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 start*/
+	mutex_init(&phw->common.cam_mutex);
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 end*/
 
 	/* update the imgsensor_custom_cfg by dts */
 	for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
@@ -217,6 +227,10 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 	int                               pin_cnt = 0;
 
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 30);
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 start*/
+	struct IMGSENSOR_HW_DEVICE       *pdev_smartldo;
+	pdev_smartldo = phw->pdev[IMGSENSOR_HW_ID_SMARTLDO];
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 end*/
 
 #ifdef CONFIG_FPGA_EARLY_PORTING  /*for FPGA*/
 	if (1) {
@@ -252,19 +266,69 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 					pdev = phw->pdev[psensor_pwr->id[ppwr_info->pin]];
 
 					if (__ratelimit(&ratelimit))
-						PK_DBG(
+						pr_info(
 						"sensor_idx %d, ppwr_info->pin %d, ppwr_info->pin_state_on %d, delay %u",
 						sensor_idx,
 						ppwr_info->pin,
 						ppwr_info->pin_state_on,
 						ppwr_info->pin_on_delay);
+/*P6 code for HQFEAT-144148 by p-wujianguo at 2025-7-24 start*/
+					if (ppwr_info->pin == IMGSENSOR_HW_PIN_DOVDD) {
+						if (pdev->set != NULL) {
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 start*/
+							mutex_lock(&phw->common.cam_mutex);
+							if (iovdd_cnt == 0){
+								pr_info("sensor_idx %d, ppwr_info->pin %d, ppwr_info->pin_state_on %d, delay %u", 0, IMGSENSOR_HW_PIN_RST, Vol_Low, 1);
+								pdev->set(pdev->pinstance, 0, IMGSENSOR_HW_PIN_RST, Vol_Low);//{RST, Vol_Low, 1},
+								mdelay(1);
+								pr_info("sensor_idx %d, ppwr_info->pin %d, ppwr_info->pin_state_on %d, delay %u", 0, IMGSENSOR_HW_PIN_AVDD, Vol_2200, 1);
+								pdev_smartldo->set(pdev_smartldo->pinstance, 0, IMGSENSOR_HW_PIN_AVDD, Vol_2200);//{AVDD, Vol_2200, 1},
+								mdelay(1);
+								pr_info("sensor_idx %d, ppwr_info->pin %d, ppwr_info->pin_state_on %d, delay %u", 0, IMGSENSOR_HW_PIN_DVDD, Vol_950, 1);
+								pdev_smartldo->set(pdev_smartldo->pinstance, 0, IMGSENSOR_HW_PIN_DVDD, Vol_950);//{DVDD, Vol_950, 1},
+								mdelay(1);
 
-					if (pdev->set != NULL)
-						pdev->set(
-							pdev->pinstance,
-							sensor_idx,
-							ppwr_info->pin,
-							ppwr_info->pin_state_on);
+								pdev->set(
+									pdev->pinstance,
+									sensor_idx,
+									ppwr_info->pin,
+									ppwr_info->pin_state_on);
+							}
+							iovdd_cnt++;
+							mutex_unlock(&phw->common.cam_mutex);
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 end*/
+							pr_info(" sensor_idx =%d sensor powerOn pin =IOVDD iovdd_cnt=%d",sensor_idx, iovdd_cnt);
+						}
+					} else if ((ppwr_info->pin == IMGSENSOR_HW_PIN_AVDD) && ((sensor_idx == 1) || (sensor_idx == 2))){
+						if (pdev->set != NULL) {
+							if (avdd_cnt == 0)
+								pdev->set(
+									pdev->pinstance,
+									sensor_idx,
+									ppwr_info->pin,
+									ppwr_info->pin_state_on);
+							avdd_cnt++;
+							pr_info(" sensor_idx =%d sensor powerOn pin =AVDD avdd_cnt=%d",sensor_idx, avdd_cnt);
+							}
+					} else if ((ppwr_info->pin == IMGSENSOR_HW_PIN_DVDD) && ((sensor_idx == 1) || (sensor_idx == 2))) {
+						if (pdev->set != NULL) {
+							if (dvdd_cnt == 0)
+								pdev->set(
+									pdev->pinstance,
+									sensor_idx,
+									ppwr_info->pin,
+									ppwr_info->pin_state_on);
+							dvdd_cnt++;
+							pr_info(" sensor_idx =%d sensor powerOn pin =DVDD avdd_cnt=%d",sensor_idx, dvdd_cnt);
+							}
+					}
+					else if (pdev->set != NULL)
+							pdev->set(
+								pdev->pinstance,
+								sensor_idx,
+								ppwr_info->pin,
+								ppwr_info->pin_state_on);
+/*P6 code for HQFEAT-144148 by wujianguo at 2025-7-24 end*/
 				}
 			}
 
@@ -285,19 +349,83 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 					pdev = phw->pdev[psensor_pwr->id[ppwr_info->pin]];
 
 					if (__ratelimit(&ratelimit))
-						PK_DBG(
+						pr_info(
 						"sensor_idx %d, ppwr_info->pin %d, ppwr_info->pin_state_off %d, delay %u",
 						sensor_idx,
 						ppwr_info->pin,
 						ppwr_info->pin_state_off,
 						ppwr_info->pin_on_delay);
+/*P6 code for HQFEAT-144148 by wujianguo at 2025-7-24 start*/
+					if (ppwr_info->pin == IMGSENSOR_HW_PIN_DOVDD) {
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 start*/
+						mutex_lock(&phw->common.cam_mutex);
+						iovdd_cnt--;
 
-					if (pdev->set != NULL)
-						pdev->set(
-							pdev->pinstance,
-							sensor_idx,
-							ppwr_info->pin,
-							ppwr_info->pin_state_off);
+						pr_info(" sensor_idx=%d sensor powerOff pin =IOVDD iovdd_cnt=%d", sensor_idx,iovdd_cnt);
+						if (iovdd_cnt == 0) {
+							pr_info("IOVDD down!!");
+							if (pdev->set != NULL)
+								pdev->set(
+									pdev->pinstance,
+									sensor_idx,
+									ppwr_info->pin,
+									ppwr_info->pin_state_off);
+
+							pr_info("sensor_idx %d, ppwr_info->pin %d, ppwr_info->pin_state_off %d, delay %u", 0, IMGSENSOR_HW_PIN_DVDD, 0, 1);
+							pdev_smartldo->set(pdev_smartldo->pinstance, 0, IMGSENSOR_HW_PIN_DVDD, 0);//{DVDD1, Vol_950, 1},
+							mdelay(1);
+							pr_info("sensor_idx %d, ppwr_info->pin %d, ppwr_info->pin_state_off %d, delay %u", 0, IMGSENSOR_HW_PIN_AVDD, 0, 1);
+							pdev_smartldo->set(pdev_smartldo->pinstance, 0, IMGSENSOR_HW_PIN_AVDD, 0);//{AVDD1, Vol_2200, 1},
+							mdelay(1);
+							pr_info("sensor_idx %d, ppwr_info->pin %d, ppwr_info->pin_state_off %d, delay %u", 0, IMGSENSOR_HW_PIN_RST, 0, 1);
+							pdev->set(pdev->pinstance, 0, IMGSENSOR_HW_PIN_RST, 0);//{RST, Vol_Low, 1},
+							mdelay(1);
+/*P6 code for BUGP6-2686 by p-chenxiaoyong1 at 2025-8-19 end*/
+						}
+						else {
+							pr_info("other senor is online,not set IOVDD to OFF");
+						}
+/*P6 code for BUGHQ-12489 by p-chenxiaoyong1 at 2025-9-5 start*/
+						mutex_unlock(&phw->common.cam_mutex);
+/*P6 code for BUGHQ-12489 by p-chenxiaoyong1 at 2025-9-5 end*/
+					} else if ((ppwr_info->pin == IMGSENSOR_HW_PIN_AVDD) && ((sensor_idx == 1) || (sensor_idx == 2))) {
+						avdd_cnt--;
+						pr_info(" sensor_idx=%d sensor powerOff pin =AVDD avdd_cnt=%d", sensor_idx,avdd_cnt);
+						if (avdd_cnt == 0) {
+							pr_info("AVDD down!!");
+							if (pdev->set != NULL)
+								pdev->set(
+									pdev->pinstance,
+									sensor_idx,
+									ppwr_info->pin,
+									ppwr_info->pin_state_off);
+						}
+						else {
+							pr_info("other senor is online,not set AVDD to OFF");
+						}
+					} else if ((ppwr_info->pin == IMGSENSOR_HW_PIN_DVDD) && ((sensor_idx == 1) || (sensor_idx == 2))){
+						dvdd_cnt--;
+						pr_info(" sensor_idx=%d sensor powerOff pin =DVDD dvdd_cnt=%d", sensor_idx,dvdd_cnt);
+						if (dvdd_cnt == 0) {
+							pr_info("DVDD down!!");
+							if (pdev->set != NULL)
+								pdev->set(
+									pdev->pinstance,
+									sensor_idx,
+									ppwr_info->pin,
+									ppwr_info->pin_state_off);
+						}
+						else {
+							pr_info("other senor is online,not set DVDD to OFF");
+						}
+					}
+					else if (pdev->set != NULL)
+							pdev->set(
+								pdev->pinstance,
+								sensor_idx,
+								ppwr_info->pin,
+								ppwr_info->pin_state_off);
+/*P6 code for HQFEAT-144148 by wujianguo at 2025-7-24 end*/
 				}
 			}
 
@@ -318,7 +446,7 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 	char *curr_sensor_name = psensor->inst.psensor_list->name;
 	char str_index[LENGTH_FOR_SNPRINTF];
 
-	PK_DBG("sensor_idx %d, power %d curr_sensor_name %s, enable list %s\n",
+	pr_info("sensor_idx %d, power %d curr_sensor_name %s, enable list %s\n",
 		sensor_idx,
 		pwr_status,
 		curr_sensor_name,

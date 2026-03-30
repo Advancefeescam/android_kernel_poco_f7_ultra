@@ -65,6 +65,12 @@
 #define AFDRV_OV8825AF "OV8825AF"
 #define AFDRV_WV511AAF "WV511AAF"
 #define AFDRV_DW9718TAF "DW9718TAF"
+/* P6 code for HQFEAT-117953 by zhanziran at 20250609 start */
+#define AFDRV_CHAROITE_GT9764AF "CHAROITE_GT9764AF"
+/* P6 code for HQFEAT-117953 by zhanziran at 20250609 end */
+/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 start*/
+#define AFDRV_CHAROITE_CHM9600 "CHAROITE_CHM9600"
+/*P6 code for HQFEAT-149851 by p-chenxiaoyong1 at 2025-07-10 end*/
 
 #define CONVERT_CCU_TIMESTAMP 0x1000
 

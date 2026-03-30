@@ -382,6 +382,14 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 				DDPINFO("[LP] enter idle\n");
 				mtk_drm_idlemgr_enter_idle_nolock(crtc);
 				idlemgr_ctx->is_idle = 1;
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 start */
+#ifdef CONFIG_MI_ESD_SUPPORT
+				if (mtk_crtc && mtk_crtc->esd_ctx) {
+					atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
+					wake_up_interruptible(&mtk_crtc->esd_ctx->check_task_wq);
+				}
+#endif
+/* P6 code for HQFEAT-118221 by p-chenchen79 at 2025/6/27 end */
 			} else {
 				idlemgr_ctx->idlemgr_last_kick_time =
 					sched_clock();

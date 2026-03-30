@@ -52,6 +52,10 @@ static int pt_low_vol = LOW_BATTERY_LEVEL_0;
 static int pt_low_bat = BATTERY_PERCENT_LEVEL_0;
 static int pt_over_cur = BATTERY_OC_LEVEL_0;
 
+static int pt_low_bat_level = LOW_BATTERY_LEVEL_1;
+static int pt_bat_pc_level = BATTERY_PERCENT_LEVEL_1;
+static int pt_bat_oc_level = BATTERY_OC_LEVEL_1;
+
 #ifdef CONFIG_MTK_FLASHLIGHT_PT_STRICT
 static int pt_strict = 1;
 #else
@@ -545,17 +549,17 @@ EXPORT_SYMBOL(flashlight_pt_is_low);
 static int pt_arg_verify(int pt_low_vol, int pt_low_bat, int pt_over_cur)
 {
 	if (pt_low_vol < LOW_BATTERY_LEVEL_0 ||
-			pt_low_vol > LOW_BATTERY_LEVEL_2) {
+			pt_low_vol >= LOW_BATTERY_LEVEL_NUM) {
 		pr_info("PT low voltage (%d) is not valid\n", pt_low_vol);
 		return -1;
 	}
 	if (pt_low_bat < BATTERY_PERCENT_LEVEL_0 ||
-			pt_low_bat > BATTERY_PERCENT_LEVEL_1) {
+			pt_low_bat >= BATTERY_PERCENT_LEVEL_NUM) {
 		pr_info("PT low battery (%d) is not valid\n", pt_low_bat);
 		return -1;
 	}
 	if (pt_over_cur < BATTERY_OC_LEVEL_0 ||
-			pt_over_cur > BATTERY_OC_LEVEL_1) {
+			pt_over_cur >= BATTERY_OC_LEVEL_NUM) {
 		pr_info("PT over current (%d) is not valid\n", pt_over_cur);
 		return -1;
 	}
@@ -567,9 +571,9 @@ static int pt_is_low(int pt_low_vol, int pt_low_bat, int pt_over_cur)
 {
 	int is_low = 0;
 
-	if (pt_low_bat != BATTERY_PERCENT_LEVEL_0
-			|| pt_low_vol != LOW_BATTERY_LEVEL_0
-			|| pt_over_cur != BATTERY_OC_LEVEL_0) {
+	if (pt_low_vol >= pt_low_bat_level ||
+			pt_low_bat >= pt_bat_pc_level ||
+			pt_over_cur >= pt_bat_oc_level) {
 		is_low = 1;
 		if (pt_strict)
 			is_low = 2;
@@ -607,43 +611,28 @@ static int pt_trigger(void)
 	return 0;
 }
 
-static void pt_low_vol_callback(enum LOW_BATTERY_LEVEL_TAG level)
+static void pt_low_vol_callback(enum LOW_BATTERY_LEVEL_TAG level, void *data)
 {
-	if (level == LOW_BATTERY_LEVEL_0) {
-		pt_low_vol = LOW_BATTERY_LEVEL_0;
-	} else if (level == LOW_BATTERY_LEVEL_1) {
-		pt_low_vol = LOW_BATTERY_LEVEL_1;
+	pt_low_vol = level;
+
+	if (level >= pt_low_bat_level)
 		pt_trigger();
-	} else if (level == LOW_BATTERY_LEVEL_2) {
-		pt_low_vol = LOW_BATTERY_LEVEL_2;
-		pt_trigger();
-	} else {
-		/* unlimited cpu and gpu */
-	}
 }
 
 static void pt_low_bat_callback(enum BATTERY_PERCENT_LEVEL_TAG level)
 {
-	if (level == BATTERY_PERCENT_LEVEL_0) {
-		pt_low_bat = BATTERY_PERCENT_LEVEL_0;
-	} else if (level == BATTERY_PERCENT_LEVEL_1) {
-		pt_low_bat = BATTERY_PERCENT_LEVEL_1;
+	pt_low_bat = level;
+
+	if (level >= pt_bat_pc_level)
 		pt_trigger();
-	} else {
-		/* unlimited cpu and gpu*/
-	}
 }
 
-static void pt_oc_callback(enum BATTERY_OC_LEVEL_TAG level)
+static void pt_oc_callback(enum BATTERY_OC_LEVEL_TAG level, void *data)
 {
-	if (level == BATTERY_OC_LEVEL_0) {
-		pt_over_cur = BATTERY_OC_LEVEL_0;
-	} else if (level == BATTERY_OC_LEVEL_1) {
-		pt_over_cur = BATTERY_OC_LEVEL_1;
+	pt_over_cur = level;
+
+	if (level >= pt_bat_oc_level)
 		pt_trigger();
-	} else {
-		/* unlimited cpu and gpu*/
-	}
 }
 #endif
 
@@ -1084,9 +1073,9 @@ static ssize_t flashlight_pt_store(struct device *dev,
 
 	/* call callback function */
 	pt_strict = strict;
-	pt_low_vol_callback(low_vol);
+	pt_low_vol_callback(low_vol, NULL);
 	pt_low_bat_callback(low_bat);
-	pt_oc_callback(over_cur);
+	pt_oc_callback(over_cur, NULL);
 #endif
 
 	ret = size;
@@ -1720,6 +1709,30 @@ static int fl_uninit(void)
 	return 0;
 }
 
+static int fl_parse_dt(struct device *dev)
+{
+	struct device_node *np;
+
+	if (!dev || !dev->of_node)
+		return -ENODEV;
+
+	np = dev->of_node;
+
+#if IS_ENABLED(CONFIG_MTK_FLASHLIGHT_PT)
+	if (of_property_read_u32(np, "low-battery-level", &pt_low_bat_level))
+		pr_info("Parse no dt, low-battery-level.\n");
+	if (of_property_read_u32(np, "battery-percent-level", &pt_bat_pc_level))
+		pr_info("Parse no dt, battert-percent-level.\n");
+	if (of_property_read_u32(np, "battery-oc-level", &pt_bat_oc_level))
+		pr_info("Parse no dt, battert-oc-level.\n");
+
+	pr_info("Parse dt pt=(%u,%u,%u).\n",
+		pt_low_bat_level, pt_bat_pc_level, pt_bat_oc_level);
+#endif
+
+	return 0;
+}
+
 static int flashlight_probe(struct platform_device *dev)
 {
 	pr_debug("Probe start\n");
@@ -1805,6 +1818,8 @@ static int flashlight_probe(struct platform_device *dev)
 		pr_info("Failed to create device file(torch)\n");
 		goto err_create_torch_device_file;
 	}
+
+	fl_parse_dt(&dev->dev);
 
 	/* init flashlight */
 	fl_init();
@@ -1923,11 +1938,11 @@ static int __init flashlight_init(void)
 
 #ifdef CONFIG_MTK_FLASHLIGHT_PT
 	register_low_battery_notify(
-			&pt_low_vol_callback, LOW_BATTERY_PRIO_FLASHLIGHT);
+			&pt_low_vol_callback, LOW_BATTERY_PRIO_FLASHLIGHT, NULL);
 	register_bp_thl_notify(
 			&pt_low_bat_callback, BATTERY_PERCENT_PRIO_FLASHLIGHT);
 	register_battery_oc_notify(
-			&pt_oc_callback, BATTERY_OC_PRIO_FLASHLIGHT);
+			&pt_oc_callback, BATTERY_OC_PRIO_FLASHLIGHT, NULL);
 #endif
 
 	pr_debug("Init done\n");

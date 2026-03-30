@@ -58,4 +58,12 @@ obj-$(CONFIG_UACCE)		+= uacce/
 obj-$(CONFIG_XILINX_SDFEC)	+= xilinx_sdfec.o
 obj-$(CONFIG_HISI_HIKEY_USB)	+= hisi_hikey_usb.o
 obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
+obj-y				+= hqsysfs/
 obj-y				+= mediatek/
+
+obj-$(CONFIG_HUAQIN_USB_TYPEC)  += hq_typec/
+
+# P6 code for HQFEAT-130135 by p-gaobowei1 at 2025/06/11 start
+obj-$(CONFIG_CPUMAXFREQ_SUPPORT) += cpumaxfreq/
+# P6 code for HQFEAT-130135 by p-gaobowei1 at 2025/06/11 end
+obj-$(CONFIG_PERFHELPER)       += perfhelper_1.o

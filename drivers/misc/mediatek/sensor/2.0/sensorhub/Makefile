@@ -1,6 +1,7 @@
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sensor/2.0/core
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sensor/2.0/sensorhub
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
+ccflags-y += -I$(srctree)/drivers/power/supply/hq_chg/common/include
 
 obj-$(CONFIG_MTK_SENSORHUB) += sensorhub.o
 sensorhub-objs += tiny_crc8.o

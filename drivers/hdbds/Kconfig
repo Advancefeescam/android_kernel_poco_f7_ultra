@@ -1,0 +1,4 @@
+config BEIDOU_HD7010
+	tristate "HDBDs SMS device"
+    help
+	  HD BeiDou short packet kernel driver, used to adapt to the short packet chip.

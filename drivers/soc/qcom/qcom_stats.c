@@ -1005,6 +1005,7 @@ static void qcom_create_subsystem_stat_files(struct dentry *root,
 	}
 }
 
+
 static int qcom_stats_probe(struct platform_device *pdev)
 {
 	void __iomem *reg;
@@ -1124,6 +1125,7 @@ static int qcom_stats_suspend(struct device *dev)
 	void __iomem *reg = NULL;
 	int i;
 	u32 stats_id = 0;
+
 
 	if (!subsystem_stats_debug_on)
 		return 0;

@@ -33,15 +33,16 @@
 #endif
 #include <linux/nvmem-consumer.h>
 
+#include "ufs-qcom.h"
 #include <ufs/ufshcd.h>
 #include "ufshcd-pltfrm.h"
+#include <ufs/ufshci.h>
+#include <ufs/ufshcd-crypto-qti.h>
 #include <ufs/unipro.h>
-#include "ufs-qcom.h"
+#include <ufs/ufs_quirks.h>
+#include <trace/hooks/ufshcd.h>
 #define CREATE_TRACE_POINTS
 #include "ufs-qcom-trace.h"
-#include <ufs/ufshci.h>
-#include <ufs/ufs_quirks.h>
-#include <ufs/ufshcd-crypto-qti.h>
 
 #define MCQ_QCFGPTR_MASK	GENMASK(7, 0)
 #define MCQ_QCFGPTR_UNIT	0x200
@@ -74,6 +75,8 @@
 
 /* Max number of log pages */
 #define UFS_QCOM_MAX_LOG_SZ	10
+
+
 #define ufs_qcom_log_str(host, fmt, ...)	\
 	do {	\
 		if (host->ufs_ipc_log_ctx && host->dbg_en)	\
@@ -1654,7 +1657,6 @@ static void ufs_qcom_set_esi_affinity_hint(struct ufs_hba *hba)
 static int ufs_qcom_cpu_online(unsigned int cpu)
 {
 	struct ufs_hba *hba = ufs_qcom_hosts[0]->hba;
-
 	ufs_qcom_set_esi_affinity_hint(hba);
 
 	return 0;
@@ -2304,7 +2306,6 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 	struct phy *phy = host->generic_phy;
 struct ufs_qcom_dev_params ufs_qcom_cap;
 	int ret = 0;
-
 	if (!dev_req_params) {
 		pr_err("%s: incoming dev_req_params is NULL\n", __func__);
 		ret = -EINVAL;
@@ -2330,7 +2331,6 @@ struct ufs_qcom_dev_params ufs_qcom_cap;
 
 		ufs_qcom_cap.desired_working_mode =
 					UFS_QCOM_LIMIT_DESIRED_MODE;
-
 		ret = ufs_qcom_get_pwr_dev_param(&ufs_qcom_cap,
 						 dev_max_params,
 						 dev_req_params);
@@ -2531,10 +2531,26 @@ static void ufs_qcom_override_pa_tx_hsg1_sync_len(struct ufs_hba *hba)
 			     err, sync_len_val);
 }
 
+static void ufs_qcom_override_pa_tx_hsg3_sync_len(struct ufs_hba *hba)
+{
+#define PA_TX_HSG3_SYNC_LENGTH 0x1556
+	int err;
+	int sync_len_val = 0x4F;
+
+	err = ufshcd_dme_peer_set(hba, UIC_ARG_MIB(PA_TX_HSG3_SYNC_LENGTH),
+                                  sync_len_val);
+	if(err)
+		dev_err(hba->dev, "Failed (%d) set PA_TX_HSG3_SYNC_LENGTH(%d)",
+                        err, sync_len_val);
+	else
+		dev_err(hba->dev, "success set PA_TX_HSG3_SYNC_LENGTH");
+}
+
 static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 {
 	unsigned long flags;
 	int err = 0;
+	struct ufs_dev_info *dev_info = &hba->dev_info;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	/* Set the rpm auto suspend delay to 3s */
@@ -2557,6 +2573,9 @@ static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_PA_TX_HSG1_SYNC_LENGTH)
 		ufs_qcom_override_pa_tx_hsg1_sync_len(hba);
+
+	if(dev_info->wspecversion == 0x220)
+		ufs_qcom_override_pa_tx_hsg3_sync_len(hba);
 
 	ufshcd_parse_pm_levels(hba);
 
@@ -2613,6 +2632,7 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 	if (host->disable_lpm || host->broken_ahit_wa)
 		hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
 
+
 #if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO_QTI)
 	hba->android_quirks |= UFSHCD_ANDROID_QUIRK_CUSTOM_CRYPTO_PROFILE;
 #endif
@@ -2625,7 +2645,6 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 	if (!host->disable_lpm) {
 		hba->caps |= UFSHCD_CAP_CLK_GATING |
 			UFSHCD_CAP_HIBERN8_WITH_CLK_GATING |
-			UFSHCD_CAP_CLK_SCALING |
 			UFSHCD_CAP_AUTO_BKOPS_SUSPEND |
 			UFSHCD_CAP_AGGR_POWER_COLLAPSE |
 			UFSHCD_CAP_WB_WITH_CLK_SCALING;
@@ -2656,6 +2675,7 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 
 	if (host->hw_ver.major >= 0x5)
 		host->caps |= UFS_QCOM_CAP_SHARED_ICE;
+
 }
 
 static int ufs_qcom_unvote_qos_all(struct ufs_hba *hba)
@@ -3575,7 +3595,7 @@ static int ufs_qcom_panic_handler(struct notifier_block *nb,
 	struct ufs_qcom_host *host = container_of(nb, struct ufs_qcom_host, ufs_qcom_panic_nb);
 	struct ufs_hba *hba = host->hba;
 
-	dev_err(hba->dev, "......dumping ufs info .......\n");
+	dev_err(hba->dev, "[ARCH-TF-MEMORY]......dumping ufs info .......\n");
 
 	dev_err(hba->dev, "UFS Host state=%d\n", hba->ufshcd_state);
 	dev_err(hba->dev, "outstanding reqs=0x%lx tasks=0x%lx\n",
@@ -3950,6 +3970,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 		if (err)
 			dev_err(host->hba->dev, "Fail to register UFS panic notifier\n");
 	}
+
 
 	return 0;
 
@@ -4382,7 +4403,7 @@ static void ufs_qcom_event_notify(struct ufs_hba *hba,
 								  void *data)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct phy *phy = host->generic_phy;
+	//struct phy *phy = host->generic_phy;
 	bool ber_th_exceeded = false;
 
 	switch (evt) {
@@ -4394,11 +4415,12 @@ static void ufs_qcom_event_notify(struct ufs_hba *hba,
 			host->ber_th_exceeded = true;
 			ufs_qcom_save_all_regs(host);
 			ufs_qcom_print_ber_hist(host);
-
+#if 0
 			if (crash_on_ber) {
 				ufs_qcom_phy_dbg_register_dump(phy);
 				BUG_ON(1);
 			}
+#endif
 		}
 
 		if (host->ber_th_exceeded)
@@ -4427,8 +4449,9 @@ void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba,
 	}
 
 	host = ufshcd_get_variant(hba);
-	if (!(host->dbg_print_en & UFS_QCOM_DBG_PRINT_REGS_EN))
-		return;
+
+		if (!(host->dbg_print_en & UFS_QCOM_DBG_PRINT_REGS_EN))
+			return;
 
 	reg = ufshcd_readl(hba, REG_UFS_CFG1);
 	reg |= UTP_DBG_RAMS_EN;
@@ -4861,6 +4884,7 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 {
 	struct device_node *np = host->hba->dev->of_node;
+
 	u32 dev_major = 0, dev_minor = 0;
 	u32 val;
 	u32 ufs_dev_types = 0;
@@ -5025,7 +5049,8 @@ static struct ufs_dev_quirk ufs_qcom_dev_fixups[] = {
 	  .quirk = UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM },
 	{ .wmanufacturerid = UFS_VENDOR_SKHYNIX,
 	  .model = UFS_ANY_MODEL,
-	  .quirk = UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM },
+	  .quirk = UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM |
+			UFS_DEVICE_QUIRK_PA_TX_DEEMPHASIS_TUNING },
 	{ .wmanufacturerid = UFS_VENDOR_WDC,
 	  .model = UFS_ANY_MODEL,
 	  .quirk = UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE },
@@ -5617,7 +5642,9 @@ static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
 	if (lrbp && lrbp->cmd && lrbp->cmd->cmnd[0]) {
 		struct request *rq = scsi_cmd_to_rq(lrbp->cmd);
 		int sz = rq ? blk_rq_sectors(rq) : 0;
-
+#if IS_ENABLED(CONFIG_MI_MPBE_SUPPORT)
+		mpbe_trace_ufs_cmd(hba, lrbp, true);
+#endif
 		ufs_qcom_qos(hba, lrbp->task_tag);
 
 		if (!is_mcq_enabled(hba)) {
@@ -5678,6 +5705,9 @@ static void ufs_qcom_hook_compl_command(void *param, struct ufs_hba *hba,
 	if (lrbp && lrbp->cmd) {
 		struct request *rq = scsi_cmd_to_rq(lrbp->cmd);
 		int sz = rq ? blk_rq_sectors(rq) : 0;
+#if IS_ENABLED(CONFIG_MI_MPBE_SUPPORT)
+		mpbe_trace_ufs_cmd(hba, lrbp, false);
+#endif
 
 		if (!is_mcq_enabled(hba)) {
 			ufs_qcom_log_str(host, ">,%x,%d,%x,%d\n",

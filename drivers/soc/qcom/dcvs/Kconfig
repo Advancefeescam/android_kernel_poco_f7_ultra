@@ -112,6 +112,8 @@ config QTI_C1DCVS_SCMI_V2
 config QTI_MPAM
 	tristate "Qualcomm Technologies Inc. MPAM Interface Driver"
 	depends on QTI_SCMI_VENDOR_PROTOCOL
+	select ANDROID_MPAM_ARCH
+	select ANDROID_MPAM_POLICY
 	default n
 	help
 	  Driver to expose MPAM sysfs nodes to user space.

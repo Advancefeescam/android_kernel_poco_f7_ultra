@@ -13,6 +13,9 @@
 #include <linux/bitops.h>
 #include <linux/clk/qcom.h>
 #include <linux/mfd/syscon.h>
+// MIUI ADD: Power_LogEnhance
+#include <linux/proc_fs.h>
+// END Power_LogEnhance
 #include <trace/events/power.h>
 
 #define CREATE_TRACE_POINTS
@@ -1091,6 +1094,10 @@ int clk_debug_init(void)
 
 	debugfs_create_file("clk_enabled_list", 0444, rootdir,
 			    &clk_hw_debug_list, &clk_enabled_list_fops);
+
+// MIUI ADD: Power_LogEnhance
+	proc_create_single_data("clk_enabled_list", 0444, NULL, enabled_clocks_show, NULL);
+// END Power_LogEnhance
 
 	debugfs_create_file("trace_clocks", 0444, rootdir,
 			    &clk_hw_debug_list, &clk_enabled_trace_fops);

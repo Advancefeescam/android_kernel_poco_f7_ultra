@@ -153,9 +153,9 @@ static bool con_enabled = IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE_DEFAULT_ENAB
 #define WAIT_XFER_MAX_ITER	(2)
 #define WAIT_XFER_MAX_TIMEOUT_US	(150)
 #define WAIT_XFER_MIN_TIMEOUT_US	(100)
-#define IPC_LOG_PWR_PAGES	(10)
-#define IPC_LOG_MISC_PAGES	(30)
-#define IPC_LOG_TX_RX_PAGES	(30)
+#define IPC_LOG_PWR_PAGES	(15)
+#define IPC_LOG_MISC_PAGES	(45)
+#define IPC_LOG_TX_RX_PAGES	(45)
 #define DATA_BYTES_PER_LINE	(32)
 
 #define M_IRQ_BITS		(M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN |\
@@ -197,7 +197,7 @@ static bool con_enabled = IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE_DEFAULT_ENAB
 
 #define IPC_LOG_MSG(ctx, x...) ipc_log_string(ctx, x)
 
-#define DMA_RX_BUF_SIZE		(2048)
+#define DMA_RX_BUF_SIZE		(8192)
 #define UART_CONSOLE_RX_WM	(2)
 #define NUM_RX_BUF		4
 

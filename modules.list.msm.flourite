@@ -1,0 +1,8 @@
+hwid.ko
+zram.ko
+zsmalloc.ko
+n_gsm.ko
+mi_sw_sync.ko
+tms_device_modules.ko
+nfc_i2c.ko
+speed_ui.ko

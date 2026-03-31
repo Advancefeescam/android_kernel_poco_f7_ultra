@@ -13,6 +13,8 @@ source "drivers/rapidio/Kconfig"
 
 source "drivers/base/Kconfig"
 
+source "drivers/nfc/Kconfig"
+
 source "drivers/bus/Kconfig"
 
 source "drivers/connector/Kconfig"
@@ -239,4 +241,14 @@ source "drivers/peci/Kconfig"
 
 source "drivers/hte/Kconfig"
 
+
+source "drivers/xiaomi/Kconfig"
+
+source "drivers/hyperenhance/Kconfig"
+
+source "drivers/ntag/Kconfig"
+
+source "drivers/sandbox/Kconfig"
+
+source "drivers/hdbds/Kconfig"
 endmenu

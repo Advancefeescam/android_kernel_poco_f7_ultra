@@ -12,6 +12,7 @@
 #include <linux/pm_qos.h>
 #include <linux/notifier.h>
 #include <linux/panic_notifier.h>
+
 #include <ufs/ufshcd.h>
 #include <ufs/unipro.h>
 
@@ -494,6 +495,7 @@ struct ufs_qcom_regs {
 	u32 *ptr;
 	size_t len;
 };
+
 
 /**
  * struct cpu_freq_info - keep CPUs frequency info

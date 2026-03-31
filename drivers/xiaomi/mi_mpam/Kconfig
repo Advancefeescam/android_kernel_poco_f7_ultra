@@ -1,0 +1,13 @@
+config ANDROID_MPAM_ARCH
+       depends on QTI_MPAM
+       tristate "MPAM module based architecture driver"
+
+config ANDROID_MPAM_POLICY
+       tristate "MPAM policy module"
+       depends on ANDROID_MPAM_ARCH && ANDROID_VENDOR_HOOKS
+
+config MPAM_ENABLE_TOPAPP
+       bool "Allow mpam topapp"
+       default y
+       help
+         This enables TOPAPP tasks into MPAM partid 17.

@@ -4,6 +4,8 @@
 #
 
 obj-$(CONFIG_NFC_FDP)		+= fdp/
+obj-$(CONFIG_TMS_NFC_DEVICE)    += tmsdrv/
+obj-$(CONFIG_NXP_NFC_I2C)	+= pn560/
 obj-$(CONFIG_NFC_PN544)		+= pn544/
 obj-$(CONFIG_NFC_MICROREAD)	+= microread/
 obj-$(CONFIG_NFC_PN533)		+= pn533/

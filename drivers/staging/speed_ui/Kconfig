@@ -1,0 +1,4 @@
+config SPEED_UI
+  tristate "Xiaomi speed ui"
+  default n
+  

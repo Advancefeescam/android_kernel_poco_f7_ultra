@@ -331,6 +331,7 @@ static struct platform_driver glink_rpm_driver = {
 	.driver = {
 		.name = "qcom_glink_rpm",
 		.of_match_table = glink_rpm_of_match,
+		.pm = &glink_native_pm_ops,
 	},
 };
 
@@ -349,3 +350,4 @@ module_exit(glink_rpm_exit);
 MODULE_AUTHOR("Bjorn Andersson <bjorn.andersson@linaro.org>");
 MODULE_DESCRIPTION("Qualcomm GLINK RPM driver");
 MODULE_LICENSE("GPL v2");
+MODULE_SOFTDEP("pre: qcom-apcs-ipc-mailbox");

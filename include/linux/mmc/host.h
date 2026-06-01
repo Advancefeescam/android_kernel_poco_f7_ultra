@@ -15,6 +15,14 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/pm.h>
 #include <linux/dma-direction.h>
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+#include <linux/ktime.h>
+#endif
+
+#if IS_ENABLED(CONFIG_MMC_SDHCI_CRYPTO)
+#include <soc/jlq/jr510/fde.h>
+#endif
+
 
 struct mmc_ios {
 	unsigned int	clock;			/* clock rate */
@@ -172,6 +180,10 @@ struct mmc_host_ops {
 	 */
 	int	(*multi_io_quirk)(struct mmc_card *card,
 				  unsigned int direction, int blk_size);
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+	void	(*force_err_irq)(struct mmc_host *host, u64 errmask);
+	void	(*dump_regs)(struct mmc_host *host);
+#endif
 };
 
 struct mmc_cqe_ops {
@@ -216,6 +228,13 @@ struct mmc_cqe_ops {
 	 * will have zero data bytes transferred.
 	 */
 	void	(*cqe_recovery_finish)(struct mmc_host *host);
+
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+	/*
+	 * dump cqe regs && host controller regs.
+	 */
+	void    (*cqe_dumpregs)(struct mmc_host *host);
+#endif
 };
 
 struct mmc_async_req {
@@ -284,9 +303,12 @@ struct mmc_host {
 	u32			ocr_avail_sdio;	/* SDIO-specific OCR */
 	u32			ocr_avail_sd;	/* SD-specific OCR */
 	u32			ocr_avail_mmc;	/* MMC-specific OCR */
+
 #ifdef CONFIG_PM_SLEEP
+	/* DO NOT USE, is not used, for abi preservation only */
 	struct notifier_block	pm_notify;
 #endif
+
 	u32			max_current_330;
 	u32			max_current_300;
 	u32			max_current_180;
@@ -446,6 +468,24 @@ struct mmc_host {
 
 	struct dentry		*debugfs_root;
 
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+	bool			err_occurred;
+	u32				hc_cmd_timeout_val;
+	u32				runtime_suspend_skip_state;
+	#define STATE_DEFAULT		0
+	#define STATE_PRE_DEFAULT	1
+	#define STATE_SKIP			2
+	#define STATE_PRE_SKIP		3
+	ktime_t 		latest_req_time_p1;	/*  (us) */
+	ktime_t 		latest_req_time_p2;	/*  (us) */
+	ktime_t 		latest_req_time_p3;	/*  (us) */
+	ktime_t 		latest_req_time_p4;	/*  (us) */
+	ktime_t 		latest_req_time_p5;	/*  (us) */
+	ktime_t 		latest_req_time_p6;	/*  (us) */
+	ktime_t 		latest_req_time_p7;	/*  (us) */
+	ktime_t 		latest_req_time_p8;	/*  (us) */
+#endif
+
 	/* Ongoing data transfer that allows commands during transfer */
 	struct mmc_request	*ongoing_mrq;
 
@@ -470,6 +510,9 @@ struct mmc_host {
 	struct keyslot_manager	*ksm;
 	void *crypto_DO_NOT_USE[7];
 #endif /* CONFIG_MMC_CRYPTO */
+#if IS_ENABLED(CONFIG_MMC_SDHCI_CRYPTO)
+	struct sdhci_jlq_fde_data fde;
+#endif
 
 	/* Host Software Queue support */
 	bool			hsq_enabled;

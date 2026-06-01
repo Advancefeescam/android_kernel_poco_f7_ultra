@@ -30,6 +30,7 @@
 #include <linux/pci.h>
 #include <linux/pci-ats.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 
 #include <linux/amba/bus.h>
 
@@ -383,6 +384,48 @@
 #define MSI_IOVA_BASE			0x8000000
 #define MSI_IOVA_LENGTH			0x100000
 
+#define EVT_ID_TRANSLATION_FAULT	0x10
+#define EVT_ID_ADDR_SIZE_FAULT		0x11
+#define EVT_ID_ACCESS_FAULT		0x12
+#define EVT_ID_PERMISSION_FAULT		0x13
+
+#define EVTQ_0_SSV			(1UL << 11)
+#define EVTQ_0_SSID			GENMASK_ULL(31, 12)
+#define EVTQ_0_SID			GENMASK_ULL(63, 32)
+#define EVTQ_1_STAG			GENMASK_ULL(15, 0)
+#define EVTQ_1_STALL			(1UL << 31)
+#define EVTQ_1_PRIV			(1UL << 33)
+#define EVTQ_1_EXEC			(1UL << 34)
+#define EVTQ_1_READ			(1UL << 35)
+#define EVTQ_1_S2			(1UL << 39)
+#define EVTQ_2_ADDR			GENMASK_ULL(63, 0)
+#define EVTQ_3_IPA			GENMASK_ULL(51, 12)
+
+/* LPM */
+#define PMU_TBU_PD_CTL	0x280
+#define PMU_TBU_PD_CNT1	0x284
+#define PMU_TBU_PD_CNT2	0x288
+#define PMU_TBU_PD_CNT3	0x28C
+
+#define PMU_TCU_PD_CTL	0x290
+#define PMU_TCU_PD_CNT1	0x294
+#define PMU_TCU_PD_CNT2	0x298
+#define PMU_TCU_PD_CNT3	0x29C
+
+#define PMU_TBU_PD_CTL_qchannel_st	(1UL << 13)
+#define PMU_TBU_PD_CTL_qchannel_mk	(1UL << 5)
+#define PMU_TBU_PD_CTL_PD_MK	(1UL << 4)
+#define PMU_TBU_PD_CTL_POWER_ON	(1UL << 1)
+#define PMU_TBU_PD_CTL_POWER_DOWN	(1UL << 0)
+
+#define PMU_TCU_PD_CTL_qchannel_st	(1UL << 13)
+#define PMU_TCU_PD_CTL_qchannel_mk	(1UL << 5)
+#define PMU_TCU_PD_CTL_PD_MK	(1UL << 4)
+#define PMU_TCU_PD_CTL_POWER_ON	(1UL << 1)
+#define PMU_TCU_PD_CTL_POWER_DOWN	(1UL << 0)
+#define QCHANNEL_MASK	GENMASK(15, 13)
+#define PMU_PD_WEN(x)	(1UL << (16 + x))
+
 static bool disable_bypass = 1;
 module_param_named(disable_bypass, disable_bypass, bool, S_IRUGO);
 MODULE_PARM_DESC(disable_bypass,
@@ -574,6 +617,9 @@ struct arm_smmu_strtab_cfg {
 struct arm_smmu_device {
 	struct device			*dev;
 	void __iomem			*base;
+	void __iomem			*lpm_base;
+	struct regulator *tcu_power;
+	bool power_enabled;
 
 #define ARM_SMMU_FEAT_2_LVL_STRTAB	(1 << 0)
 #define ARM_SMMU_FEAT_2_LVL_CDTAB	(1 << 1)
@@ -1686,6 +1732,80 @@ static int arm_smmu_init_l2_strtab(struct arm_smmu_device *smmu, u32 sid)
 }
 
 /* IRQ and event handlers */
+static int arm_smmu_handle_evt(struct arm_smmu_device *smmu, u64 *evt)
+{
+	int ret;
+	u32 perm = 0;
+	struct arm_smmu_master *master;
+	bool ssid_valid = evt[0] & EVTQ_0_SSV;
+	u8 type = FIELD_GET(EVTQ_0_ID, evt[0]);
+	u32 sid = FIELD_GET(EVTQ_0_SID, evt[0]);
+	struct iommu_fault_event fault_evt = { };
+	struct iommu_fault *flt = &fault_evt.fault;
+
+	/* Stage-2 is always pinned at the moment */
+	if (evt[1] & EVTQ_1_S2)
+		return -EFAULT;
+
+	if (evt[1] & EVTQ_1_READ)
+		perm |= IOMMU_FAULT_PERM_READ;
+	else
+		perm |= IOMMU_FAULT_PERM_WRITE;
+
+	if (evt[1] & EVTQ_1_EXEC)
+		perm |= IOMMU_FAULT_PERM_EXEC;
+
+	if (evt[1] & EVTQ_1_PRIV)
+		perm |= IOMMU_FAULT_PERM_PRIV;
+
+	if (evt[1] & EVTQ_1_STALL) {
+		flt->type = IOMMU_FAULT_PAGE_REQ;
+		flt->prm = (struct iommu_fault_page_request) {
+			.flags = IOMMU_FAULT_PAGE_REQUEST_LAST_PAGE,
+			.pasid = FIELD_GET(EVTQ_0_SSID, evt[0]),
+			.grpid = FIELD_GET(EVTQ_1_STAG, evt[1]),
+			.perm = perm,
+			.addr = FIELD_GET(EVTQ_2_ADDR, evt[2]),
+		};
+
+		if (ssid_valid)
+			flt->prm.flags |= IOMMU_FAULT_PAGE_REQUEST_PASID_VALID;
+	} else {
+		flt->type = IOMMU_FAULT_DMA_UNRECOV;
+		flt->event = (struct iommu_fault_unrecoverable) {
+			.flags = IOMMU_FAULT_UNRECOV_ADDR_VALID |
+				 IOMMU_FAULT_UNRECOV_FETCH_ADDR_VALID,
+			.pasid = FIELD_GET(EVTQ_0_SSID, evt[0]),
+			.perm = perm,
+			.addr = FIELD_GET(EVTQ_2_ADDR, evt[2]),
+			.fetch_addr = FIELD_GET(EVTQ_3_IPA, evt[3]),
+		};
+
+		if (ssid_valid)
+			flt->event.flags |= IOMMU_FAULT_UNRECOV_PASID_VALID;
+
+		switch (type) {
+		case EVT_ID_TRANSLATION_FAULT:
+		case EVT_ID_ADDR_SIZE_FAULT:
+		case EVT_ID_ACCESS_FAULT:
+			flt->event.reason = IOMMU_FAULT_REASON_PTE_FETCH;
+			break;
+		case EVT_ID_PERMISSION_FAULT:
+			flt->event.reason = IOMMU_FAULT_REASON_PERMISSION;
+			break;
+		default:
+			/* TODO: report other unrecoverable faults. */
+			return -EFAULT;
+		}
+
+		pr_err("smmu fault reason:0x%x flags:0x%x pasid:%d ssv:%d type:0x%x InputAddr:0x%x IPA:0x%x.\n",
+			flt->event.reason, flt->event.flags, flt->event.pasid,
+			ssid_valid, type, flt->event.addr, flt->event.fetch_addr);
+	}
+
+	return ret;
+}
+
 static irqreturn_t arm_smmu_evtq_thread(int irq, void *dev)
 {
 	int i;
@@ -1698,11 +1818,13 @@ static irqreturn_t arm_smmu_evtq_thread(int irq, void *dev)
 		while (!queue_remove_raw(q, evt)) {
 			u8 id = FIELD_GET(EVTQ_0_ID, evt[0]);
 
+			arm_smmu_handle_evt(smmu, evt);
 			dev_info(smmu->dev, "event 0x%02x received:\n", id);
 			for (i = 0; i < ARRAY_SIZE(evt); ++i)
 				dev_info(smmu->dev, "\t0x%016llx\n",
 					 (unsigned long long)evt[i]);
 
+			cond_resched();
 		}
 
 		/*
@@ -2414,6 +2536,12 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			smmu_domain->smmu = NULL;
 			goto out_unlock;
 		}
+		/* overwrite geometry */
+		if (strstr(dev_name(dev), "vdsp")) {
+			domain->geometry.aperture_start = 0x81000000;
+			domain->geometry.aperture_end = 0xFFFFFFFF;
+			domain->geometry.force_aperture = true;
+		}
 	} else if (smmu_domain->smmu != smmu) {
 		dev_err(dev,
 			"cannot attach to SMMU %s (upstream of %s)\n",
@@ -2992,11 +3120,13 @@ static int arm_smmu_update_gbpa(struct arm_smmu_device *smmu, u32 set, u32 clr)
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_JGKI)
 static void arm_smmu_free_msis(void *data)
 {
 	struct device *dev = data;
 	platform_msi_domain_free_irqs(dev);
 }
+#endif
 
 static void arm_smmu_write_msi_msg(struct msi_desc *desc, struct msi_msg *msg)
 {
@@ -3036,6 +3166,7 @@ static void arm_smmu_setup_msis(struct arm_smmu_device *smmu)
 		return;
 	}
 
+#if IS_ENABLED(CONFIG_JGKI)
 	/* Allocate MSIs for evtq, gerror and priq. Ignore cmdq */
 	ret = platform_msi_domain_alloc_irqs(dev, nvec, arm_smmu_write_msi_msg);
 	if (ret) {
@@ -3061,6 +3192,7 @@ static void arm_smmu_setup_msis(struct arm_smmu_device *smmu)
 
 	/* Add callback to free MSIs on teardown */
 	devm_add_action(dev, arm_smmu_free_msis, dev);
+#endif
 }
 
 static void arm_smmu_setup_unique_irqs(struct arm_smmu_device *smmu)
@@ -3148,6 +3280,30 @@ static int arm_smmu_setup_irqs(struct arm_smmu_device *smmu)
 		dev_warn(smmu->dev, "failed to enable irqs\n");
 
 	return 0;
+}
+
+static void arm_smmu_cleanup_irqs(struct arm_smmu_device *smmu)
+{
+	int irq;
+	struct device *dev = smmu->dev;
+
+	irq = smmu->evtq.q.irq;
+	if (irq)
+		devm_free_irq(dev, irq, smmu);
+
+	irq = smmu->cmdq.q.irq;
+	if (irq)
+		devm_free_irq(dev, irq, smmu);
+
+	irq = smmu->gerr_irq;
+	if (irq)
+		devm_free_irq(dev, irq, smmu);
+
+	if (smmu->features & ARM_SMMU_FEAT_PRI) {
+		irq = smmu->priq.q.irq;
+		if (irq)
+			devm_free_irq(dev, irq, smmu);
+	}
 }
 
 static int arm_smmu_device_disable(struct arm_smmu_device *smmu)
@@ -3296,10 +3452,51 @@ static int arm_smmu_device_reset(struct arm_smmu_device *smmu, bool bypass)
 	return 0;
 }
 
+static int smmu_tcu_powerup(struct arm_smmu_device *smmu)
+{
+	int ret;
+
+	if (smmu->power_enabled) {
+		dev_err(smmu->dev, "tcu power has been enabled\n");
+		return 0;
+	}
+
+	ret = regulator_enable(smmu->tcu_power);
+	if (ret < 0) {
+		dev_err(smmu->dev, "failed to enable tcu_power, %d\n", ret);
+		return ret;
+	}
+
+	smmu->power_enabled = true;
+
+	return 0;
+}
+
+static void smmu_tcu_poweroff(struct arm_smmu_device *smmu)
+{
+	int ret;
+
+	if (!smmu->power_enabled) {
+		dev_err(smmu->dev, "tcu power has been disabled\n");
+		return;
+	}
+
+	ret = regulator_disable(smmu->tcu_power);
+	if (ret < 0)
+		dev_err(smmu->dev, "failed to enable tcu_power, %d\n", ret);
+
+	smmu->power_enabled = false;
+}
+
 static int arm_smmu_device_hw_probe(struct arm_smmu_device *smmu)
 {
 	u32 reg;
+	u32 ret;
 	bool coherent = smmu->features & ARM_SMMU_FEAT_COHERENCY;
+
+	ret = smmu_tcu_powerup(smmu);
+	if (ret)
+		return -ENXIO;
 
 	/* IDR0 */
 	reg = readl_relaxed(smmu->base + ARM_SMMU_IDR0);
@@ -3556,6 +3753,12 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev,
 	if (of_dma_is_coherent(dev->of_node))
 		smmu->features |= ARM_SMMU_FEAT_COHERENCY;
 
+	smmu->tcu_power = devm_regulator_get(dev, "tcu");
+	if (IS_ERR(smmu->tcu_power)) {
+		ret = PTR_ERR(smmu->tcu_power);
+		dev_err(dev, "failed to get regulator tcu\n");
+	}
+
 	return ret;
 }
 
@@ -3610,6 +3813,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	struct resource *res;
 	resource_size_t ioaddr;
 	struct arm_smmu_device *smmu;
+	struct device_node *lpm_np;
 	struct device *dev = &pdev->dev;
 	bool bypass;
 
@@ -3642,6 +3846,19 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	smmu->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(smmu->base))
 		return PTR_ERR(smmu->base);
+
+	/* ioremap lpm-base */
+	lpm_np = of_find_compatible_node(NULL, NULL, "jlq,lpm-base");
+	if (!lpm_np) {
+		dev_err(smmu->dev, "No lpm registers defined.\n");
+		return -EINVAL;
+	}
+
+	smmu->lpm_base = of_iomap(lpm_np, 0);
+	if (IS_ERR(smmu->lpm_base)) {
+		dev_err(smmu->dev, "lpm reg ioremap failed\n");
+		return PTR_ERR(smmu->lpm_base);
+	}
 
 	/* Interrupt lines */
 
@@ -3705,6 +3922,7 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	iommu_device_unregister(&smmu->iommu);
 	iommu_device_sysfs_remove(&smmu->iommu);
 	arm_smmu_device_disable(smmu);
+	smmu_tcu_poweroff(smmu);
 
 	return 0;
 }
@@ -3713,6 +3931,51 @@ static void arm_smmu_device_shutdown(struct platform_device *pdev)
 {
 	arm_smmu_device_remove(pdev);
 }
+
+static int arm_smmu_device_resume(struct device *dev)
+{
+	int ret;
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+
+	dev_err(dev, "%s\n", __func__);
+
+	smmu_tcu_powerup(smmu);
+
+	ret = readl(smmu->lpm_base + PMU_TCU_PD_CTL);
+	dev_err(dev, "%s, PMU_TCU_PD_CTL=0x%x\n", __func__, ret);
+	/* Reset the device */
+	ret = arm_smmu_device_reset(smmu, false);
+	if (ret)
+		dev_info(dev, "%s, arm smmu reset failed\n", __func__);
+
+	return 0;
+}
+
+static int arm_smmu_device_suspend(struct device *dev)
+{
+	int irq;
+	u32 reg;
+	unsigned int ret;
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+
+	dev_err(dev, "%s\n", __func__);
+
+	arm_smmu_device_disable(smmu);
+
+	arm_smmu_cleanup_irqs(smmu);
+
+	smmu_tcu_poweroff(smmu);
+
+	ret = readl(smmu->lpm_base + PMU_TCU_PD_CTL);
+	dev_err(dev, "%s, PMU_TCU_PD_CTL=0x%x\n", __func__, ret);
+
+	return 0;
+}
+
+const static struct dev_pm_ops arm_smmu_pm_ops = {
+	.resume  = arm_smmu_device_resume,
+	.suspend = arm_smmu_device_suspend,
+};
 
 static const struct of_device_id arm_smmu_of_match[] = {
 	{ .compatible = "arm,smmu-v3", },
@@ -3725,6 +3988,7 @@ static struct platform_driver arm_smmu_driver = {
 		.name			= "arm-smmu-v3",
 		.of_match_table		= of_match_ptr(arm_smmu_of_match),
 		.suppress_bind_attrs	= true,
+		.pm	= &arm_smmu_pm_ops,
 	},
 	.probe	= arm_smmu_device_probe,
 	.remove	= arm_smmu_device_remove,

@@ -44,7 +44,9 @@
 #include <linux/usb/otg.h>
 #include <linux/usb/phy.h>
 #include "hw.h"
-
+#ifdef CONFIG_JLQ_USB_DWC2
+#include <linux/usb/hcd.h>
+#endif
 /*
  * Suggested defines for tracers:
  * - no_printk:    Disable tracing
@@ -112,6 +114,7 @@ struct dwc2_hsotg_req;
  * @debugfs: File entry for debugfs file for this endpoint.
  * @dir_in: Set to true if this endpoint is of the IN direction, which
  *          means that it is sending data to the Host.
+ * @map_dir: Set to the value of dir_in when the DMA buffer is mapped.
  * @index: The index for the endpoint registers.
  * @mc: Multi Count - number of transactions per microframe
  * @interval: Interval for periodic endpoints, in frames or microframes.
@@ -160,7 +163,11 @@ struct dwc2_hsotg_ep {
 	unsigned short          fifo_size;
 	unsigned short		fifo_index;
 
+#ifdef CONFIG_JLQ_USB_DWC2
+	unsigned char           dma_dir;
+#endif
 	unsigned char           dir_in;
+	unsigned char           map_dir;
 	unsigned char           index;
 	unsigned char           mc;
 	u16                     interval;
@@ -1446,6 +1453,9 @@ int dwc2_host_exit_hibernation(struct dwc2_hsotg *hsotg,
 bool dwc2_host_can_poweroff_phy(struct dwc2_hsotg *dwc2);
 static inline void dwc2_host_schedule_phy_reset(struct dwc2_hsotg *hsotg)
 { schedule_work(&hsotg->phy_reset_work); }
+#ifdef CONFIG_JLQ_USB_DWC2
+struct dwc2_hsotg *dwc2_hcd_to_hsotg(struct usb_hcd *hcd);
+#endif
 #else
 static inline int dwc2_hcd_get_frame_number(struct dwc2_hsotg *hsotg)
 { return 0; }
@@ -1472,6 +1482,10 @@ static inline int dwc2_host_exit_hibernation(struct dwc2_hsotg *hsotg,
 static inline bool dwc2_host_can_poweroff_phy(struct dwc2_hsotg *dwc2)
 { return false; }
 static inline void dwc2_host_schedule_phy_reset(struct dwc2_hsotg *hsotg) {}
+#ifdef CONFIG_JLQ_USB_DWC2
+static struct dwc2_hsotg *dwc2_hcd_to_hsotg(struct usb_hcd *hcd)
+{ return 0; }
+#endif
 
 #endif
 

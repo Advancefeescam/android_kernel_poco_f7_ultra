@@ -1313,18 +1313,19 @@ static void dwc2_hc_start_transfer(struct dwc2_hsotg *hsotg,
 			if (num_packets > max_hc_pkt_count) {
 				num_packets = max_hc_pkt_count;
 				chan->xfer_len = num_packets * chan->max_packet;
+			} else if (chan->ep_is_in) {
+				/*
+				 * Always program an integral # of max packets
+				 * for IN transfers.
+				 * Note: This assumes that the input buffer is
+				 * aligned and sized accordingly.
+				 */
+				chan->xfer_len = num_packets * chan->max_packet;
 			}
 		} else {
 			/* Need 1 packet for transfer length of 0 */
 			num_packets = 1;
 		}
-
-		if (chan->ep_is_in)
-			/*
-			 * Always program an integral # of max packets for IN
-			 * transfers
-			 */
-			chan->xfer_len = num_packets * chan->max_packet;
 
 		if (chan->ep_type == USB_ENDPOINT_XFER_INT ||
 		    chan->ep_type == USB_ENDPOINT_XFER_ISOC)
@@ -2149,6 +2150,9 @@ int dwc2_core_init(struct dwc2_hsotg *hsotg, bool initial_setup)
 
 	return 0;
 }
+#ifdef CONFIG_JLQ_USB_DWC2
+EXPORT_SYMBOL_GPL(dwc2_core_init);
+#endif
 
 /**
  * dwc2_core_host_init() - Initializes the DWC_otg controller registers for
@@ -3961,14 +3965,20 @@ struct wrapper_priv_data {
 };
 
 /* Gets the dwc2_hsotg from a usb_hcd */
+#ifdef CONFIG_JLQ_USB_DWC2
+struct dwc2_hsotg *dwc2_hcd_to_hsotg(struct usb_hcd *hcd)
+#else
 static struct dwc2_hsotg *dwc2_hcd_to_hsotg(struct usb_hcd *hcd)
+#endif
 {
 	struct wrapper_priv_data *p;
 
 	p = (struct wrapper_priv_data *)&hcd->hcd_priv;
 	return p->hsotg;
 }
-
+#ifdef CONFIG_JLQ_USB_DWC2
+EXPORT_SYMBOL_GPL(dwc2_hcd_to_hsotg);
+#endif
 /**
  * dwc2_host_get_tt_info() - Get the dwc2_tt associated with context
  *
@@ -4321,7 +4331,8 @@ static int _dwc2_hcd_suspend(struct usb_hcd *hcd)
 	if (hsotg->op_state == OTG_STATE_B_PERIPHERAL)
 		goto unlock;
 
-	if (hsotg->params.power_down > DWC2_POWER_DOWN_PARAM_PARTIAL)
+	if (hsotg->params.power_down != DWC2_POWER_DOWN_PARAM_PARTIAL ||
+	    hsotg->flags.b.port_connect_status == 0)
 		goto skip_power_saving;
 
 	/*
@@ -5072,6 +5083,10 @@ int dwc2_hcd_init(struct dwc2_hsotg *hsotg)
 	hcd->has_tt = 1;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		retval = -EINVAL;
+		goto error2;
+	}
 	hcd->rsrc_start = res->start;
 	hcd->rsrc_len = resource_size(res);
 
@@ -5235,7 +5250,8 @@ int dwc2_hcd_init(struct dwc2_hsotg *hsotg)
 
 	dwc2_hcd_dump_state(hsotg);
 
-	dwc2_enable_global_interrupts(hsotg);
+	if (hsotg->dr_mode == USB_DR_MODE_HOST)
+		dwc2_enable_global_interrupts(hsotg);
 
 	return 0;
 
@@ -5397,7 +5413,7 @@ int dwc2_host_enter_hibernation(struct dwc2_hsotg *hsotg)
 	dwc2_writel(hsotg, hprt0, HPRT0);
 
 	/* Wait for the HPRT0.PrtSusp register field to be set */
-	if (dwc2_hsotg_wait_bit_set(hsotg, HPRT0, HPRT0_SUSP, 3000))
+	if (dwc2_hsotg_wait_bit_set(hsotg, HPRT0, HPRT0_SUSP, 5000))
 		dev_warn(hsotg->dev, "Suspend wasn't generated\n");
 
 	/*
@@ -5578,7 +5594,15 @@ int dwc2_host_exit_hibernation(struct dwc2_hsotg *hsotg, int rem_wakeup,
 		return ret;
 	}
 
-	dwc2_hcd_rem_wakeup(hsotg);
+	if (rem_wakeup) {
+		dwc2_hcd_rem_wakeup(hsotg);
+		/*
+		 * Change "port_connect_status_change" flag to re-enumerate,
+		 * because after exit from hibernation port connection status
+		 * is not detected.
+		 */
+		hsotg->flags.b.port_connect_status_change = 1;
+	}
 
 	hsotg->hibernated = 0;
 	hsotg->bus_suspended = 0;
@@ -5599,9 +5623,10 @@ bool dwc2_host_can_poweroff_phy(struct dwc2_hsotg *dwc2)
 	 * We don't want to power off the PHY if something under the
 	 * root hub has wakeup enabled.
 	 */
+#ifdef CONFIG_JGKI
 	if (usb_wakeup_enabled_descendants(root_hub))
 		return false;
-
+#endif
 	/* No reason to keep the PHY powered, so allow poweroff */
 	return true;
 }

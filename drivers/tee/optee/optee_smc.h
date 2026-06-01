@@ -97,6 +97,10 @@ struct optee_smc_calls_revision_result {
 #define OPTEE_SMC_CALL_GET_OS_REVISION \
 	OPTEE_SMC_FAST_CALL_VAL(OPTEE_SMC_FUNCID_GET_OS_REVISION)
 
+#define OPTEE_SMC_FUNCID_PIL_RW_QTANG2 OPTEE_MSG_FUNCID_PIL_RW_QTANG2
+#define OPTEE_SMC_CALL_PIL_RW_QTANG2 \
+	OPTEE_SMC_FAST_CALL_VAL(OPTEE_SMC_FUNCID_PIL_RW_QTANG2)
+
 struct optee_smc_call_get_os_revision_result {
 	unsigned long major;
 	unsigned long minor;

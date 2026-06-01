@@ -127,6 +127,9 @@ enum iommu_attr {
 	DOMAIN_ATTR_DMA_USE_FLUSH_QUEUE,
 	DOMAIN_ATTR_MAX,
 };
+#define EXTENDED_ATTR_BASE			(DOMAIN_ATTR_MAX + 16)
+#define DOMAIN_ATTR_S1_BYPASS			(EXTENDED_ATTR_BASE + 7)
+#define DOMAIN_ATTR_FAST			(EXTENDED_ATTR_BASE + 10)
 
 /* These are the possible reserved region types */
 enum iommu_resv_type {

@@ -32,6 +32,9 @@
 /* Print length for names. Extra 1 space for accommodating '\n' in prints */
 #define CPUFREQ_NAME_PLEN		(CPUFREQ_NAME_LEN + 1)
 
+#ifdef CONFIG_ARCH_JLQ
+#define CPUFREQ_THERMAL			(2)
+#endif
 struct cpufreq_governor;
 
 enum cpufreq_table_sorting {

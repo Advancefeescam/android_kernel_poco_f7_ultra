@@ -142,9 +142,9 @@ static int __dwc2_lowlevel_hw_enable(struct dwc2_hsotg *hsotg)
 	} else if (hsotg->plat && hsotg->plat->phy_init) {
 		ret = hsotg->plat->phy_init(pdev, hsotg->plat->phy_type);
 	} else {
-		ret = phy_power_on(hsotg->phy);
+		ret = phy_init(hsotg->phy);
 		if (ret == 0)
-			ret = phy_init(hsotg->phy);
+			ret = phy_power_on(hsotg->phy);
 	}
 
 	return ret;
@@ -176,9 +176,9 @@ static int __dwc2_lowlevel_hw_disable(struct dwc2_hsotg *hsotg)
 	} else if (hsotg->plat && hsotg->plat->phy_exit) {
 		ret = hsotg->plat->phy_exit(pdev, hsotg->plat->phy_type);
 	} else {
-		ret = phy_exit(hsotg->phy);
+		ret = phy_power_off(hsotg->phy);
 		if (ret == 0)
-			ret = phy_power_off(hsotg->phy);
+			ret = phy_exit(hsotg->phy);
 	}
 	if (ret)
 		return ret;
@@ -269,6 +269,10 @@ static int dwc2_lowlevel_hw_init(struct dwc2_hsotg *hsotg)
 		}
 	}
 
+#ifdef CONFIG_JLQ_USB_DWC2
+	if ((!hsotg->phy) && (!hsotg->uphy))
+		return -EPROBE_DEFER;
+#endif
 	hsotg->plat = dev_get_platdata(hsotg->dev);
 
 	/* Clock */
@@ -402,8 +406,12 @@ static int dwc2_driver_probe(struct platform_device *dev)
 		(unsigned long)res->start, hsotg->regs);
 
 	retval = dwc2_lowlevel_hw_init(hsotg);
-	if (retval)
+	if (retval) {
+#ifdef CONFIG_JLQ_USB_DWC2
+		devm_kfree(&dev->dev, hsotg);
+#endif
 		return retval;
+	}
 
 	spin_lock_init(&hsotg->lock);
 
@@ -445,9 +453,11 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	 * Reset before dwc2_get_hwparams() then it could get power-on real
 	 * reset value form registers.
 	 */
+#if (!defined(CONFIG_JLQ_EMULATOR))
 	retval = dwc2_core_reset(hsotg, false);
 	if (retval)
 		goto error;
+#endif
 
 	/* Detect config values from hardware */
 	retval = dwc2_get_hwparams(hsotg);
@@ -520,6 +530,9 @@ static int dwc2_driver_probe(struct platform_device *dev)
 		}
 	}
 #endif /* CONFIG_USB_DWC2_PERIPHERAL || CONFIG_USB_DWC2_DUAL_ROLE */
+	if (hsotg->dr_mode == USB_DR_MODE_OTG)
+		dwc2_enable_global_interrupts(hsotg);
+
 	return 0;
 
 error:

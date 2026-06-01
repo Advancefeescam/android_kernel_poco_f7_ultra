@@ -268,6 +268,15 @@ struct optee_msg_arg {
 #define OPTEE_MSG_FUNCID_GET_OS_REVISION	0x0001
 
 /*
+ * Handle QTANG2 register
+ *
+ * Used by non-secure world to configure the QTANG2 module.
+ */
+#define OPTEE_MSG_FUNCID_PIL_RW_QTANG2       0x0005
+#define PIL_READ_QTANG2            0x1
+#define PIL_WRITE_QTANG2           0X2
+
+/*
  * Do a secure call with struct optee_msg_arg as argument
  * The OPTEE_MSG_CMD_* below defines what goes in struct optee_msg_arg::cmd
  *

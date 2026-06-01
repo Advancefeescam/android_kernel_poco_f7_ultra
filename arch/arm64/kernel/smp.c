@@ -841,6 +841,11 @@ static void local_cpu_stop(void)
 
 	local_daif_mask();
 	sdei_mask_local_cpu();
+
+#if IS_ENABLED(CONFIG_JLQ_SYSDUMP)
+	flush_cache_all();
+	pr_err("flush dcache for cpu%d\n", smp_processor_id());
+#endif
 	cpu_park_loop();
 }
 

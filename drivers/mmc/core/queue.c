@@ -258,8 +258,15 @@ static blk_status_t mmc_mq_queue_rq(struct blk_mq_hw_ctx *hctx,
 	bool get_card, cqe_retune_ok;
 	int ret;
 
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+	host->latest_req_time_p1 = ktime_get() / 1000;
+#endif
+
 	if (mmc_card_removed(mq->card)) {
 		req->rq_flags |= RQF_QUIET;
+		pr_info("%s: %s: %d: return\n",
+			mmc_hostname(card->host), __func__,
+			__LINE__);
 		return BLK_STS_IOERR;
 	}
 
@@ -269,6 +276,9 @@ static blk_status_t mmc_mq_queue_rq(struct blk_mq_hw_ctx *hctx,
 
 	if (mq->recovery_needed || mq->busy) {
 		spin_unlock_irq(&mq->lock);
+		pr_debug("%s: %s: %d: return\n",
+			mmc_hostname(card->host), __func__,
+			__LINE__);
 		return BLK_STS_RESOURCE;
 	}
 
@@ -277,6 +287,9 @@ static blk_status_t mmc_mq_queue_rq(struct blk_mq_hw_ctx *hctx,
 		if (mmc_cqe_dcmd_busy(mq)) {
 			mq->cqe_busy |= MMC_CQE_DCMD_BUSY;
 			spin_unlock_irq(&mq->lock);
+			pr_info("%s: %s: %d: return\n",
+				mmc_hostname(card->host), __func__,
+				__LINE__);
 			return BLK_STS_RESOURCE;
 		}
 		break;
@@ -287,6 +300,9 @@ static blk_status_t mmc_mq_queue_rq(struct blk_mq_hw_ctx *hctx,
 		 */
 		if (host->hsq_enabled && mq->in_flight[issue_type] > 2) {
 			spin_unlock_irq(&mq->lock);
+			pr_info("%s: %s: %d: return\n",
+				mmc_hostname(card->host), __func__,
+				__LINE__);
 			return BLK_STS_RESOURCE;
 		}
 		break;
@@ -326,6 +342,10 @@ static blk_status_t mmc_mq_queue_rq(struct blk_mq_hw_ctx *hctx,
 
 	blk_mq_start_request(req);
 
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+	host->latest_req_time_p2 = ktime_get() / 1000;
+#endif
+
 	issued = mmc_blk_mq_issue_rq(mq, req);
 
 	switch (issued) {
@@ -354,6 +374,16 @@ static blk_status_t mmc_mq_queue_rq(struct blk_mq_hw_ctx *hctx,
 	} else {
 		WRITE_ONCE(mq->busy, false);
 	}
+
+	if (ret != BLK_STS_OK && ret != BLK_STS_RESOURCE)
+		pr_info("%s: %s: %d: return %d\n",
+			mmc_hostname(card->host), __func__,
+			__LINE__,
+			ret);
+
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+	host->latest_req_time_p8 = ktime_get() / 1000;
+#endif
 
 	return ret;
 }
@@ -386,8 +416,10 @@ static void mmc_setup_queue(struct mmc_queue *mq, struct mmc_card *card)
 		     "merging was advertised but not possible");
 	blk_queue_max_segments(mq->queue, mmc_get_max_segments(host));
 
-	if (mmc_card_mmc(card))
+	if (mmc_card_mmc(card) && card->ext_csd.data_sector_size) {
 		block_size = card->ext_csd.data_sector_size;
+		WARN_ON(block_size != 512 && block_size != 4096);
+	}
 
 	blk_queue_logical_block_size(mq->queue, block_size);
 	/*

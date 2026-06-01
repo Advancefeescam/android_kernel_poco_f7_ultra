@@ -78,16 +78,6 @@ int optee_from_msg_param(struct tee_param *params, size_t num_params,
 				return rc;
 			p->u.memref.shm_offs = mp->u.tmem.buf_ptr - pa;
 			p->u.memref.shm = shm;
-
-			/* Check that the memref is covered by the shm object */
-			if (p->u.memref.size) {
-				size_t o = p->u.memref.shm_offs +
-					   p->u.memref.size - 1;
-
-				rc = tee_shm_get_pa(shm, o, NULL);
-				if (rc)
-					return rc;
-			}
 			break;
 		case OPTEE_MSG_ATTR_TYPE_RMEM_INPUT:
 		case OPTEE_MSG_ATTR_TYPE_RMEM_OUTPUT:
@@ -264,7 +254,8 @@ static void optee_release(struct tee_context *ctx)
 	if (!ctxdata)
 		return;
 
-	shm = tee_shm_alloc(ctx, sizeof(struct optee_msg_arg), TEE_SHM_MAPPED);
+	shm = tee_shm_alloc(ctx, sizeof(struct optee_msg_arg),
+			    TEE_SHM_MAPPED | TEE_SHM_PRIV);
 	if (!IS_ERR(shm)) {
 		arg = tee_shm_get_va(shm, 0);
 		/*
@@ -561,6 +552,7 @@ static struct optee *optee_probe(struct device_node *np)
 	struct optee *optee = NULL;
 	void *memremaped_shm = NULL;
 	struct tee_device *teedev;
+	struct tee_context *ctx;
 	u32 sec_caps;
 	int rc;
 
@@ -590,6 +582,9 @@ static struct optee *optee_probe(struct device_node *np)
 	 */
 	if (sec_caps & OPTEE_SMC_SEC_CAP_DYNAMIC_SHM)
 		pool = optee_config_dyn_shm();
+
+	/* Unregister OP-TEE specific client devices on TEE bus */
+	optee_unregister_devices();
 
 	/*
 	 * If dynamic shared memory is not available or failed - try static one
@@ -637,6 +632,21 @@ static struct optee *optee_probe(struct device_node *np)
 	optee_supp_init(&optee->supp);
 	optee->memremaped_shm = memremaped_shm;
 	optee->pool = pool;
+	ctx = teedev_open(optee->teedev);
+	if (IS_ERR(ctx)) {
+		rc = PTR_ERR(ctx);
+		goto err;
+	}
+	optee->ctx = ctx;
+
+	/*
+	 * Ensure that there are no pre-existing shm objects before enabling
+	 * the shm cache so that there's no chance of receiving an invalid
+	 * address during shutdown. This could occur, for example, if we're
+	 * kexec booting from an older kernel that did not properly cleanup the
+	 * shm cache.
+	 */
+	optee_disable_unmapped_shm_cache(optee);
 
 	optee_enable_shm_cache(optee);
 
@@ -664,6 +674,7 @@ err:
 
 static void optee_remove(struct optee *optee)
 {
+	teedev_close_context(optee->ctx);
 	/*
 	 * Ask OP-TEE to free all cached shared memory objects to decrease
 	 * reference counters and also avoid wild pointers in secure world
@@ -694,6 +705,43 @@ static const struct of_device_id optee_match[] = {
 };
 
 static struct optee *optee_svc;
+
+#if 0
+int optee_handle_register(u32 handle_cmd,
+		 u64 reg_addr,
+		 u32 *value,
+		 u32 handle_op)
+{
+	int ret = 0;
+	/*
+	 * res.a0: the reture value read from the register
+	 * res.a1: the qtang2 register address
+	 * res.a2: the value write for the register
+	 * res.a3: the operation for read/write
+	 */
+	struct arm_smccc_res res;
+
+	optee_invoke_fn *invoke_fn = optee_svc->invoke_fn;
+
+	/*
+	 * only support handle qtang2 register currently
+	 */
+	switch (handle_cmd) {
+	case OPTEE_SMC_CALL_PIL_RW_QTANG2:
+		invoke_fn(OPTEE_SMC_CALL_PIL_RW_QTANG2, reg_addr, *value, handle_op,
+			0, 0, 0, 0, &res);
+		if (handle_op == PIL_READ_QTANG2)
+			*value = res.a0;
+		break;
+	default:
+		pr_warn("handle_cmd not support\n");
+		ret = -1;
+		break;
+	}
+
+	return ret;
+}
+#endif
 
 static int __init optee_driver_init(void)
 {

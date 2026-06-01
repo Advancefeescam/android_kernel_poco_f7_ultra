@@ -17,6 +17,7 @@
 #include <linux/of_device.h>
 #include <linux/psci.h>
 #include <linux/slab.h>
+#include <soc/jlq/jr510/dcstat.h>
 
 #include <asm/cpuidle.h>
 
@@ -29,8 +30,19 @@ static int psci_enter_idle_state(struct cpuidle_device *dev,
 {
 	u32 *state = __this_cpu_read(psci_power_state);
 
+#ifdef CONFIG_CPU_DCSTAT_JR510
+	int ret = 0;
+
+	cpu_dcstat_idle_event(dev->cpu, CPU_DCSTAT_IDLE_ENTER, idx);
+	ret = CPU_PM_CPU_IDLE_ENTER_PARAM(psci_cpu_suspend_enter,
+					   idx, state[idx - 1]);
+	cpu_dcstat_idle_event(dev->cpu, CPU_DCSTAT_IDLE_EXIT, idx);
+
+	return ret;
+#else
 	return CPU_PM_CPU_IDLE_ENTER_PARAM(psci_cpu_suspend_enter,
 					   idx, state[idx - 1]);
+#endif
 }
 
 static struct cpuidle_driver psci_idle_driver __initdata = {

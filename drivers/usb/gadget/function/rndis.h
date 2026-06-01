@@ -170,6 +170,9 @@ typedef struct rndis_params {
 	struct net_device	*dev;
 
 	u32			vendorID;
+#ifdef CONFIG_JGKI
+	u8			max_pkt_per_xfer;
+#endif
 	const char		*vendorDescr;
 	void			(*resp_avail)(void *v);
 	void			*v;

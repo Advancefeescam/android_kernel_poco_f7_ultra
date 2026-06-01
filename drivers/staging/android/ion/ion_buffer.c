@@ -183,7 +183,7 @@ int ion_buffer_zero(struct ion_buffer *buffer)
 	else
 		pgprot = pgprot_writecombine(PAGE_KERNEL);
 
-	return ion_sglist_zero(table->sgl, table->nents, pgprot);
+	return ion_sglist_zero(table->sgl, table->orig_nents, pgprot);
 }
 EXPORT_SYMBOL_GPL(ion_buffer_zero);
 
@@ -249,6 +249,9 @@ void *ion_buffer_kmap_get(struct ion_buffer *buffer)
 	void *vaddr;
 
 	if (buffer->kmap_cnt) {
+		if (buffer->kmap_cnt == INT_MAX)
+			return ERR_PTR(-EOVERFLOW);
+
 		buffer->kmap_cnt++;
 		return buffer->vaddr;
 	}

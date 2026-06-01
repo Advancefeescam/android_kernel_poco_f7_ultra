@@ -44,6 +44,9 @@
   wakeup_source_add
   wakeup_source_create
 
+# required by mi_memory.ko
+  mi_get_ddr_mail
+
 # required by exfat.ko
   block_write_full_page
   __blockdev_direct_IO

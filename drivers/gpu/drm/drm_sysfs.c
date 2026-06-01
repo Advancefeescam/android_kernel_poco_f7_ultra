@@ -25,6 +25,8 @@
 #include <drm/drm_print.h>
 #include <drm/drm_property.h>
 #include <drm/drm_sysfs.h>
+#include <drm/drm_connector.h>
+
 
 #include "drm_internal.h"
 #include "drm_crtc_internal.h"
@@ -238,16 +240,37 @@ static ssize_t modes_show(struct device *device,
 	return written;
 }
 
+#if IS_ENABLED(CONFIG_JGKI)
+static ssize_t panel_event_show(struct device *device,
+                           struct device_attribute *attr,
+                           char *buf)
+{
+        ssize_t ret = 0;
+        struct drm_connector *connector = to_drm_connector(device);
+        if (!connector) {
+                pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+                return ret;
+        }
+
+        return snprintf(buf, PAGE_SIZE, "%d\n", connector->panel_event);
+}
+#endif
 static DEVICE_ATTR_RW(status);
 static DEVICE_ATTR_RO(enabled);
 static DEVICE_ATTR_RO(dpms);
 static DEVICE_ATTR_RO(modes);
+#if IS_ENABLED(CONFIG_JGKI)
+static DEVICE_ATTR_RO(panel_event);
+#endif
 
 static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_status.attr,
 	&dev_attr_enabled.attr,
 	&dev_attr_dpms.attr,
 	&dev_attr_modes.attr,
+#if IS_ENABLED(CONFIG_JGKI)
+	&dev_attr_panel_event.attr,
+#endif
 	NULL
 };
 

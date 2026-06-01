@@ -148,8 +148,10 @@ static int __control_devkmsg(char *str)
 
 static int __init control_devkmsg(char *str)
 {
-	if (__control_devkmsg(str) < 0)
+	if (__control_devkmsg(str) < 0) {
+		pr_warn("printk.devkmsg: bad option string '%s'\n", str);
 		return 1;
+	}
 
 	/*
 	 * Set sysctl string accordingly:
@@ -168,7 +170,7 @@ static int __init control_devkmsg(char *str)
 	 */
 	devkmsg_log |= DEVKMSG_LOG_MASK_LOCK;
 
-	return 0;
+	return 1;
 }
 __setup("printk.devkmsg=", control_devkmsg);
 
@@ -1939,7 +1941,11 @@ int vprintk_store(int facility, int level,
 	char *text = textbuf;
 	size_t text_len;
 	enum log_flags lflags = 0;
-
+#ifdef CONFIG_PRINTK_LIMIT
+	/* only print log which level higher than critical */
+	if (level != LOGLEVEL_DEFAULT && level >= LOGLEVEL_NOTICE)
+		return 0;
+#endif
 	/*
 	 * The printf needs to come first; we need the syslog
 	 * prefix which might be passed-in as a parameter.
@@ -1973,7 +1979,11 @@ int vprintk_store(int facility, int level,
 
 	if (level == LOGLEVEL_DEFAULT)
 		level = default_message_loglevel;
-
+#ifdef CONFIG_PRINTK_LIMIT
+	/* only print log which level higher than critical */
+	if (level >= LOGLEVEL_NOTICE)
+		return 0;
+#endif
 	if (dict)
 		lflags |= LOG_NEWLINE;
 
@@ -2196,8 +2206,15 @@ static int __init console_setup(char *str)
 	char *s, *options, *brl_options = NULL;
 	int idx;
 
-	if (str[0] == 0)
+	/*
+	 * console="" or console=null have been suggested as a way to
+	 * disable console output. Use ttynull that has been created
+	 * for exacly this purpose.
+	 */
+	if (str[0] == 0 || strcmp(str, "null") == 0) {
+		__add_preferred_console("ttynull", 0, NULL, NULL);
 		return 1;
+	}
 
 	if (_braille_console_setup(&str, &brl_options))
 		return 1;

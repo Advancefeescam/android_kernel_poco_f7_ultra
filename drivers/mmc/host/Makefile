@@ -2,6 +2,7 @@
 #
 # Makefile for MMC/SD host controller drivers
 #
+ccflags-y += -I$(srctree)/drivers/opp
 
 obj-$(CONFIG_MMC_ARMMMCI) += armmmci.o
 armmmci-y := mmci.o
@@ -97,6 +98,8 @@ obj-$(CONFIG_MMC_SDHCI_MICROCHIP_PIC32)	+= sdhci-pic32.o
 obj-$(CONFIG_MMC_SDHCI_BRCMSTB)		+= sdhci-brcmstb.o
 obj-$(CONFIG_MMC_SDHCI_OMAP)		+= sdhci-omap.o
 obj-$(CONFIG_MMC_SDHCI_SPRD)		+= sdhci-sprd.o
+obj-$(CONFIG_MMC_SDHCI_JLQ)		+= sdhci-jlq.o
+obj-$(CONFIG_MMC_SDHCI_CRYPTO)		+= sdhci-crypto.o
 obj-$(CONFIG_MMC_CQHCI)			+= cqhci.o
 obj-$(CONFIG_MMC_HSQ)			+= mmc_hsq.o
 

@@ -1428,6 +1428,9 @@ struct drm_connector {
 	 * Can find the panel which connected to drm_connector.
 	 */
 	struct drm_panel *panel;
+#if IS_ENABLED(CONFIG_JGKI)
+	int panel_event;
+#endif
 };
 
 #define obj_to_connector(x) container_of(x, struct drm_connector, base)

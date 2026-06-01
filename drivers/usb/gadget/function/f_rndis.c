@@ -65,7 +65,10 @@
  *
  *   - MS-Windows drivers sometimes emit undocumented requests.
  */
-
+#ifdef CONFIG_JGKI
+static unsigned int rndis_dl_max_pkt_per_xfer = 10;
+#define RNDIS_UL_MAX_PKT_PER_XFER	3
+#endif
 struct f_rndis {
 	struct gether			port;
 	u8				ctrl_id, data_id;
@@ -366,7 +369,44 @@ static struct usb_gadget_strings *rndis_strings[] = {
 };
 
 /*-------------------------------------------------------------------------*/
+#ifdef CONFIG_JGKI
+static struct sk_buff *rndis_add_header(struct gether *port,
+					struct sk_buff *skb)
+{
+	struct sk_buff *skb2;
+	struct rndis_packet_msg_type *header = NULL;
+	struct f_rndis *rndis = func_to_rndis(&port->func);
 
+	if (rndis->port.multi_pkt_xfer) {
+		if (port->header) {
+			header = port->header;
+			memset(header, 0, sizeof(*header));
+			header->MessageType = cpu_to_le32(RNDIS_MSG_PACKET);
+			header->MessageLength = cpu_to_le32(skb->len +
+							sizeof(*header));
+			header->DataOffset = cpu_to_le32(36);
+			header->DataLength = cpu_to_le32(skb->len);
+			pr_debug("MessageLength:%d DataLength:%d\n",
+						header->MessageLength,
+						header->DataLength);
+			goto out;
+		} else {
+			pr_err("RNDIS header is NULL.\n");
+			return  NULL;
+		}
+	} else {
+		skb2 = skb_realloc_headroom(skb,
+				sizeof(struct rndis_packet_msg_type));
+		if (skb2)
+			rndis_add_hdr(skb2);
+
+		dev_kfree_skb(skb);
+		return skb2;
+	}
+out:
+	return skb;
+}
+#else
 static struct sk_buff *rndis_add_header(struct gether *port,
 					struct sk_buff *skb)
 {
@@ -381,7 +421,7 @@ static struct sk_buff *rndis_add_header(struct gether *port,
 	dev_kfree_skb(skb);
 	return skb2;
 }
-
+#endif
 static void rndis_response_available(void *_rndis)
 {
 	struct f_rndis			*rndis = _rndis;
@@ -451,13 +491,32 @@ static void rndis_command_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_rndis			*rndis = req->context;
 	int				status;
-
+#ifdef CONFIG_JGKI
+	rndis_init_msg_type * buf;
+#endif
 	/* received RNDIS command from USB_CDC_SEND_ENCAPSULATED_COMMAND */
 //	spin_lock(&dev->lock);
 	status = rndis_msg_parser(rndis->params, (u8 *) req->buf);
 	if (status < 0)
 		pr_err("RNDIS command error %d, %d/%d\n",
 			status, req->actual, req->length);
+
+#ifdef CONFIG_JGKI
+	buf = (rndis_init_msg_type *)req->buf;
+
+	if (buf->MessageType == RNDIS_MSG_INIT) {
+		if (buf->MaxTransferSize > 2048)
+			rndis->port.multi_pkt_xfer = 1;
+		else
+			rndis->port.multi_pkt_xfer = 0;
+		pr_info("%s: MaxTransferSize: %d : Multi_pkt_txr: %s\n",
+				__func__, buf->MaxTransferSize,
+				rndis->port.multi_pkt_xfer ? "enabled" :
+							    "disabled");
+		if (rndis_dl_max_pkt_per_xfer <= 1)
+			rndis->port.multi_pkt_xfer = 0;
+	}
+#endif
 //	spin_unlock(&dev->lock);
 }
 
@@ -741,6 +800,24 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	rndis_data_intf.bInterfaceNumber = status;
 	rndis_union_desc.bSlaveInterface0 = status;
 
+#ifdef CONFIG_JGKI
+	if (rndis_opts->wceis) {
+		/* "Wireless" RNDIS; auto-detected by Windows */
+		rndis_iad_descriptor.bFunctionClass = USB_CLASS_WIRELESS_CONTROLLER;
+		rndis_iad_descriptor.bFunctionSubClass = 0x01;
+		rndis_iad_descriptor.bFunctionProtocol = 0x03;
+		rndis_control_intf.bInterfaceClass = USB_CLASS_WIRELESS_CONTROLLER;
+		rndis_control_intf.bInterfaceSubClass =	 0x01;
+		rndis_control_intf.bInterfaceProtocol =	 0x03;
+	} else {
+		rndis_iad_descriptor.bFunctionClass = USB_CLASS_COMM;
+		rndis_iad_descriptor.bFunctionSubClass = USB_CDC_SUBCLASS_ETHERNET;
+		rndis_iad_descriptor.bFunctionProtocol = USB_CDC_PROTO_NONE;
+		rndis_control_intf.bInterfaceClass = USB_CLASS_COMM;
+		rndis_control_intf.bInterfaceSubClass =	USB_CDC_SUBCLASS_ACM;
+		rndis_control_intf.bInterfaceProtocol = USB_CDC_ACM_PROTO_VENDOR;
+	}
+#endif
 	status = -ENODEV;
 
 	/* allocate instance-specific endpoints */
@@ -789,7 +866,7 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	ss_notify_desc.bEndpointAddress = fs_notify_desc.bEndpointAddress;
 
 	status = usb_assign_descriptors(f, eth_fs_function, eth_hs_function,
-			eth_ss_function, NULL);
+			eth_ss_function, eth_ss_function);
 	if (status)
 		goto fail;
 
@@ -798,6 +875,9 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 
 	rndis_set_param_medium(rndis->params, RNDIS_MEDIUM_802_3, 0);
 	rndis_set_host_mac(rndis->params, rndis->ethaddr);
+#ifdef CONFIG_JGKI
+	rndis->params->max_pkt_per_xfer = RNDIS_UL_MAX_PKT_PER_XFER;
+#endif
 
 	if (rndis->manufacturer && rndis->vendorID &&
 			rndis_set_param_vendor(rndis->params, rndis->vendorID,
@@ -878,6 +958,11 @@ USB_ETHER_CONFIGFS_ITEM_ATTR_U8_RW(rndis, subclass);
 /* f_rndis_opts_protocol */
 USB_ETHER_CONFIGFS_ITEM_ATTR_U8_RW(rndis, protocol);
 
+#ifdef CONFIG_JGKI
+/* f_rndis_opts_wceis */
+USB_ETHERNET_CONFIGFS_ITEM_ATTR_WCEIS(rndis);
+#endif
+
 static struct configfs_attribute *rndis_attrs[] = {
 	&rndis_opts_attr_dev_addr,
 	&rndis_opts_attr_host_addr,
@@ -886,6 +971,9 @@ static struct configfs_attribute *rndis_attrs[] = {
 	&rndis_opts_attr_class,
 	&rndis_opts_attr_subclass,
 	&rndis_opts_attr_protocol,
+#ifdef CONFIG_JGKI
+	&rndis_opts_attr_wceis,
+#endif
 	NULL,
 };
 
@@ -950,6 +1038,10 @@ static struct usb_function_instance *rndis_alloc_inst(void)
 	}
 	opts->rndis_interf_group = rndis_interf_group;
 
+#ifdef CONFIG_JGKI
+	/* Enable "Wireless" RNDIS by default */
+	opts->wceis = true;
+#endif
 	return &opts->func_inst;
 }
 
@@ -1007,6 +1099,10 @@ static struct usb_function *rndis_alloc(struct usb_function_instance *fi)
 	rndis->port.header_len = sizeof(struct rndis_packet_msg_type);
 	rndis->port.wrap = rndis_add_header;
 	rndis->port.unwrap = rndis_rm_hdr;
+#ifdef CONFIG_JGKI
+	rndis->port.ul_max_pkts_per_xfer = RNDIS_UL_MAX_PKT_PER_XFER;
+	rndis->port.dl_max_pkts_per_xfer = rndis_dl_max_pkt_per_xfer;
+#endif
 
 	rndis->port.func.name = "rndis";
 	/* descriptors are per-instance copies */

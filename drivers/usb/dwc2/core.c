@@ -525,15 +525,25 @@ int dwc2_core_reset(struct dwc2_hsotg *hsotg, bool skip_wait)
 	dwc2_writel(hsotg, greset, GRSTCTL);
 
 	if (dwc2_hsotg_wait_bit_clear(hsotg, GRSTCTL, GRSTCTL_CSFTRST, 10000)) {
+#ifdef CONFIG_JLQ_USB_DWC2
+		dev_dbg(hsotg->dev, "%s: HANG! Soft Reset timeout GRSTCTL GRSTCTL_CSFTRST\n",
+			 __func__);
+#else
 		dev_warn(hsotg->dev, "%s: HANG! Soft Reset timeout GRSTCTL GRSTCTL_CSFTRST\n",
 			 __func__);
+#endif
 		return -EBUSY;
 	}
 
 	/* Wait for AHB master IDLE state */
 	if (dwc2_hsotg_wait_bit_set(hsotg, GRSTCTL, GRSTCTL_AHBIDLE, 10000)) {
+#ifdef CONFIG_JLQ_USB_DWC2
+		dev_dbg(hsotg->dev, "%s: HANG! AHB Idle timeout GRSTCTL GRSTCTL_AHBIDLE\n",
+			 __func__);
+#else
 		dev_warn(hsotg->dev, "%s: HANG! AHB Idle timeout GRSTCTL GRSTCTL_AHBIDLE\n",
 			 __func__);
+#endif
 		return -EBUSY;
 	}
 
@@ -606,7 +616,9 @@ void dwc2_force_mode(struct dwc2_hsotg *hsotg, bool host)
 	dwc2_wait_for_mode(hsotg, host);
 	return;
 }
-
+#ifdef CONFIG_JLQ_USB_DWC2
+EXPORT_SYMBOL_GPL(dwc2_force_mode);
+#endif
 /**
  * dwc2_clear_force_mode() - Clears the force mode bits.
  *
@@ -922,6 +934,9 @@ void dwc2_enable_global_interrupts(struct dwc2_hsotg *hsotg)
 	ahbcfg |= GAHBCFG_GLBL_INTR_EN;
 	dwc2_writel(hsotg, ahbcfg, GAHBCFG);
 }
+#ifdef CONFIG_JLQ_USB_DWC2
+EXPORT_SYMBOL_GPL(dwc2_enable_global_interrupts);
+#endif
 
 /**
  * dwc2_disable_global_interrupts() - Disables the controller's Global
@@ -936,6 +951,9 @@ void dwc2_disable_global_interrupts(struct dwc2_hsotg *hsotg)
 	ahbcfg &= ~GAHBCFG_GLBL_INTR_EN;
 	dwc2_writel(hsotg, ahbcfg, GAHBCFG);
 }
+#ifdef CONFIG_JLQ_USB_DWC2
+EXPORT_SYMBOL_GPL(dwc2_disable_global_interrupts);
+#endif
 
 /* Returns the controller's GHWCFG2.OTG_MODE. */
 unsigned int dwc2_op_mode(struct dwc2_hsotg *hsotg)
@@ -1145,6 +1163,11 @@ static int dwc2_hs_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
 		if (hsotg->params.oc_disable)
 			usbcfg |= (GUSBCFG_ULPI_INT_VBUS_IND |
 				   GUSBCFG_INDICATORPASSTHROUGH);
+
+		if (dwc2_is_device_mode(hsotg)) {
+			usbcfg &= ~GUSBCFG_USBTRDTIM_MASK;
+			usbcfg |= 9 << GUSBCFG_USBTRDTIM_SHIFT;
+		}
 		break;
 	case DWC2_PHY_TYPE_PARAM_UTMI:
 		/* UTMI+ interface */
@@ -1152,15 +1175,6 @@ static int dwc2_hs_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
 		usbcfg &= ~(GUSBCFG_ULPI_UTMI_SEL | GUSBCFG_PHYIF16);
 		if (hsotg->params.phy_utmi_width == 16)
 			usbcfg |= GUSBCFG_PHYIF16;
-
-		/* Set turnaround time */
-		if (dwc2_is_device_mode(hsotg)) {
-			usbcfg &= ~GUSBCFG_USBTRDTIM_MASK;
-			if (hsotg->params.phy_utmi_width == 16)
-				usbcfg |= 5 << GUSBCFG_USBTRDTIM_SHIFT;
-			else
-				usbcfg |= 9 << GUSBCFG_USBTRDTIM_SHIFT;
-		}
 		break;
 	default:
 		dev_err(hsotg->dev, "FS PHY selected at HS!\n");
@@ -1177,9 +1191,28 @@ static int dwc2_hs_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
 				"%s: Reset failed, aborting", __func__);
 			return retval;
 		}
+		dwc2_writel(hsotg, usbcfg, GUSBCFG);
 	}
 
 	return retval;
+}
+
+static void dwc2_set_turnaround_time(struct dwc2_hsotg *hsotg)
+{
+	u32 usbcfg;
+
+	if (hsotg->params.phy_type != DWC2_PHY_TYPE_PARAM_UTMI)
+		return;
+
+	usbcfg = dwc2_readl(hsotg, GUSBCFG);
+
+	usbcfg &= ~GUSBCFG_USBTRDTIM_MASK;
+	if (hsotg->params.phy_utmi_width == 16)
+		usbcfg |= 5 << GUSBCFG_USBTRDTIM_SHIFT;
+	else
+		usbcfg |= 9 << GUSBCFG_USBTRDTIM_SHIFT;
+
+	dwc2_writel(hsotg, usbcfg, GUSBCFG);
 }
 
 int dwc2_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
@@ -1199,6 +1232,9 @@ int dwc2_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
 		retval = dwc2_hs_phy_init(hsotg, select_phy);
 		if (retval)
 			return retval;
+
+		if (dwc2_is_device_mode(hsotg))
+			dwc2_set_turnaround_time(hsotg);
 	}
 
 	if (hsotg->hw_params.hs_phy_type == GHWCFG2_HS_PHY_TYPE_ULPI &&

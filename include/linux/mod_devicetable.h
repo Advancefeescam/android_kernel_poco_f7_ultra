@@ -498,13 +498,18 @@ struct spi_device_id {
 
 #define SLIMBUS_NAME_SIZE	32
 #define SLIMBUS_MODULE_PREFIX	"slim:"
-
+/*
 struct slim_device_id {
 	__u16 manf_id, prod_code;
 	__u16 dev_index, instance;
 
-	/* Data private to the driver */
+	// Data private to the driver
 	kernel_ulong_t driver_data;
+};
+*/
+struct slim_device_id {
+	char name[SLIMBUS_NAME_SIZE];
+	kernel_ulong_t driver_data;     /* Data private to the driver */
 };
 
 #define APR_NAME_SIZE	32
@@ -672,9 +677,7 @@ struct x86_cpu_id {
 	__u16 steppings;
 };
 
-#define X86_FEATURE_MATCH(x) \
-	{ X86_VENDOR_ANY, X86_FAMILY_ANY, X86_MODEL_ANY, x }
-
+/* Wild cards for x86_cpu_id::vendor, family, model and feature */
 #define X86_VENDOR_ANY 0xffff
 #define X86_FAMILY_ANY 0
 #define X86_MODEL_ANY  0

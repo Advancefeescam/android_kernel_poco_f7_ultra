@@ -39,6 +39,10 @@ struct f_rndis_opts {
 	 */
 	struct mutex			lock;
 	int				refcnt;
+#ifdef CONFIG_JGKI
+	/* "Wireless" RNDIS; auto-detected by Windows */
+	bool	wceis;
+#endif
 };
 
 void rndis_borrow_net(struct usb_function_instance *f, struct net_device *net);

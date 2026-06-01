@@ -169,12 +169,11 @@ out:									\
 						size_t len)		\
 	{								\
 		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
-		int ret;						\
+		int ret = -EINVAL;					\
 		u8 val;							\
 									\
 		mutex_lock(&opts->lock);				\
-		ret = sscanf(page, "%02hhx", &val);			\
-		if (ret > 0) {						\
+		if (sscanf(page, "%02hhx", &val) > 0) {			\
 			opts->_n_ = val;				\
 			ret = len;					\
 		}							\
@@ -184,5 +183,53 @@ out:									\
 	}								\
 									\
 	CONFIGFS_ATTR(_f_##_opts_, _n_)
+
+#ifdef CONFIG_JGKI
+#define USB_ETHERNET_CONFIGFS_ITEM_ATTR_WCEIS(_f_)			\
+	static ssize_t _f_##_opts_wceis_show(struct config_item *item,	\
+					     char *page)		\
+	{								\
+		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
+		bool wceis;						\
+									\
+		if (opts->bound == false) {				\
+			pr_err("Gadget function do not bind yet.\n");	\
+			return -ENODEV;					\
+		}							\
+									\
+		mutex_lock(&opts->lock);				\
+		wceis = opts->wceis;					\
+		mutex_unlock(&opts->lock);				\
+		return snprintf(page, PAGE_SIZE, "%d", wceis);		\
+	}								\
+									\
+	static ssize_t _f_##_opts_wceis_store(struct config_item *item, \
+					      const char *page, size_t len)\
+	{								\
+		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
+		bool wceis;						\
+		int ret;						\
+									\
+		if (opts->bound == false) {				\
+			pr_err("Gadget function do not bind yet.\n");	\
+			return -ENODEV;					\
+		}							\
+									\
+		mutex_lock(&opts->lock);				\
+									\
+		ret = kstrtobool(page, &wceis);				\
+		if (ret)						\
+			goto out;					\
+									\
+		opts->wceis = wceis;					\
+		ret = len;						\
+out:									\
+		mutex_unlock(&opts->lock);				\
+									\
+		return ret;						\
+	}								\
+									\
+	CONFIGFS_ATTR(_f_##_opts_, wceis)
+#endif
 
 #endif /* __U_ETHER_CONFIGFS_H */

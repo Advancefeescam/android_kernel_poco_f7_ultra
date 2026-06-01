@@ -269,6 +269,34 @@ static inline int cpuidle_register_governor(struct cpuidle_governor *gov)
 {return 0;}
 #endif
 
+#ifdef CONFIG_CPU_DCSTAT_JR510
+#include <linux/cpu_pm.h>
+#include <asm/proc-fns.h>
+typedef int (*low_level_fun)(unsigned int state);
+static inline int __CPU_PM_CPU_IDLE_ENTER(low_level_fun low_level_idle_enter,
+				int idx,
+				unsigned int state,
+				unsigned int is_retention)
+{
+	int __ret = 0;
+
+	if (!idx) {
+		cpu_do_idle();
+		goto out;
+	}
+
+	if (!is_retention)
+		__ret =  cpu_pm_enter();
+	if (!__ret) {
+		__ret = low_level_idle_enter(state);
+		if (!is_retention)
+			cpu_pm_exit();
+	}
+out:
+	__ret = __ret ? -1 : idx;
+	return __ret;
+}
+#else
 #define __CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter,			\
 				idx,					\
 				state,					\
@@ -291,6 +319,7 @@ static inline int cpuidle_register_governor(struct cpuidle_governor *gov)
 									\
 	__ret ? -1 : idx;						\
 })
+#endif
 
 #define CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx)	\
 	__CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx, idx, 0)

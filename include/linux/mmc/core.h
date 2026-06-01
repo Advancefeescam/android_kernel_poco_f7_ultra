@@ -7,6 +7,9 @@
 
 #include <linux/completion.h>
 #include <linux/types.h>
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+#include <linux/ktime.h>
+#endif
 
 struct mmc_data;
 struct mmc_request;
@@ -112,6 +115,16 @@ struct mmc_command {
 
 	struct mmc_data		*data;		/* data segment associated with cmd */
 	struct mmc_request	*mrq;		/* associated request */
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+	//t1 - received a request (us)
+	ktime_t t1;
+	//t2 - just before send the command (us)
+	ktime_t t2;
+	//t3 - irq done	(us)
+	ktime_t t3;
+	//t4 - mmc request done (us)
+	ktime_t t4;
+#endif
 };
 
 struct mmc_data {
@@ -160,6 +173,9 @@ struct mmc_request {
 	 */
 	void			(*recovery_notifier)(struct mmc_request *);
 	struct mmc_host		*host;
+#if IS_ENABLED(CONFIG_MMC_SDHCI_CRYPTO)
+	int crypto_context;
+#endif
 
 	/* Allow other commands during this ongoing data transfer or busy wait */
 	bool			cap_cmd_during_tfr;

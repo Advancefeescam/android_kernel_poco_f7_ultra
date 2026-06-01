@@ -19,6 +19,9 @@
 #include <asm/cpuidle.h>
 
 #include "dt_idle_states.h"
+#ifdef CONFIG_CPU_DCSTAT_JR510
+#include <soc/jlq/jr510/dcstat.h>
+#endif
 
 /*
  * arm_enter_idle_state - Programs CPU to enter the specified state
@@ -38,7 +41,17 @@ static int arm_enter_idle_state(struct cpuidle_device *dev,
 	 * will call the CPU ops suspend protocol with idle index as a
 	 * parameter.
 	 */
+#ifdef CONFIG_CPU_DCSTAT_JR510
+	int ret = 0;
+
+	cpu_dcstat_idle_event(dev->cpu, CPU_DCSTAT_IDLE_ENTER, idx);
+	ret = CPU_PM_CPU_IDLE_ENTER(arm_cpuidle_suspend, idx);
+	cpu_dcstat_idle_event(dev->cpu, CPU_DCSTAT_IDLE_EXIT, idx);
+
+	return ret;
+#else
 	return CPU_PM_CPU_IDLE_ENTER(arm_cpuidle_suspend, idx);
+#endif
 }
 
 static struct cpuidle_driver arm_idle_driver __initdata = {

@@ -449,7 +449,7 @@ config MMC_OMAP_HS
 
 config MMC_WBSD
 	tristate "Winbond W83L51xD SD/MMC Card Interface support"
-	depends on ISA_DMA_API
+	depends on ISA_DMA_API && !M68K
 	help
 	  This selects the Winbond(R) W83L51xD Secure digital and
 	  Multimedia card Interface.
@@ -1031,3 +1031,55 @@ config MMC_SDHCI_AM654
 	  If you have a controller with this interface, say Y or M here.
 
 	  If unsure, say N.
+
+config MMC_SDHCI_JLQ
+	tristate "JLQ SDHCI Controller Support"
+	depends on ARCH_JLQ
+	depends on MMC_SDHCI_PLTFM
+	help
+	  This selects the Secure Digital Host Controller Interface (SDHCI)
+	  support present in JLQ SOCs. The controller supports
+	  SD/MMC/SDIO devices.
+
+	  If you have a controller with this interface, say Y or M here.
+
+	  If unsure, say N.
+
+config SDC_JLQ
+	tristate "Enable JLQ specific code in MMC upstream driver"
+	depends on JGKI && MMC_SDHCI_JLQ!=n
+	default n
+	help
+	  This configuration flag allows adding JLQ code in
+	  MMC upstream driver.
+
+config MMC_SDHCI_JLQ_DBG
+	tristate "JLQ SDHCI Host driver debugging"
+	depends on SDC_JLQ && MMC_SDHCI_JLQ!=n
+	default n
+	help
+	  This is an option for use by developers; most people should
+	  say N here. This enables JLQ SDHCI host driver debugging.
+
+config MMC_SDHCI_CRYPTO_PERSIST
+	tristate "MMC Host Crypto Engine Support"
+	depends on BLK_INLINE_ENCRYPTION
+	depends on MMC_SDHCI
+	depends on SDC_JLQ
+	default y
+	help
+	  Enable Host Crypto Engine Support in EMMC.
+	  Enabling this makes it possible for the kernel to use the inline
+	  crypto device (if present) to perform crypto operations on data
+	  being transferred to/from the device.
+
+config MMC_SDHCI_CRYPTO
+	tristate "MMC Crypto Engine Support"
+	depends on MMC_SDHCI_JLQ && BLK_INLINE_ENCRYPTION
+	depends on JLQ_CRYPTO_FDE
+	depends on MMC_SDHCI_CRYPTO_PERSIST
+	help
+	  Enable Crypto Engine Support in EMMC .
+	  Enabling this makes it possible for the kernel to use the inline
+	  crypto device (if present) to perform crypto operations on data
+	  being transferred to/from the device.

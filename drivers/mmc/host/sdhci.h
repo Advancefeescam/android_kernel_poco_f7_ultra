@@ -9,6 +9,7 @@
 #ifndef __SDHCI_HW_H
 #define __SDHCI_HW_H
 
+#include <linux/bits.h>
 #include <linux/scatterlist.h>
 #include <linux/compiler.h>
 #include <linux/types.h>
@@ -17,6 +18,9 @@
 #include <linux/interrupt.h>
 
 #include <linux/mmc/host.h>
+#if IS_ENABLED(CONFIG_MMC_SDHCI_CRYPTO)
+#include <soc/jlq/jr510/fde.h>
+#endif
 
 /*
  * Controller registers
@@ -261,18 +265,16 @@
 
 /* 60-FB reserved */
 
+#define SDHCI_PRESET_FOR_HIGH_SPEED	0x64
 #define SDHCI_PRESET_FOR_SDR12 0x66
 #define SDHCI_PRESET_FOR_SDR25 0x68
 #define SDHCI_PRESET_FOR_SDR50 0x6A
 #define SDHCI_PRESET_FOR_SDR104        0x6C
 #define SDHCI_PRESET_FOR_DDR50 0x6E
 #define SDHCI_PRESET_FOR_HS400 0x74 /* Non-standard */
-#define SDHCI_PRESET_DRV_MASK  0xC000
-#define SDHCI_PRESET_DRV_SHIFT  14
-#define SDHCI_PRESET_CLKGEN_SEL_MASK   0x400
-#define SDHCI_PRESET_CLKGEN_SEL_SHIFT	10
-#define SDHCI_PRESET_SDCLK_FREQ_MASK   0x3FF
-#define SDHCI_PRESET_SDCLK_FREQ_SHIFT	0
+#define SDHCI_PRESET_DRV_MASK		GENMASK(15, 14)
+#define SDHCI_PRESET_CLKGEN_SEL		BIT(10)
+#define SDHCI_PRESET_SDCLK_FREQ_MASK	GENMASK(9, 0)
 
 #define SDHCI_SLOT_INT_STATUS	0xFC
 
@@ -607,6 +609,32 @@ struct sdhci_host {
 
 	u64			data_timeout;
 
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+	bool force_dumping_regs;	/* force dumping regs by debugfs */
+	bool force_err;	/* force err by debugfs */
+	unsigned long jif_cmd_issue;		/* jiffies when cmd issue */
+	unsigned long jif_cmd_timeout_exp;	/* jiffies to timeout for cmd */
+	unsigned long jif_data_timeout_exp;	/* jiffies to timeout for data cmd */
+	unsigned long jif_cmd_timeout_act;	/* jiffies for cmd timeout actually */
+	unsigned long jif_data_timeout_act;	/* jiffies for data cmd timeout actually */
+	unsigned long jif_cmd_timer_del;	/* jiffies when cmd delete */
+	unsigned long jif_data_timer_del;	/* jiffies when data cmd delete */
+	ktime_t t_cmd_issue;	/* just before send the command (us) */
+	ktime_t t_irq_p1;	/* (us) */
+	ktime_t t_irq_p2;	/* (us) */
+	ktime_t t_irq_p3;	/* (us) */
+	ktime_t tc_max;		/* time cost max for request (us) */
+	u32 tc_cnt_stat[6];	/* statistics of time cost */
+#define MAX_RECORD_CMD	100
+	ktime_t t_cmd_issue_array[MAX_RECORD_CMD];
+	u32		cmd_opcode_array[MAX_RECORD_CMD];
+	u8		current_cmd;
+	int vcore_voltage;
+#endif
+#if IS_ENABLED(CONFIG_MMC_SDHCI_CRYPTO_PERSIST)
+	int	(*sdhci_prepare_crypto)(struct mmc_host *mmc, struct mmc_request *mrq, int tag, char is_nonecq);
+	int	(*sdhci_complete_crypto)(struct mmc_host *mmc, struct mmc_request *mrq, int tag, char is_nonecq);
+#endif
 	unsigned long private[0] ____cacheline_aligned;
 };
 
@@ -650,6 +678,12 @@ struct sdhci_ops {
 				   dma_addr_t addr, int len, unsigned int cmd);
 	void	(*request_done)(struct sdhci_host *host,
 				struct mmc_request *mrq);
+#if IS_ENABLED(CONFIG_SDC_JLQ)
+	int	(*reconfig_dll)(struct sdhci_host *host);
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+	void	(*dump_vendor_regs)(struct sdhci_host *host);
+#endif
+#endif
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS

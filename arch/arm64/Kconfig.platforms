@@ -225,6 +225,7 @@ config ARCH_STRATIX10
 
 config ARCH_SYNQUACER
 	bool "Socionext SynQuacer SoC Family"
+	select IRQ_FASTEOI_HIERARCHY_HANDLERS
 
 config ARCH_TEGRA
 	bool "NVIDIA Tegra SoC Family"
@@ -298,5 +299,22 @@ config ARCH_ZYNQMP
 	select ZYNQMP_FIRMWARE
 	help
 	  This enables support for Xilinx ZynqMP Family
+
+config ARCH_JLQ
+        bool "JLQ Platforms"
+        select GPIOLIB
+        select PINCTRL
+        help
+          This enables support JLQ jr510 ARMv8 SoCs
+
+config JLQ_EMULATOR
+        bool "jlq emulator debug"
+        depends on ARCH_JLQ
+        select USB_NO_PLUG_INT
+        default n
+        help
+          This enables emulator(synopsys ZS3/candence Z1) debug features
+          support on JLQ SOC family
+
 
 endmenu

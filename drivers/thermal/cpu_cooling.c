@@ -20,9 +20,12 @@
 #include <linux/slab.h>
 #include <linux/cpu.h>
 #include <linux/cpu_cooling.h>
+#include <linux/energy_model.h>
 
 #include <trace/events/thermal.h>
-
+#ifdef CONFIG_ARCH_JLQ
+#define USE_LMH_DEV    0
+#endif
 /*
  * Cooling state <-> CPUFreq frequency
  *
@@ -84,6 +87,8 @@ struct cpufreq_cooling_device {
 	u32 last_load;
 	unsigned int cpufreq_state;
 	unsigned int max_level;
+   	struct em_perf_domain *em;
+        struct thermal_cooling_device *cdev;
 	struct freq_table *freq_table;	/* In descending order */
 	struct cpufreq_policy *policy;
 	struct list_head node;
@@ -320,21 +325,64 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 				 unsigned long state)
 {
 	struct cpufreq_cooling_device *cpufreq_cdev = cdev->devdata;
-
+	int ret;
+//pr_err("LYC:%s:%d,cpu state=%d\n",__func__,__LINE__,state);
 	/* Request state should be less than max_level */
 	if (WARN_ON(state > cpufreq_cdev->max_level))
+#ifdef CONFIG_ARCH_JLQ
+		state = cpufreq_cdev->max_level;
+#else
 		return -EINVAL;
-
+#endif
+//pr_err("LYC:%s:%d,cpu\n",__func__,__LINE__);
 	/* Check if the old cooling action is same as new cooling action */
 	if (cpufreq_cdev->cpufreq_state == state)
 		return 0;
-
-	cpufreq_cdev->cpufreq_state = state;
-
-	return freq_qos_update_request(&cpufreq_cdev->qos_req,
-				cpufreq_cdev->freq_table[state].frequency);
+//pr_err("LYC:%s:%d,cpu\n",__func__,__LINE__);
+	ret = freq_qos_update_request(&cpufreq_cdev->qos_req,
+			cpufreq_cdev->freq_table[state].frequency);
+  //pr_err("LYC:%s:%d,cpuret=%d\n",__func__,__LINE__,ret);
+	if (ret > 0)
+		cpufreq_cdev->cpufreq_state = state;
+//pr_err("LYC:%s:%d,cpu\n",__func__,__LINE__);
+	return ret;
 }
+#ifdef CONFIG_ARCH_JLQ
+void cpu_limits_set_level(unsigned int cpu, unsigned int max_freq)
+{
+	struct cpufreq_cooling_device *cpufreq_cdev;
+	struct thermal_cooling_device *cdev;
+	unsigned int cdev_cpu;
+	unsigned int level;
 
+	list_for_each_entry(cpufreq_cdev, &cpufreq_cdev_list, node) {
+          	if(cpufreq_cdev && cpufreq_cdev->cdev && cpufreq_cdev->cdev->type)
+                {
+                  //pr_err("LYC:%s:%d,cpu freq %s\n",__func__,__LINE__,cpufreq_cdev->cdev->type);
+                  sscanf(cpufreq_cdev->cdev->type, "thermal-cpufreq-%d", &cdev_cpu);
+                  //pr_err("LYC:%s:%d,cpu id=%d\n",__func__,__LINE__,cdev_cpu);
+                  if (cdev_cpu == cpu) {
+                    	//pr_err("LYC:%s:%d,cpu match\n",__func__,__LINE__);
+                          for (level = 0; level <= cpufreq_cdev->max_level; level++) {
+                                  int target_freq = cpufreq_cdev->em->table[level].frequency;
+                           	 //pr_err("LYC:%s:%d,max_freq=%d,target_freq =%d\n",__func__,__LINE__,max_freq,target_freq);
+                                  if (max_freq <= target_freq) {
+                                          cdev = cpufreq_cdev->cdev;
+                                          if (cdev)
+                                                  cdev->ops->set_cur_state(cdev, cpufreq_cdev->max_level - level);
+
+                                          break;
+                                  }
+                          }
+
+                          break;
+                  }
+                }else{
+                	//pr_err("LYC:%s:%d,cpu freq  unknow\n",__func__,__LINE__);
+                }
+	}
+}
+#endif
 /**
  * cpufreq_get_requested_power() - get the current power
  * @cdev:	&thermal_cooling_device pointer
@@ -501,8 +549,9 @@ static unsigned int find_next_max(struct cpufreq_frequency_table *table,
 {
 	struct cpufreq_frequency_table *pos;
 	unsigned int max = 0;
-
+//pr_err("LYC:%s:%d,cpu\n",__func__,__LINE__);
 	cpufreq_for_each_valid_entry(pos, table) {
+          //pr_err("LYC:%s:%d,pos->frequenc=%d\n",__func__,__LINE__,pos->frequency);
 		if (pos->frequency > max && pos->frequency < prev_max)
 			max = pos->frequency;
 	}
@@ -536,6 +585,7 @@ __cpufreq_cooling_register(struct device_node *np,
 	struct device *dev;
 	int ret;
 	struct thermal_cooling_device_ops *cooling_ops;
+  	struct em_perf_domain *em;
 
 	dev = get_cpu_device(policy->cpu);
 	if (unlikely(!dev)) {
@@ -631,6 +681,15 @@ __cpufreq_cooling_register(struct device_node *np,
 		goto remove_qos_req;
 
 	mutex_lock(&cooling_list_lock);
+ 
+	em = em_cpu_get(policy->cpu);
+
+	if (!em || !cpumask_equal(policy->related_cpus,to_cpumask(em->cpus))) {
+	}else{
+          	cpufreq_cdev->cdev = cdev;
+  		cpufreq_cdev->em = em;
+        }
+
 	list_add(&cpufreq_cdev->node, &cpufreq_cdev_list);
 	mutex_unlock(&cooling_list_lock);
 

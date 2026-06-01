@@ -12,6 +12,11 @@
 #include <linux/wait.h>
 #include <linux/irqreturn.h>
 #include <asm/io.h>
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+#include <linux/ktime.h>
+#endif
+
+//#define CONFIG_MMC_SDHCI_CRYPTO_TEST	1
 
 /* registers */
 /* version */
@@ -82,6 +87,8 @@
 #define CQHCI_SSC1			0x40
 #define CQHCI_SSC1_CBC_MASK		GENMASK(19, 16)
 
+#define CQHCI_SSC1_VAL		0x70080
+
 /* send status config 2 */
 #define CQHCI_SSC2			0x44
 
@@ -143,6 +150,19 @@ struct mmc_host;
 struct mmc_request;
 struct cqhci_slot;
 
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+struct cqhci_last_request_isr_record {
+	ktime_t t_last_request;
+	int last_request_tag;
+	u32 last_request_tdbr;	//CQHCI_TDBR
+	ktime_t t_last_isr;
+	u32 last_isr_is;	//CQHCI_IS
+	u32 last_isr_tcn;	//CQHCI_TCN
+	u32 last_isr_tdbr;	//CQHCI_TDBR
+	u32 last_isr_dpt;	//CQHCI_DPT
+};
+#endif
+
 struct cqhci_host {
 	const struct cqhci_host_ops *ops;
 	void __iomem *mmio;
@@ -157,6 +177,11 @@ struct cqhci_host {
 	bool dma64;
 	int num_slots;
 	int qcnt;
+#if defined(CONFIG_MMC_SDHCI_CRYPTO_TEST)
+	/* bitmap for ongoging tasks */
+	unsigned long ongoing_tasks;
+	/* task queue depth <= 31 */
+#endif
 
 	u32 dcmd_slot;
 	u32 caps;
@@ -189,13 +214,22 @@ struct cqhci_host {
 	u8 *trans_desc_base;
 	/* same length as transfer descriptor */
 	u8 trans_desc_len;
-
+#if IS_ENABLED(CONFIG_SDC_JLQ)
+	/* extra segs for workaround of DMA 128MB boundary */
+#define EXTRA_SEGS	16
+	u8 trans_desc_max_num;
+	int task_queue_depth;
+#endif
 	dma_addr_t desc_dma_base;
 	dma_addr_t trans_desc_dma_base;
 
 	struct completion halt_comp;
 	wait_queue_head_t wait_queue;
 	struct cqhci_slot *slot;
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+	struct cqhci_last_request_isr_record last_record;
+	struct cqhci_last_request_isr_record last_record_back;
+#endif
 };
 
 struct cqhci_host_ops {
@@ -236,5 +270,9 @@ static inline int cqhci_suspend(struct mmc_host *mmc)
 	return cqhci_deactivate(mmc);
 }
 int cqhci_resume(struct mmc_host *mmc);
+
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+bool cqhci_check_pending_tasks(struct mmc_host *mmc, const char *check_func, u32 line);
+#endif
 
 #endif

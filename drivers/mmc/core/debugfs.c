@@ -222,6 +222,136 @@ static int mmc_clock_opt_set(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(mmc_clock_fops, mmc_clock_opt_get, mmc_clock_opt_set,
 	"%llu\n");
 
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+static int mmc_force_err_set(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+
+	if (host && host->ops && host->ops->force_err_irq)
+		host->ops->force_err_irq(host, val);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mmc_force_err_fops, NULL, mmc_force_err_set, "%llu\n");
+
+static int mmc_force_dump_regs(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+
+	if (host && host->ops && host->ops->dump_regs)
+		host->ops->dump_regs(host);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mmc_force_dump_regs_fops, NULL,
+	mmc_force_dump_regs, "%llu\n");
+
+static int mmc_err_state_get(void *data, u64 *val)
+{
+	struct mmc_host *host = data;
+
+	if (!host)
+		return -EINVAL;
+
+	*val = host->err_occurred ? 1 : 0;
+
+	return 0;
+}
+
+static int mmc_err_state_clear(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+
+	if (!host)
+		return -EINVAL;
+
+	host->err_occurred = false;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mmc_err_state, mmc_err_state_get,
+		mmc_err_state_clear, "%llu\n");
+
+static int mmc_hc_cmd_timeout_val_get(void *data, u64 *val)
+{
+	struct mmc_host *host = data;
+
+	if (!host)
+		return -EINVAL;
+
+	*val = host->hc_cmd_timeout_val;
+
+	return 0;
+}
+
+static int mmc_hc_cmd_timeout_val_set(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+
+	if (!host)
+		return -EINVAL;
+
+	host->hc_cmd_timeout_val = val;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mmc_hc_cmd_timeout_val,
+		mmc_hc_cmd_timeout_val_get,
+		mmc_hc_cmd_timeout_val_set,
+		"%llu\n");
+
+static int mmc_runtime_suspend_skip_get(void *data, u64 *val)
+{
+	struct mmc_host *host = data;
+
+	if (!host)
+		return -EINVAL;
+
+	if (host->runtime_suspend_skip_state == STATE_SKIP)
+		*val = 1;
+	else if (host->runtime_suspend_skip_state == STATE_DEFAULT)
+		*val = 0;
+	else
+		return -EAGAIN;
+
+	return 0;
+}
+
+static int mmc_runtime_suspend_skip_set(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+
+	if (!host)
+		return -EINVAL;
+
+	if (val) {
+		if (host->runtime_suspend_skip_state == STATE_DEFAULT)
+			host->runtime_suspend_skip_state = STATE_PRE_SKIP;
+		else if (host->runtime_suspend_skip_state == STATE_SKIP)
+			return 0;
+		else
+			return -EAGAIN;
+	} else {
+		if (host->runtime_suspend_skip_state == STATE_SKIP)
+			host->runtime_suspend_skip_state = STATE_PRE_DEFAULT;
+		else if (host->runtime_suspend_skip_state == STATE_DEFAULT)
+			return 0;
+		else
+			return -EAGAIN;
+	}
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mmc_runtime_suspend_skip,
+		mmc_runtime_suspend_skip_get,
+		mmc_runtime_suspend_skip_set,
+		"%llu\n");
+#endif
+
 void mmc_add_host_debugfs(struct mmc_host *host)
 {
 	struct dentry *root;
@@ -234,6 +364,19 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 	debugfs_create_x32("caps2", S_IRUSR, root, &host->caps2);
 	debugfs_create_file("clock", S_IRUSR | S_IWUSR, root, host,
 			    &mmc_clock_fops);
+
+#ifdef CONFIG_MMC_SDHCI_JLQ_DBG
+	debugfs_create_file("err_state", 0600, root, host,
+		&mmc_err_state);
+	debugfs_create_file("force_error", 0200, root, host,
+		&mmc_force_err_fops);
+	debugfs_create_file("force_dump_regs", 0200, root, host,
+		&mmc_force_dump_regs_fops);
+	debugfs_create_file("hc_cmd_timeout", 0600, root, host,
+			    &mmc_hc_cmd_timeout_val);
+	debugfs_create_file("runtime_suspend_skip", 0600, root, host,
+			    &mmc_runtime_suspend_skip);
+#endif
 
 #ifdef CONFIG_FAIL_MMC_REQUEST
 	if (fail_request)

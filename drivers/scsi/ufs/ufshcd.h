@@ -82,6 +82,67 @@ enum ufs_event_type {
 	UFS_EVT_CNT,
 };
 
+/* O6 code for HQ-391324 by p-xushuo7 at 2024/06/25 start */
+#if IS_ENABLED(CONFIG_MI_MEMORY_SYSFS)
+/* Host UIC error code PHY adapter layer */
+enum ufshcd_ec_pa {
+	UFS_EC_PA_LANE_0,
+	UFS_EC_PA_LANE_1,
+	UFS_EC_PA_LANE_2,
+	UFS_EC_PA_LANE_3,
+	UFS_EC_PA_LINE_RESET,
+	UFS_EC_PA_MAX,
+};
+
+/* Host UIC error code data link layer */
+enum ufshcd_ec_dl {
+	UFS_EC_DL_NAC_RECEIVED,
+	UFS_EC_DL_TCx_REPLAY_TIMER_EXPIRED,
+	UFS_EC_DL_AFCx_REQUEST_TIMER_EXPIRED,
+	UFS_EC_DL_FCx_PROTECT_TIMER_EXPIRED,
+	UFS_EC_DL_CRC_ERROR,
+	UFS_EC_DL_RX_BUFFER_OVERFLOW,
+	UFS_EC_DL_MAX_FRAME_LENGTH_EXCEEDED,
+	UFS_EC_DL_WRONG_SEQUENCE_NUMBER,
+	UFS_EC_DL_AFC_FRAME_SYNTAX_ERROR,
+	UFS_EC_DL_NAC_FRAME_SYNTAX_ERROR,
+	UFS_EC_DL_EOF_SYNTAX_ERROR,
+	UFS_EC_DL_FRAME_SYNTAX_ERROR,
+	UFS_EC_DL_BAD_CTRL_SYMBOL_TYPE,
+	UFS_EC_DL_PA_INIT_ERROR,
+	UFS_EC_DL_PA_ERROR_IND_RECEIVED,
+	UFS_EC_DL_MAX,
+};
+
+struct ufs_uic_stats {
+	u32 pa_err_cnt_total;
+	u32 pa_err_cnt[UFS_EC_PA_MAX];
+	u32 dl_err_cnt_total;
+	u32 dl_err_cnt[UFS_EC_DL_MAX];
+	u32 dme_err_cnt;
+};
+
+/*
+ * customer debug interface
+ */
+struct ufs_err_state_debug {
+	u64 err_occurred; /*if happend err*/
+	char err_reason[10][32]; /*err reason*/
+};
+#endif
+/* O6 code for HQ-391324 by p-xushuo7 at 2024/06/25 end */
+/* UFSHCD error handling flags */
+enum {
+	UFSHCD_EH_IN_PROGRESS = (1 << 0),
+};
+
+#define ufshcd_set_eh_in_progress(h) \
+	((h)->eh_flags |= UFSHCD_EH_IN_PROGRESS)
+#define ufshcd_eh_in_progress(h) \
+	((h)->eh_flags & UFSHCD_EH_IN_PROGRESS)
+#define ufshcd_clear_eh_in_progress(h) \
+	((h)->eh_flags &= ~UFSHCD_EH_IN_PROGRESS)
+
 /**
  * struct uic_command - UIC command structure
  * @command: UIC command
@@ -1048,6 +1109,12 @@ int ufshcd_wait_for_register(struct ufs_hba *hba, u32 reg, u32 mask,
 void ufshcd_parse_dev_ref_clk_freq(struct ufs_hba *hba, struct clk *refclk);
 void ufshcd_update_evt_hist(struct ufs_hba *hba, u32 id, u32 val);
 void ufshcd_hba_stop(struct ufs_hba *hba);
+void ufshcd_complete_requests(struct ufs_hba *hba);
+void ufshcd_release_scsi_cmd(struct ufs_hba *hba,
+				    struct ufshcd_lrb *lrbp);
+void ufshcd_err_handling_prepare(struct ufs_hba *hba);
+void ufshcd_err_handling_unprepare(struct ufs_hba *hba);
+
 
 static inline void check_upiu_size(void)
 {
@@ -1302,18 +1369,6 @@ static inline int ufshcd_vops_pwr_change_notify(struct ufs_hba *hba,
 					dev_max_params, dev_req_params);
 
 	return -ENOTSUPP;
-}
-
-static inline void ufshcd_vops_setup_xfer_req(struct ufs_hba *hba, int tag,
-					bool is_scsi_cmd)
-{
-	if (hba->vops && hba->vops->setup_xfer_req) {
-		unsigned long flags;
-
-		spin_lock_irqsave(hba->host->host_lock, flags);
-		hba->vops->setup_xfer_req(hba, tag, is_scsi_cmd);
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
-	}
 }
 
 static inline void ufshcd_vops_setup_task_mgmt(struct ufs_hba *hba,

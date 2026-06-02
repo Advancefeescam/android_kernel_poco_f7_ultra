@@ -46,6 +46,9 @@
 #define PIN_OUT_SIZE_SCP_HWVOTER_DEBUG   2
 #define PIN_OUT_SIZE_DEBUG_CMD           2
 
+#define PIN_IN_SIZE_ELLIPTIC_ULTRA_0     10
+#define PIN_OUT_SIZE_ELLIPTIC_ULTRA_0    10
+
 /* scp Core ID definition */
 enum scp_core_id {
 	SCP_A_ID = 0,
@@ -96,6 +99,8 @@ enum {
 	/* reserved 39, 40 for AOV */
 	IPI_OUT_DEBUG_CMD         = 41,
 	IPI_IN_RV_SPK_PROCESS     = 42,
+	IPI_OUT_ELLIPTIC_ULTRA_0  = 43,
+	IPI_IN_ELLIPTIC_ULTRA_0   = 44,
 	SCP_IPI_COUNT
 };
 
@@ -138,6 +143,7 @@ enum scp_reserve_mem_id_t {
 	SENS_CUSTOM_W_MEM_ID,
 	SENS_CUSTOM_R_MEM_ID,
 	SCP_SPK_MEM_ID,
+	SCP_ELLIPTIC_DEBUG_MEM,
 	NUMS_MEM_ID,
 };
 

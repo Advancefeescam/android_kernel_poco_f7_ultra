@@ -1,0 +1,140 @@
+#SPDX-License-Identifier: GPL-2.0
+
+config LIXUN_CHARGER_MANAGER
+	tristate "support lixun charger manger"
+	default n
+	help
+		Say Y here to support lixun charger manger.
+
+
+config LIXUN_FUEL_ALGORITHM
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+		
+config BQ28Z610_FG_SUPPORT
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+		
+config MT6358_FG_SUPPORT
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+		
+config BATT_SECRET_VERIFY
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+		
+config SC8541_CHARGEPUMP
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config BQ25960_CHARGEPUMP
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+		
+config NU2115_CHARGEPUMP
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config NU6601_CHARGER
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+		
+config SC6601_CHARGER
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config BATT_VERIFY_BY_DS28E30
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+		
+config BATT_VERIFY_BY_SLG
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config BATT_VERIFY_BY_ST
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config PD_BATTERY_SECRET
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config XM_CHG_ANIMATION
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config XIAOMI_SMART_CHG
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config BATT_VERIFY_SLG_V2
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config BATT_VERIFY_SLG_V1
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config LIXUN_SOC_SMOOTH_SUPPORT
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config LIXUN_SOC_REACH_100_ALGO_SUPPORT
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config LIXUN_SOFT_ITERM_SUPPORT
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config LIXUN_SOH2_SUPPORT
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.
+
+config LIXUN_USE_AUTH_CYCLE_COUNT
+	tristate "lxchg common support"
+	default n
+	help
+		Say Y here to lxchg common support.

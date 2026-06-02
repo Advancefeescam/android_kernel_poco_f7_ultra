@@ -28,7 +28,9 @@
 #include "mtk_disp_recovery.h"
 #include "mtk_drm_ddp_addon.h"
 #include "mtk_disp_pmqos.h"
-#include "slbc_ops.h"
+#include "mi_disp/mi_disp_esd_check.h"
+
+#include "../../../misc/mediatek/slbc/slbc_ops.h"
 
 #define MAX_CRTC 3
 #define OVL_LAYER_NR 12L
@@ -367,6 +369,8 @@ enum MTK_CRTC_PROP {
 	CRTC_PROP_SKIP_CONFIG,
 	CRTC_PROP_OVL_DSI_SEQ,
 	CRTC_PROP_OUTPUT_SCENARIO,
+	/*MI FOD SYNC*/
+	CRTC_PROP_MI_FOD_SYNC_INFO,
 	CRTC_PROP_MAX,
 };
 
@@ -725,6 +729,7 @@ struct mtk_drm_crtc {
 	wait_queue_head_t crtc_status_wq;
 	struct mtk_panel_ext *panel_ext;
 	struct mtk_drm_esd_ctx *esd_ctx;
+	struct mi_esd_ctx *mi_esd_ctx;
 	struct mtk_drm_gem_obj *round_corner_gem;
 	struct mtk_drm_gem_obj *round_corner_gem_l;
 	struct mtk_drm_gem_obj *round_corner_gem_r;
@@ -1005,7 +1010,7 @@ unsigned int mtk_drm_dump_wk_lock(struct mtk_drm_private *priv,
 char *mtk_crtc_index_spy(int crtc_index);
 bool mtk_drm_get_hdr_property(void);
 int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level);
-
+int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level);
 int mtk_drm_crtc_wait_blank(struct mtk_drm_crtc *mtk_crtc);
 void mtk_drm_crtc_init_para(struct drm_crtc *crtc);
 void trigger_without_cmdq(struct drm_crtc *crtc);

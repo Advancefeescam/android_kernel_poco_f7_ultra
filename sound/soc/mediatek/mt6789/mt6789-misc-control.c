@@ -17,6 +17,10 @@
 
 #include "mt6789-afe-common.h"
 
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+extern unsigned int elliptic_add_platform_controls(void *platform);
+#endif
+
 #define SGEN_MUTE_CH1_KCONTROL_NAME "Audio_SineGen_Mute_Ch1"
 #define SGEN_MUTE_CH2_KCONTROL_NAME "Audio_SineGen_Mute_Ch2"
 
@@ -615,6 +619,11 @@ int mt6789_add_misc_control(struct snd_soc_component *component)
 	snd_soc_add_component_controls(component,
 					  mt6789_afe_barge_in_controls,
 					  ARRAY_SIZE(mt6789_afe_barge_in_controls));
+
+	//for ellipitc mixer control
+	#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+	elliptic_add_platform_controls(component);
+	#endif
 
 	return 0;
 }

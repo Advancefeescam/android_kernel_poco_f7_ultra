@@ -18,7 +18,7 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/suspend.h>
-
+#include <linux/notifier.h>
 #include "ready.h"
 #include "sensor_comm.h"
 #include "sensor_list.h"
@@ -336,7 +336,7 @@ static int transceiver_translate(struct transceiver_device *dev,
 		case SENSOR_TYPE_STEP_COUNTER:
 			dst->word[0] = src->value[0];
 			break;
-		default:
+		  default:
 			memcpy(dst->word, src->value,
 				min(sizeof(dst->word), sizeof(src->value)));
 			break;

@@ -609,6 +609,24 @@
 #define SENSOR_DRVNAME_OV13B10_MIPI_RAW         "ov13b10_mipi_raw"
 #define SENSOR_DRVNAME_OV02B10_MIPI_RAW         "ov02b10_mipi_raw"
 
+#define S5KHM9_SUNNY_MAIN_SENSOR_ID            0x1AD9
+#define SENSOR_DRVNAME_S5KHM9_SUNNY_MAIN_MIPI_RAW   "s5khm9_sunny_main_mipi_raw"
+#define S5KHM9_AAC_MAIN_SENSOR_ID             (0x1AD9+1)
+#define SENSOR_DRVNAME_S5KHM9_AAC_MAIN_MIPI_RAW   "s5khm9_aac_main_mipi_raw"
+#define S5KHM9_OFILM_MAIN_SENSOR_ID             (0x1AD9+2)
+#define SENSOR_DRVNAME_S5KHM9_OFILM_MAIN_MIPI_RAW   "s5khm9_ofilm_main_mipi_raw"
+
+#define OV20B40_OFILM_FRONT_SENSOR_ID            0x2042
+#define SENSOR_DRVNAME_OV20B40_OFILM_FRONT_MIPI_RAW   "ov20b40_ofilm_front_mipi_raw"
+
+#define OV20B40_AAC_FRONT_SENSOR_ID              (0x2042 + 1)
+#define SENSOR_DRVNAME_OV20B40_AAC_FRONT_MIPI_RAW   "ov20b40_aac_front_mipi_raw"
+
+#define SC202V_SUNNY_DEPTH_SENSOR_ID               0xeb52
+#define SENSOR_DRVNAME_SC202V_SUNNY_DEPTH_MIPI_RAW "sc202v_sunny_depth_mipi_raw"
+#define SC202V_AAC_DEPTH_SENSOR_ID                 (0xeb52 + 1)
+#define SENSOR_DRVNAME_SC202V_AAC_DEPTH_MIPI_RAW   "sc202v_aac_depth_mipi_raw"
+
 /******************************************************************************
  *
  ******************************************************************************/

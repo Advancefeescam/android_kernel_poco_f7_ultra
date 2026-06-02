@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: GPL-2.0
+
+#charge_policy
+source "drivers/power/supply/lx_chg/charger_policy/Kconfig"
+
+#sc_charger
+source "drivers/power/supply/lx_chg/sc_charger/Kconfig"
+
+#protocol
+source "drivers/power/supply/lx_chg/sc_charger/protocol/Kconfig"
+
+#subpimc
+source "drivers/power/supply/lx_chg/sc_charger/subpmic/Kconfig"
+
+#nu_charger
+source "drivers/power/supply/lx_chg/nu_charger/Kconfig"
+
+#nuvolta subpimc
+source "drivers/power/supply/lx_chg/nu_charger/subpmic/Kconfig"
+
+#fuelgauge
+source "drivers/power/supply/lx_chg/fuelgauge/Kconfig"
+
+#bq_charger
+source "drivers/power/supply/lx_chg/bq_charger/Kconfig"
+
+source "drivers/power/supply/lx_chg/battery_secrete/Kconfig"
+
+config LIXUN_ADAPTER_CLASS
+	tristate "support hauqin charger adapter class"
+	default n
+	help
+		Say Y here to support hauqin charger adapter class.
+
+config LIXUN_CHARGER_CLASS
+	tristate "support hauqin charger class"
+	default n
+	help
+		Say Y here to support hauqin charger class.
+
+config LIXUN_CP_CLASS
+	tristate "support hauqin chager pump class"
+	default n
+	help
+		Say Y here to support hauqin chager pump class.
+
+config PD_BATTERY_SECRET
+	tristate "pd battery secret"
+	default n
+	help
+		Say Y here to support pd battery secret.
+
+config XIAOMI_SMART_CHG
+        tristate "support xiaomi smart charge"
+        default n
+        help
+                Say Y here to support xiaomi smart charge.
+
+config XM_CHG_ANIMATION
+        tristate "support xiaomi charge animation"
+        default n
+        help
+                Say Y here to support xiaomi charge animation.
+
+config XM_FG_I2C_ERR
+        tristate "support xiaomi fg i2c error"
+        default n
+        help
+                Say Y here to support xiaomi fg i2c error.
+
+config LIXUN_ERP_SUPPORT
+        tristate "support erp law"
+        default n
+        help
+                Say Y here to support erp law
+
+config LIXUN_SOH2_SUPPORT
+        tristate "support soh2 algo"
+        default n
+        help
+                Say Y here to support soh2 algo
+
+config IS_P7_PROJECT
+        tristate "support p7 project"
+        default n
+        help
+                Say Y here to support p7 project
+
+

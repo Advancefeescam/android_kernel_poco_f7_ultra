@@ -14,7 +14,7 @@
 #include "mtk_drm_ddp_addon.h"
 #include <linux/pm_runtime.h>
 //#include <linux/interconnect-provider.h>
-#include "mtk-interconnect.h"
+#include "../../../misc/mediatek/mtk-interconnect/mtk-interconnect.h"
 
 struct device;
 struct device_node;
@@ -387,6 +387,9 @@ enum mtk_ddp_io_cmd {
 	PMQOS_UPDATE_BW,
 	OVL_REPLACE_BOOTUP_MVA,
 	BACKUP_INFO_CMP,
+#ifdef CONFIG_MI_ESD_SUPPORT
+	ESD_RESTORE_BACKLIGHT,
+#endif
 	LCM_RESET,
 	DSI_SEND_DDIC_CMD_PACK,
 	DSI_SET_BL,
@@ -411,6 +414,19 @@ enum mtk_ddp_io_cmd {
 	GET_FRAME_HRT_BW_BY_MODE,
 	DSI_SEND_DDIC_CMD,
 	DSI_READ_DDIC_CMD,
+#ifdef CONFIG_MI_DISP
+	MI_DSI_READ_DDIC_CMD,
+	MI_SET_BL_BY_I2C,
+	MI_SET_DC_CRC,
+	MI_SET_DC_CRC_OFF,
+	MI_GET_DC_STATUS,
+	MI_SET_DC_BACKLIGHT,
+	MI_SET_DC_THRESHOLD,
+	MI_SET_BACKLIGHT_DIMMING,
+	MI_RESTORE_CRC_LEVEL,
+	MI_SET_DC_CRC_BL_PACK,
+	MI_GET_WP_INFO,
+#endif
 	DSI_GET_VIRTUAL_HEIGH,
 	DSI_GET_VIRTUAL_WIDTH,
 	FRAME_DIRTY,

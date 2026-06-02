@@ -54,6 +54,10 @@
 #define RST_PWRKEY_HOME_HOME2_MODE		3
 #define INVALID_VALUE				0
 
+
+#define DISP_PMIC_PWRKEY_DOWN    1
+#define DISP_PMIC_PWRKEY_UP      2
+
 struct mtk_pmic_keys_regs {
 	u32 deb_reg;
 	u32 deb_mask;
@@ -239,6 +243,17 @@ static void mtk_pmic_keys_lp_reset_setup(struct mtk_pmic_keys *keys,
 	}
 }
 
+
+typedef int (*mi_display_pwrkey_callback)(int);
+mi_display_pwrkey_callback mi_display_pwrkey_cb = NULL;
+
+void mi_display_pwrkey_callback_set(mi_display_pwrkey_callback cb)
+{
+	mi_display_pwrkey_cb = cb;
+	return;
+}
+EXPORT_SYMBOL(mi_display_pwrkey_callback_set);
+
 static irqreturn_t mtk_pmic_keys_release_irq_handler_thread(
 				int irq, void *data)
 {
@@ -250,6 +265,12 @@ static irqreturn_t mtk_pmic_keys_release_irq_handler_thread(
 		__pm_relax(info->suspend_lock);
 	dev_info(info->keys->dev, "release key =%d using PMIC\n",
 			info->keycode);
+	if (info->keycode == 116) {
+		if(mi_display_pwrkey_cb != NULL){
+			dev_info(info->keys->dev, "mi_display_pwrkey_cb DISP_PMIC_PWRKEY_UP\n");
+			mi_display_pwrkey_cb(DISP_PMIC_PWRKEY_UP);
+		}
+	}
 	return IRQ_HANDLED;
 }
 
@@ -275,6 +296,12 @@ static irqreturn_t mtk_pmic_keys_irq_handler_thread(int irq, void *data)
 		__pm_relax(info->suspend_lock);
 	dev_info(info->keys->dev, "(%s) key =%d using PMIC\n",
 		 pressed ? "pressed" : "released", info->keycode);
+	if (info->keycode == 116) {
+		if(mi_display_pwrkey_cb != NULL) {
+			dev_info(info->keys->dev, "mi_display_pwrkey_cb DISP_PMIC_PWRKEY_DOWN\n");
+			mi_display_pwrkey_cb(DISP_PMIC_PWRKEY_DOWN);
+		}
+	}
 
 	return IRQ_HANDLED;
 }

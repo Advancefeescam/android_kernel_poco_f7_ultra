@@ -382,6 +382,10 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 				DDPINFO("[LP] enter idle\n");
 				mtk_drm_idlemgr_enter_idle_nolock(crtc);
 				idlemgr_ctx->is_idle = 1;
+				if (mtk_crtc && mtk_crtc->esd_ctx) {
+					atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
+					wake_up_interruptible(&mtk_crtc->esd_ctx->check_task_wq);
+				}
 			} else {
 				idlemgr_ctx->idlemgr_last_kick_time =
 					sched_clock();

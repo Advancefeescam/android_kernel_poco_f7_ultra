@@ -145,6 +145,7 @@ source "drivers/misc/mediatek/irtx/Kconfig"
 source "drivers/misc/mediatek/pwm/Kconfig"
 source "drivers/misc/mediatek/sensor/Kconfig"
 source "drivers/misc/mediatek/gate_ic/Kconfig"
+source "drivers/misc/mediatek/simtray/Kconfig"
 endmenu # Other Peripheral
 
 menu "Performance"
@@ -155,6 +156,8 @@ source "drivers/misc/mediatek/perf_common/Kconfig"
 source "drivers/misc/mediatek/rps/Kconfig"
 source "drivers/misc/mediatek/task_turbo/Kconfig"
 endmenu # Performance
+
+source "drivers/misc/mediatek/hardware_info/Kconfig"
 
 menu "Config File"
 config BUILD_CONFIG_FILE

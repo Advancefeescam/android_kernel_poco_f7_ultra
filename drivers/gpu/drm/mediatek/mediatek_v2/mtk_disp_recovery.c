@@ -31,9 +31,20 @@
 #include "mtk_drm_assert.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_trace.h"
+#ifdef CONFIG_MI_DISP_DFS_EVENT
+#include "mi_disp/mi_disp_event.h"
+#endif
 
 #define ESD_TRY_CNT 5
 #define ESD_CHECK_PERIOD 2000 /* ms */
+#ifdef CONFIG_MI_ESD_SUPPORT
+atomic_t lcm_valid_irq = ATOMIC_INIT(0);
+EXPORT_SYMBOL(lcm_valid_irq);
+atomic_t is_lcm_inited_esd = ATOMIC_INIT(0);
+EXPORT_SYMBOL(is_lcm_inited_esd);
+bool esd_flag = false;
+EXPORT_SYMBOL(esd_flag);
+#endif
 
 /* pinctrl implementation */
 long _set_state(struct drm_crtc *crtc, const char *name)
@@ -513,6 +524,9 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	cmdq_pkt_destroy(cmdq_handle);
 done:
 	CRTC_MMP_EVENT_END(drm_crtc_index(crtc), esd_recovery, 0, ret);
+#ifdef CONFIG_MI_ESD_SUPPORT
+	mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_RESTORE_BACKLIGHT, NULL);
+#endif
 
 	return 0;
 }
@@ -528,6 +542,9 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 	int i = 0;
 	int recovery_flg = 0;
 	bool check_te = false, te_timeout = false;
+#ifdef CONFIG_MI_DISP_DFS_EVENT
+		struct mi_event_info mi_event = {0};
+#endif
 
 	sched_setscheduler(current, SCHED_RR, &param);
 
@@ -623,6 +640,10 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 			DDPPR_ERR(
 				"[ESD]esd check fail, will do esd recovery. te timeout:%d try=%d\n",
 				te_timeout, i);
+#ifdef CONFIG_MI_DISP_DFS_EVENT
+			mi_event.event_type = MI_EVENT_PRI_PANEL_REG_ESD;
+			mi_disp_mievent_int(MI_DISP_PRIMARY, &mi_event);
+#endif
 			mtk_drm_esd_recover(crtc);
 			recovery_flg = 1;
 		} while (++i < ESD_TRY_CNT);

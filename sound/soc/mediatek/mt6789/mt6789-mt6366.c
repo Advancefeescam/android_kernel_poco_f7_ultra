@@ -23,6 +23,13 @@
 
 #include "../common/mtk-sp-spk-amp.h"
 
+#if IS_ENABLED(CONFIG_MIEV)
+#include <miev/mievent.h>
+#include <linux/timer.h>
+#include <linux/timex.h>
+#include <linux/rtc.h>
+#endif
+
 /*
  * if need additional control for the ext spk amp that is connected
  * after Lineout Buffer / HP Buffer on the codec, put the control in
@@ -1124,6 +1131,11 @@ static int mt6789_mt6366_dev_probe(struct platform_device *pdev)
 	int spkProcessEnable = 0;
 #endif
 
+#if IS_ENABLED(CONFIG_MIEV)
+	struct misight_mievent *mievent;
+	struct timespec64 curTime;
+#endif
+
 	dev_info(&pdev->dev, "%s()\n", __func__);
 
 	/* update speaker type */
@@ -1202,6 +1214,16 @@ static int mt6789_mt6366_dev_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(&pdev->dev, "%s snd_soc_register_card fail %d\n",
 			__func__, ret);
+
+#if IS_ENABLED(CONFIG_MIEV)
+		ktime_get_real_ts64(&curTime);
+		mievent  = cdev_tevent_alloc(906001001);
+		cdev_tevent_add_int(mievent, "CurrentTime", curTime.tv_sec);
+		cdev_tevent_add_str(mievent, "Keyword", "sound_card_not_registered");
+		cdev_tevent_write(mievent);
+		cdev_tevent_destroy(mievent);
+#endif
+
 	return ret;
 }
 

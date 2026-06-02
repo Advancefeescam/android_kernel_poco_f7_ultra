@@ -11,6 +11,97 @@
 
 /* Legacy design */
 struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
+#if defined(S5KHM9_SUNNY_MAIN_SENSOR_ID)
+		{
+			SENSOR_DRVNAME_S5KHM9_SUNNY_MAIN_MIPI_RAW,
+			{
+				{RST, Vol_Low, 5},
+				{DVDD, Vol_1000, 1},
+				{AVDD, Vol_2200, 1},
+				{DOVDD, Vol_1800, 1},
+				{RST, Vol_High, 5},
+				{SensorMCLK, Vol_High,11}
+			},
+		},
+#endif
+#if defined(S5KHM9_AAC_MAIN_SENSOR_ID)
+		{
+			SENSOR_DRVNAME_S5KHM9_AAC_MAIN_MIPI_RAW,
+			{
+				{RST, Vol_Low, 5},
+				{DVDD, Vol_1000, 1},
+				{AVDD, Vol_2200, 1},
+				{DOVDD, Vol_1800, 1},
+				{RST, Vol_High, 5},
+				{SensorMCLK, Vol_High,11}
+			},
+		},
+#endif
+#if defined(S5KHM9_OFILM_MAIN_SENSOR_ID)
+		{
+			SENSOR_DRVNAME_S5KHM9_OFILM_MAIN_MIPI_RAW,
+			{
+				{RST, Vol_Low, 5},
+				{DVDD, Vol_1000, 1},
+				{AVDD, Vol_2200, 1},
+				{DOVDD, Vol_1800, 1},
+				{RST, Vol_High, 5},
+				{SensorMCLK, Vol_High,11}
+			},
+		},
+#endif
+#if defined(OV20B40_OFILM_FRONT_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_OV20B40_OFILM_FRONT_MIPI_RAW,
+			{
+				{RST, Vol_Low, 5},
+				{DOVDD, Vol_1800, 0},
+				{DVDD, Vol_1200, 0},
+				{AVDD, Vol_2800, 0},
+				{SensorMCLK, Vol_High, 0},
+				{RST, Vol_High, 5}
+			},
+		},
+#endif
+#if defined(OV20B40_AAC_FRONT_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_OV20B40_AAC_FRONT_MIPI_RAW,
+			{
+				{RST, Vol_Low, 5},
+				{DOVDD, Vol_1800, 0},
+				{DVDD, Vol_1200, 0},
+				{AVDD, Vol_2800, 0},
+				{SensorMCLK, Vol_High, 0},
+				{RST, Vol_High, 5}
+			},
+		},
+#endif
+#if defined(SC202V_SUNNY_DEPTH_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_SC202V_SUNNY_DEPTH_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{SensorMCLK, Vol_High, 1},
+			{DOVDD, Vol_1800, 1},
+			{AVDD, Vol_2800, 5},
+			//{DVDD, Vol_1200, 0},
+			{RST, Vol_High, 10}
+		},
+	},
+#endif
+#if defined(SC202V_AAC_DEPTH_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_SC202V_AAC_DEPTH_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{SensorMCLK, Vol_High, 1},
+			{DOVDD, Vol_1800, 1},
+			{AVDD, Vol_2800, 5},
+			//{DVDD, Vol_1200, 0},
+			{RST, Vol_High, 10}
+		},
+	},
+#endif
 #if defined(IMX766_MIPI_RAW)
 	{
 		SENSOR_DRVNAME_IMX766_MIPI_RAW,

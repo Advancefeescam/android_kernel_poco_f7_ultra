@@ -24,3 +24,5 @@ aee_aed-y	+= \
 	reboot-reason.o
 
 obj-$(CONFIG_MTK_AEE_FEATURE)	+= aee_rs.o
+
+aee_aed-$(CONFIG_MTK_LAST_KMSG) += last_kmsg.o

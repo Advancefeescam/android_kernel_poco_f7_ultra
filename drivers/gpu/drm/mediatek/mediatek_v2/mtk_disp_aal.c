@@ -94,6 +94,8 @@ static atomic_t g_aal_interrupt_enabled = ATOMIC_INIT(1);
 static struct workqueue_struct *aal_flip_wq;
 static struct workqueue_struct *aal_refresh_wq;
 
+//static int g_aal_backlight_set;
+static int g_ori_aal_backlight_notified = 0;
 enum AAL_UPDATE_HIST {
 	UPDATE_NONE = 0,
 	UPDATE_SINGLE,
@@ -465,6 +467,8 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 
 	atomic_set(&g_aal_backlight_notified, trans_backlight);
 
+	AALAPI_LOG("[%s]: brightness =  %d", __func__, trans_backlight);
+
 	service_flags = 0;
 	if (trans_backlight == 0) {
 		mtk_leds_brightness_set("lcd-backlight", 0);
@@ -482,7 +486,11 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 	}
 
 	spin_lock_irqsave(&g_aal_hist_lock, flags);
-	g_aal_hist.backlight = trans_backlight;
+	if (m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS] ||
+		m_new_pq_persist_property[DISP_PQ_MI_SOFT_BRIGHTNESS]) {
+		g_aal_hist.backlight = g_ori_aal_backlight_notified;
+	} else
+		g_aal_hist.backlight = trans_backlight;
 	g_aal_hist.serviceFlags |= service_flags;
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 	// always notify aal service for LED changed
@@ -499,10 +507,11 @@ int led_brightness_changed_event_to_aal(struct notifier_block *nb, unsigned long
 	struct led_conf_info *led_conf;
 
 	led_conf = (struct led_conf_info *)v;
-
+	g_ori_aal_backlight_notified = led_conf->cdev.brightness;
 	switch (event) {
 	case LED_BRIGHTNESS_CHANGED:
-		if (m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS]) {
+		if (m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS] ||
+			m_new_pq_persist_property[DISP_PQ_MI_SOFT_BRIGHTNESS]) {
 			trans_level = led_conf->cdev.brightness;
 
 			disp_aal_notify_backlight_changed(trans_level,
@@ -523,7 +532,7 @@ int led_brightness_changed_event_to_aal(struct notifier_block *nb, unsigned long
 
 		AALAPI_LOG("brightness changed: %d(%d)\n",
 			trans_level, led_conf->cdev.brightness);
-		led_conf->aal_enable = 1;
+		atomic_set(&led_conf->aal_enable, 1);
 		break;
 	case LED_STATUS_SHUTDOWN:
 		if (m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS])
@@ -1517,8 +1526,12 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	backlight_value = g_aal_param.FinalBacklight;
 	/* set cabc gain zero when detect backlight */
 	/* setting equal to zero */
-	if (backlight_value == 0)
+
+	if (backlight_value == 0) {
 		g_aal_param.cabc_fltgain_force = 0;
+		backlight_value = g_aal_hist.backlight;
+		printk("mtk_drm_ioctl_aal_set_param backlight_value = %d\n", backlight_value);
+	}
 
 	mutex_lock(&g_aal_sram_lock);
 	ret = mtk_crtc_user_cmd(crtc, comp, SET_PARAM, data);
@@ -2466,6 +2479,7 @@ static void mtk_aal_prepare(struct mtk_ddp_comp *comp)
 	}
 }
 
+extern int get_panel_dead_flag(void);
 static void mtk_aal_unprepare(struct mtk_ddp_comp *comp)
 {
 	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
@@ -2473,6 +2487,13 @@ static void mtk_aal_unprepare(struct mtk_ddp_comp *comp)
 	bool first_backup = (atomic_read(&aal_data->is_clock_on) == 1);
 
 	AALFLOW_LOG("\n");
+	AALFLOW_LOG("mtk_aal_unprepare: %d\n", get_panel_dead_flag());
+	if (!get_panel_dead_flag()) {
+		g_aal_hist.backlight = 0;
+		g_aal_hist.serviceFlags = 1;
+		atomic_set(&g_aal0_hist_available, 1);
+		wake_up_interruptible(&g_aal_hist_wq);
+	}
 	spin_lock_irqsave(&g_aal_clock_lock, flags);
 	atomic_set(&aal_data->is_clock_on, 0);
 	if (comp->id == DDP_COMPONENT_AAL0)

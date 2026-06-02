@@ -23,11 +23,28 @@
 #else
 #include "mtk-cmdq-ext.h"
 #endif
+#ifdef CONFIG_MI_DISP
+#include <uapi/drm/mi_disp.h>
+#include "mi_disp/mi_disp_feature.h"
+#include "mi_disp/mi_dsi_panel.h"
+#include "mi_disp/mi_dsi_display.h"
+#include "mi_disp/mi_panel_ext.h"
+#include "mi_disp/mi_disp_input_handler.h"
+#include "mi_disp/mi_disp_lhbm.h"
+#include "mi_disp/mi_disp_print.h"
+#endif
 
+
+#define DISP_PMIC_PWRKEY_DOWN    1
+#define DISP_PMIC_PWRKEY_UP      2
+#define DISPLAY_DELAY_SHUTDOWN_TIME_MS 7100
+
+#ifndef CONFIG_MI_DISP
 struct t_condition_wq {
 	wait_queue_head_t wq;
 	atomic_t condition;
 };
+#endif
 
 struct mtk_dsi_driver_data {
 	const u32 reg_cmdq0_ofs;
@@ -39,6 +56,9 @@ struct mtk_dsi_driver_data {
 	const u32 reg_vm_cmd_data30_ofs;
 	s32 (*poll_for_idle)(struct mtk_dsi *dsi, struct cmdq_pkt *handle);
 	irqreturn_t (*irq_handler)(int irq, void *dev_id);
+#ifdef CONFIG_MI_ESD_SUPPORT
+	char *mi_esd_eint_compat;
+#endif
 	char *esd_eint_compat;
 	bool support_shadow;
 	bool need_bypass_shadow;
@@ -51,6 +71,7 @@ struct mtk_dsi_driver_data {
 		struct mtk_drm_crtc *mtk_crtc, unsigned int en);
 };
 
+#ifndef CONFIG_MI_DISP
 struct mtk_dsi {
 	struct mtk_ddp_comp ddp_comp;
 	struct device *dev;
@@ -117,6 +138,7 @@ struct mtk_dsi {
 	/* for Panel Master dcs read/write */
 	struct mipi_dsi_device *dev_for_PM;
 };
+#endif
 
 s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle);
 irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id);

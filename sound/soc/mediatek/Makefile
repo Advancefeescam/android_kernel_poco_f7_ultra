@@ -49,6 +49,9 @@ obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += audio_dsp/
 #scp ultra sound related code
 obj-$(CONFIG_MTK_ULTRASND_PROXIMITY) += ultrasound/
 
+# ultra sound algo elliptic
+obj-$(CONFIG_MTK_ULTRASND_PROXIMITY) += elliptic/
+
 obj-$(CONFIG_MTK_SCP_AUDIO) += audio_scp/
 
 # include path

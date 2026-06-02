@@ -359,4 +359,32 @@ extern long WV511AAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 extern int WV511AAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int WV511AAF_GetFileName(unsigned char *pFileName);
 
+#define PD9302ABAF_SetI2Cclient PD9302ABAF_SetI2Cclient_Main
+#define PD9302ABAF_Ioctl PD9302ABAF_Ioctl_Main
+#define PD9302ABAF_Release PD9302ABAF_Release_Main
+#define PD9302ABAF_PowerDown PD9302ABAF_PowerDown_Main
+#define PD9302ABAF_GetFileName PD9302ABAF_GetFileName_Main
+extern int PD9302ABAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long PD9302ABAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+				unsigned long a_u4Param);
+extern int PD9302ABAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int PD9302ABAF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
+extern int PD9302ABAF_GetFileName(unsigned char *pFileName);
+
+#define GT9764VAF_SetI2Cclient GT9764VAF_SetI2Cclient_Main
+#define GT9764VAF_Ioctl GT9764VAF_Ioctl_Main
+#define GT9764VAF_Release GT9764VAF_Release_Main
+#define GT9764VAF_PowerDown GT9764VAF_PowerDown_Main
+#define GT9764VAF_GetFileName GT9764VAF_GetFileName_Main
+extern int GT9764VAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long GT9764VAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+				unsigned long a_u4Param);
+extern int GT9764VAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int GT9764VAF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
+extern int GT9764VAF_GetFileName(unsigned char *pFileName);
+
 #endif

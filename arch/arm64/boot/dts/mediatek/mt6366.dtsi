@@ -38,6 +38,7 @@
 			/*1:ACC mode, 2:low cost without in bias, 6:low cost with in bias*/
 			accdet-mic-mode = <1>;
 			/* eint_level_trigger: 8,LEVEL_LOW(DEF) ;4,LV_HIGH;others,LV_LOW */
+			headset-use-ap-eint = <1>;
 			headset-eint-level-pol = <8>;
 			/*0--MD_MAX--UP_MAX--DW_MAX*/
 			headset-three-key-threshold = <0 80 220 400>;
@@ -227,7 +228,7 @@
 
 			mt6358_vibr_reg: ldo_vibr {
 				regulator-name = "vibr";
-				regulator-min-microvolt = <1200000>;
+				regulator-min-microvolt = <3000000>;
 				regulator-max-microvolt = <3300000>;
 				regulator-enable-ramp-delay = <60>;
 			};

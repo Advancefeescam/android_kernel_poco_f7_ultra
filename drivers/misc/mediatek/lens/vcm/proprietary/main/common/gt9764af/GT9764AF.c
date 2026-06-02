@@ -37,6 +37,7 @@ static spinlock_t *g_pAF_SpinLock;
 static unsigned long g_u4AF_INF;
 static unsigned long g_u4AF_MACRO = 1023;
 static unsigned long g_u4CurrPosition;
+static int g_u4AF_SetInitPos;
 #define Min_Pos 0
 #define Max_Pos 1023
 
@@ -139,13 +140,14 @@ static int initAF(void)
 		int ret = 0;
 		//int cnt = 0;
 		unsigned char Temp;
-
+		mdelay(2); //wait poweron
 		s4AF_ReadReg(0x00, &Temp);  //ic info
 		LOG_INF("Check HW version: 0x00 is %x\n", Temp);
-		ret = s4AF_WriteReg(0, 0x02, 0x00); //CONTROL
+		ret = s4AF_WriteReg(0, 0x02, 0x02); //EN ACC MODE
+		ret = s4AF_WriteReg(0, 0x06, 0x40); //EN ACC2
+		ret = s4AF_WriteReg(0, 0x07, 0x03); //TVIB=13.2MS
 
-
-
+		g_u4AF_SetInitPos  = 1;
 		spin_lock(g_pAF_SpinLock);
 		*g_pAF_Opened = 2;
 		spin_unlock(g_pAF_SpinLock);
@@ -160,6 +162,41 @@ static int initAF(void)
 static inline int moveAF(unsigned long a_u4Position)
 {
 	int ret = 0;
+	LOG_INF("a_u4Position=%d",a_u4Position);
+	if(g_u4AF_SetInitPos == 1){
+		if(a_u4Position > 700) {
+			int CntStep = a_u4Position - 700;
+			int Position = 700;
+			int PerStep = 50;
+			while(CntStep > 0){
+				if(Position < 800)
+					PerStep = 100;
+				else
+					PerStep = 50;
+				LOG_INF("a_u4Position=%d, moveto=%d, PerStep=%d, CntStep=%d",a_u4Position,Position,PerStep,CntStep);
+				setPosition(Position);
+				mdelay(10);
+				Position += PerStep;
+				CntStep -= PerStep;
+			}
+		}else if(a_u4Position < 300){
+			int CntStep = 300 - a_u4Position;
+			int Position = 300;
+			int PerStep = 50;
+			while(CntStep > 0){
+				if(Position > 200)
+					PerStep = 100;
+				else
+					PerStep = 50;
+				LOG_INF("a_u4Position=%d, moveto=%d, PerStep=%d, CntStep=%d",a_u4Position,Position,PerStep,CntStep);
+				setPosition(Position);
+				mdelay(10);
+				Position -= PerStep;
+				CntStep -= PerStep;
+			}
+		}
+		g_u4AF_SetInitPos = 0;
+	}
 
 	if (setPosition((unsigned short)a_u4Position) == 0) {
 		g_u4CurrPosition = a_u4Position;
@@ -233,6 +270,78 @@ int GT9764AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 	int Ret = 0;
 
 	LOG_INF("Start\n");
+	if (*g_pAF_Opened == 2) {
+        int ret = 0;
+
+        unsigned long af_step = 50;
+        unsigned long nextPosition = 0;
+        unsigned long endPos = 512;
+        // >512 multiple times
+        // first step move fast
+        if (g_u4CurrPosition > endPos) {
+            if (g_u4CurrPosition > 800) {
+                nextPosition = 800;
+                LOG_INF("0:nextPosition = %d g_u4CurrPosition = %d g_u4AF_MACRO = %d", nextPosition, g_u4CurrPosition,g_u4AF_MACRO);
+                if (setPosition((unsigned short)nextPosition) == 0) {
+                    g_u4CurrPosition = nextPosition;
+                    ret = 0;
+                } else {
+                    LOG_INF("set I2C failed when moving the motor\n");
+                    ret = -1;
+                }
+            }
+            mdelay(10);
+
+            while (g_u4CurrPosition > endPos + af_step) {
+                if (g_u4CurrPosition > 700) {
+                        af_step = 50;
+                }
+                nextPosition = g_u4CurrPosition - af_step;
+                LOG_INF("1:af_step = %d g_u4CurrPosition = %d", af_step, g_u4CurrPosition);
+                if (setPosition((unsigned short)nextPosition) == 0) {
+                    g_u4CurrPosition = nextPosition;
+                    ret = 0;
+                } else {
+                    LOG_INF("set I2C failed when moving the motor\n");
+                    ret = -1;
+                    break;
+                }
+                mdelay(10);
+            }
+        } else if (g_u4CurrPosition < endPos) {
+            // <512 multiple times
+            // first step move fast
+            if (g_u4CurrPosition > 300) {
+                nextPosition = 300;
+                LOG_INF("0:nextPosition = %d g_u4CurrPosition = %d g_u4AF_MACRO = %d", nextPosition, g_u4CurrPosition,g_u4AF_MACRO);
+                if (setPosition((unsigned short)nextPosition) == 0) {
+                    g_u4CurrPosition = nextPosition;
+                    ret = 0;
+                } else {
+                    LOG_INF("set I2C failed when moving the motor\n");
+                    ret = -1;
+                }
+            }
+            mdelay(10);
+
+            while (g_u4CurrPosition < endPos - af_step) {
+                if (g_u4CurrPosition > 400) {
+                    af_step = 50;
+                }
+                nextPosition = g_u4CurrPosition + af_step;
+                LOG_INF("1:af_step = %d g_u4CurrPosition = %d", af_step, g_u4CurrPosition);
+                if (setPosition((unsigned short)nextPosition) == 0) {
+                    g_u4CurrPosition = nextPosition;
+                    ret = 0;
+                } else {
+                    LOG_INF("set I2C failed when moving the motor\n");
+                    ret = -1;
+                    break;
+                }
+                mdelay(10);
+            }
+		}
+    }
 
 	if (*g_pAF_Opened) {
 		LOG_INF("Free\n");

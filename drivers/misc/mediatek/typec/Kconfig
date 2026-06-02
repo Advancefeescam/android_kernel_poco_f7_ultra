@@ -10,8 +10,8 @@ config MTK_USB_TYPEC
 	  a device/host plugged in/out, it will notify the device/host driver
 	  by callback func.
 	  If unsure, say N.
-
-source "drivers/misc/mediatek/typec/tcpc/Kconfig"
+# Comment this for LX tcpc source code overlay
+# source "drivers/misc/mediatek/typec/tcpc/Kconfig"
 
 source "drivers/misc/mediatek/typec/mux/Kconfig"
 

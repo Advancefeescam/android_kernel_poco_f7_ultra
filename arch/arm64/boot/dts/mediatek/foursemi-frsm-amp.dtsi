@@ -1,0 +1,27 @@
+
+&odm {
+	frsm_amp {
+		compatible = "foursemi,frsm-amp";
+		frsm,amp-ndev = <2>;
+		frsm,class-enable;
+		status = "ok";
+	};
+};
+
+&i2c6 {
+	spk_amp0:fs1815@34 {
+		compatible = "foursemi,fs1815";
+		reg = <0x34>;
+		fwm-name = "fs181x-rcv.bin";
+		spkr-id = <1>;
+		status = "ok";
+	};
+	spk_amp1:fs1815@35 {
+		compatible = "foursemi,fs1815";
+		reg = <0x35>;
+		fwm-name = "fs181x-spk.bin";
+		spkr-id = <2>;
+		status = "ok";
+	};
+};
+

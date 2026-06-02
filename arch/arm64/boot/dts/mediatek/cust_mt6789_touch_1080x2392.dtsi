@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+
+/* TOUCH start */
+&spi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	goodix@0 {
+		status = "ok";
+		compatible = "focaltech_ts","goodix,gt9916K";
+		compatible_goodix = "goodix,gt9916K";
+		reg = <0x0>;
+		spi-max-frequency = <20000000>;
+
+		focaltech,max-touch-number = <10>;
+		focaltech,super-resolution-factors = <16>;
+		focaltech,display-coords =  <0 0 17280 38272>;
+		focaltech,irq-gpio = <&pio 9 0x2002>;
+		focaltech,reset-gpio = <&pio 159 0x00>;
+		focaltech,touch-range-array = <1 5 10 15 20>;
+		focaltech,touch-def-array = <4 3 3 3>;
+		focaltech,touch-expert-array = <10 15 10 10
+						20 15 15 10
+						15 15 20 10>;
+
+		goodix,panel-max-x-16 = <17280>;
+		goodix,panel-max-y-16 = <38272>;
+		goodix,panel-max-w = <256>;
+		goodix,reset-gpio = <&pio 159 0x0>;
+		goodix,irq-gpio = <&pio 9 0x2002>;
+		goodix,irq-flags = <0x2002>; /* 1:trigger rising, 2:trigger falling;*/
+		goodix,avdd-gpio = <&pio 152 0x00>;
+		goodix,iovdd-gpio = <&pio 59 0x00>;
+		goodix,firmware-name = "goodix_firmware.bin";
+		goodix,config-name = "goodix_cfg_group.bin";
+
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_ts_spi_mode";
+		pinctrl-0 = <&ts_reset_active &ts_int_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_spi_mode>;
+
+	};
+};
+
+&pio{
+	ts_reset_active: ts_reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
+			bias-disable;
+		};
+	};
+	ts_int_active: ts_int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO9__FUNC_GPIO9>;
+			bias-disable;
+		};
+	};
+	ts_int_suspend: ts_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO9__FUNC_GPIO9>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};
+	ts_reset_suspend: ts_reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
+			slew-rate = <1>;
+			bias-pull-down;
+		};
+	};
+	ts_spi_mode: ts_spimode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO30__FUNC_SPI0_CLK>,
+				<PINMUX_GPIO31__FUNC_SPI0_CSB>,
+				<PINMUX_GPIO32__FUNC_SPI0_MO>,
+				<PINMUX_GPIO33__FUNC_SPI0_MI>;
+			drive-strength = <2>;
+		};
+	};
+};
+/* TOUCH end */
+

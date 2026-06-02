@@ -64,6 +64,23 @@
 #define EINT_PLUG_IN			(1)
 #define EINT_MOISTURE_DETECTED	(2)
 
+#define MEDIA_PREVIOUS_SCAN_CODE 257
+#define MEDIA_NEXT_SCAN_CODE 258
+
+/* add et7480 */
+#if IS_ENABLED(CONFIG_USB_SWITCH_ET7480_MT6366)
+enum et_function {
+	ET_MIC_GND_SWAP,
+	ET_USBC_ORIENTATION_CC1,
+	ET_USBC_ORIENTATION_CC2,
+	ET_USBC_DISPLAYPORT_DISCONNECTED,
+	ET_EVENT_MAX,
+};
+static struct device_node *et_handle = NULL;
+extern int et7480_switch_event(struct device_node *node, enum et_function event);
+#endif
+/* end */
+
 struct mt63xx_accdet_data {
 	u32 base;
 	struct snd_soc_card card;
@@ -1169,8 +1186,10 @@ static void eint_work_callback(struct work_struct *work)
 		headset_plug_out();
 	}
 
+#if !IS_ENABLED(CONFIG_USB_SWITCH_ET7480_MT6366)
 	if (HAS_CAP(accdet->data->caps, ACCDET_AP_GPIO_EINT))
 		enable_irq(accdet->gpioirq);
+#endif
 
 }
 
@@ -1228,6 +1247,13 @@ static inline void check_cable_type(void)
 			if (accdet->eint_sync_flag) {
 				accdet->cable_type = HEADSET_NO_MIC;
 				accdet->accdet_status = HOOK_SWITCH;
+#if IS_ENABLED(CONFIG_USB_SWITCH_ET7480_MT6366)
+				/* add et7480 switch event */
+				if (et_handle) {
+					pr_info("%s: use et7480 to switch mic and gnd", __func__);
+					//et7480_switch_event(et_handle, 0);
+				}
+#endif
 			} else
 				pr_notice("accdet hp has been plug-out\n");
 			mutex_unlock(&accdet->res_lock);
@@ -1728,6 +1754,7 @@ static int accdet_get_dts_data(void)
 	else if (tmp == 1)
 		accdet->data->caps |= ACCDET_AP_GPIO_EINT;
 
+#if !IS_ENABLED(CONFIG_USB_SWITCH_ET7480_MT6366)
 	ret = of_property_read_u32(node,
 			"headset-eint-num", &tmp);
 	if (ret)
@@ -1738,6 +1765,7 @@ static int accdet_get_dts_data(void)
 		accdet->data->caps |= ACCDET_PMIC_EINT1;
 	else if (tmp == 2)
 		accdet->data->caps |= ACCDET_PMIC_BI_EINT;
+#endif
 
 	ret = of_property_read_u32(node,
 			"headset-eint-trig-mode", &tmp);
@@ -1817,6 +1845,13 @@ static int accdet_get_dts_data(void)
 		/* eint use internal resister */
 		accdet_dts.eint_use_ext_res = 0x0;
 	}
+
+#if IS_ENABLED(CONFIG_USB_SWITCH_ET7480_MT6366)
+	et_handle = of_parse_phandle(node, "et7480-i2c-handle", 0);
+	if (NULL == et_handle) {
+		pr_err("%s: get et_handle error. \n", __func__);
+	}
+#endif
 	return 0;
 }
 
@@ -1995,8 +2030,10 @@ static void accdet_init_once(void)
 	}
 	accdet_eint_high_level_support();
 
+#if !IS_ENABLED(CONFIG_USB_SWITCH_ET7480_MT6366)
 	/* accdet eint enable*/
 	accdet_write(0x250a, 0x4);
+#endif
 
 	pr_info("%s done!\n", __func__);
 }
@@ -2082,8 +2119,8 @@ int mt6358_accdet_init(struct snd_soc_component *component,
 
 	accdet->jack.jack->input_dev->id.bustype = BUS_HOST;
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, MEDIA_NEXT_SCAN_CODE);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, MEDIA_PREVIOUS_SCAN_CODE);
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
 
 	snd_soc_component_set_jack(component, &accdet->jack, NULL);
@@ -2309,12 +2346,14 @@ static int mt6358_accdet_probe(struct platform_device *pdev)
 		goto err_create_workqueue;
 	}
 
+#if !IS_ENABLED(CONFIG_USB_SWITCH_ET7480_MT6366)
 	if (HAS_CAP(accdet->data->caps, ACCDET_AP_GPIO_EINT)) {
 		accdet->accdet_eint_type = IRQ_TYPE_LEVEL_LOW;
 		ret = ext_eint_setup(pdev);
 		if (ret)
 			destroy_workqueue(accdet->eint_workqueue);
 	}
+#endif
 
 	ret = accdet_create_attr(&accdet_driver.driver);
 	if (ret) {
@@ -2338,6 +2377,77 @@ err_chrdevregion:
 	pr_notice("%s error. now exit.!\n", __func__);
 	return ret;
 }
+
+#if IS_ENABLED(CONFIG_USB_SWITCH_ET7480_MT6366)
+void accdet_eint_callback_wrapper(unsigned int plug_status)
+{
+	int ret = 0;
+	pr_info("%s: call ex eint handler, plug_status %d\n", __func__, plug_status);
+	accdet->cur_eint_state = (plug_status == 1 ? EINT_PLUG_IN : EINT_PLUG_OUT);
+	disable_irq_nosync(accdet->gpioirq);//
+	pr_info("accdet %s(), cur_eint_state=%d\n", __func__, accdet->cur_eint_state);
+	ret = queue_work(accdet->eint_workqueue, &accdet->eint_work);
+	pr_info("%s: exit queue work\n", __func__);
+}
+EXPORT_SYMBOL(accdet_eint_callback_wrapper);
+
+void print_accdet_reg(void)
+{
+	u32 val = 0;
+	u32 addr = MT6358_AUDENC_ANA_CON10;
+	val = accdet_read(addr);
+	pr_info("et7480 accdet reg0x%x = 0x%x\n", addr, val);
+}
+EXPORT_SYMBOL(print_accdet_reg);
+
+bool is_micbias1_en(void)
+{
+	u32 val = 0;
+	u32 addr = MT6358_AUDENC_ANA_CON10;
+	val = accdet_read(addr);
+	if (val & 0x01) {
+		pr_info("et7480 accdet is_micbias1_en = 1\n");
+		return true;
+	} else {
+		pr_info("et7480 accdet is_micbias1_en = 0\n");
+		return false;
+	}
+}
+EXPORT_SYMBOL(is_micbias1_en);
+
+void disable_micbias1(void)
+{
+	u32 val = 0;
+	u32 addr = MT6358_AUDENC_ANA_CON10;
+	pr_info("et7480 accdet disable_micbias1\n");
+	val = accdet_read(addr);
+	accdet_write(addr, val & 0xfe);
+}
+EXPORT_SYMBOL(disable_micbias1);
+
+void enable_micbias1(void)
+{
+	u32 addr = MT6358_AUDENC_ANA_CON10;
+	pr_info("et7480 accdet enable_micbias1\n");
+	accdet_write(addr, 0x0061);
+}
+EXPORT_SYMBOL(enable_micbias1);
+
+bool is_hp_plugout(void)
+{
+	bool is_out = false;
+	if (accdet->cable_type == NO_DEVICE)
+		is_out = true;
+	else if (accdet->cable_type == HEADSET_MIC)
+		is_out = false;
+	else {
+		is_out = true;
+	}
+	pr_info("et7480 accdet is_hp_plugout = %d\n", is_out);
+	return is_out;
+}
+EXPORT_SYMBOL(is_hp_plugout);
+#endif
 
 static int mt6358_accdet_remove(struct platform_device *pdev)
 {

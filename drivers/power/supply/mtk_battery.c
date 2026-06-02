@@ -333,7 +333,6 @@ static int battery_psy_get_property(struct power_supply *psy,
 			val->intval = 75;
 			break;
 		}
-
 		if (gm->fixed_uisoc != 0xffff)
 			val->intval = gm->fixed_uisoc;
 		else
@@ -344,9 +343,9 @@ static int battery_psy_get_property(struct power_supply *psy,
 			&curr_now);
 
 		if (ret == -EHOSTDOWN)
-			val->intval = gm->ibat * 100;
+			val->intval = gm->ibat * 100 * (-1);
 		else {
-			val->intval = curr_now * 100;
+			val->intval = curr_now * 100 * (-1);
 			gm->ibat = curr_now;
 		}
 
@@ -470,8 +469,6 @@ static int battery_psy_get_property(struct power_supply *psy,
 				bm_err("get CV property fail\n");
 		}
 		break;
-
-
 	default:
 		ret = -EINVAL;
 		break;
@@ -895,6 +892,9 @@ int force_get_tbat(struct mtk_battery *gm, bool update)
 		return 25;
 	}
 
+	gm->cur_bat_temp = 25;
+        return 25;
+
 	if (gm->fixed_bat_tmp != 0xffff) {
 		gm->cur_bat_temp = gm->fixed_bat_tmp;
 		return gm->fixed_bat_tmp;
@@ -1132,7 +1132,7 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data->shutdown_car_ratio = SHUTDOWN_CAR_RATIO;
 
 	/* log level*/
-	fg_cust_data->daemon_log_level = BMLOG_ERROR_LEVEL;
+	fg_cust_data->daemon_log_level = BMLOG_TRACE_LEVEL;
 
 	/* ZCV update */
 	fg_cust_data->zcv_suspend_time = ZCV_SUSPEND_TIME;
@@ -3503,7 +3503,7 @@ int battery_init(struct platform_device *pdev)
 	gm = gauge->gm;
 	gm->fixed_bat_tmp = 0xffff;
 	gm->tmp_table = fg_temp_table;
-	gm->log_level = BMLOG_ERROR_LEVEL;
+	gm->log_level = BMLOG_TRACE_LEVEL;
 	gm->sw_iavg_gap = 3000;
 	gm->in_sleep = false;
 	mutex_init(&gm->fg_update_lock);

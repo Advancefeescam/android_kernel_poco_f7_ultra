@@ -551,6 +551,9 @@ obj-$(CONFIG_SND_SOC_TAS6424)	+= snd-soc-tas6424.o
 obj-$(CONFIG_SND_SOC_TDA7419)	+= snd-soc-tda7419.o
 obj-$(CONFIG_SND_SOC_TAS2770) += snd-soc-tas2770.o
 obj-$(CONFIG_SND_SOC_TFA9874)	+= tfa98xx/
+obj-$(CONFIG_SND_SOC_FS1815CN)  += frsm-i2ca/
+obj-$(CONFIG_SND_SOC_AW87XXX)   += aw87xxx/
+obj-$(CONFIG_SND_SOC_AW87XXX)   += oca72xxx/
 obj-$(CONFIG_SND_SOC_AA006)	+= aa006/
 obj-$(CONFIG_SND_SOC_BB007)	+= bb007/
 obj-$(CONFIG_SND_SOC_TFA9879)	+= snd-soc-tfa9879.o
@@ -635,6 +638,7 @@ obj-$(CONFIG_SND_SOC_WM_HUBS)	+= snd-soc-wm-hubs.o
 obj-$(CONFIG_SND_SOC_WSA881X)	+= snd-soc-wsa881x.o
 obj-$(CONFIG_SND_SOC_ZL38060)	+= snd-soc-zl38060.o
 obj-$(CONFIG_SND_SOC_ZX_AUD96P22) += snd-soc-zx-aud96p22.o
+obj-$(CONFIG_USB_SWITCH_ET7480_MT6366) += et7480/
 
 # Amp
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o

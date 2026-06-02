@@ -122,3 +122,6 @@ endif
 ifneq ($(wildcard $(srctree)/$(src)/k6895v1_64_95t_alpha),)
 obj-$(CONFIG_TOUCHSCREEN_MT6895_ALPHA_SUPPORT) += k6895v1_64_95t_alpha/
 endif
+
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE_COMMON) += xiaomi_touch/
+obj-$(CONFIG_TOUCHSCREEN_GET_LCMNAME) += tp_get_lcm_name/

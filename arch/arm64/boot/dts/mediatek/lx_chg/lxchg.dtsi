@@ -1,0 +1,206 @@
+#include "mediatek/lx_chg/lx_typec.dtsi"
+#include "mediatek/lx_chg/lx_charger.dtsi"
+#include "mediatek/lx_chg/lx_chargepump.dtsi"
+#include "mediatek/lx_chg/lx_fuel_gauge.dtsi"
+#include "mediatek/lx_chg/lx_battery_auth.dtsi"
+
+&lxchg_manager {
+	status = "okay";
+	bootmode = <&chosen>;
+	lxchg_manager,qc3_support = <0>; /*0-not support; 1-QC3; 2-QC3P5*/
+	lxchg_manager,usb_iterm = <300>;
+	lxchg_manager,usb_charger_current = <500>;
+	lxchg_manager,float_charger_current = <1000>;
+	lxchg_manager,cdp_charger_current = <1000>;
+	lxchg_manager,ac_charger_current = <1600>;
+	lxchg_manager,hvdcp_charger_current = <3600>;
+	lxchg_manager,hvdcp_input_current = <2000>;
+	lxchg_manager,hvdcp3_charger_current = <4000>;
+	lxchg_manager,hvdcp3_input_current = <3000>;
+	lxchg_manager,charge_term_volt = <4530>;
+	lxchg_manager,xm_outdoor_current = <1900>;
+	lxchg_manager,input_power_over = <33>;
+	lxchg_manager,model_name = "p7_6000mah_33w";
+	lxchg_manager,support_ui_otg;
+
+	lx_fuel_algo,heavy_loading_current = <1000>;
+	lx_fuel_algo,normal_temp = <15>;
+	lx_fuel_algo,soc_update_rate_fast = <10>;
+	lx_fuel_algo,soc_update_rate_normal = <20>;
+	lx_fuel_algo,soc_update_rate_low = <60>;
+	lx_fuel_algo,batt_id_count = <3>;
+	lx_fuel_algo,cycle_range_data = <0 100 300 800>;
+					       /*batid 0, 1, 2 */
+	lx_fuel_algo,cycle_soc_reach_100_rate = <0 0 0>,/* 0 ~ 99 */
+						<1 1 1>,/* 100 ~ 299 */
+						<3 3 3>,/* 300 ~ 799 */
+						<4 4 4>;/* >= 800 */
+	lx_fuel_algo,temp_range_data = <(-100) 0 100 250 580>;
+						 /*batid 0, 1, 2 */
+	lx_fuel_algo,temp_soc_reach_100_rate = <5 7 5>, /*  < 0 */
+					 	<4 6 4>,/* 0 ~ 99 */
+						<4 5 4>,/* 100 ~ 249 */
+						<3 3 3>,/* 250 ~ 579 */
+						<3 3 3>; /* >= 580  */
+	//thermal
+	lx_thermal:lx_thermal {
+	    lx,ffc-thermal-mitigation =
+			<6000 5400 5000 4500 4000
+			3500 3000 2700 2500 2300
+			2100 1900 1500 900 500
+			500>;
+		//xiami smart charge
+		lx,xmchg-low-soc-fast =
+			<6000 5700 5400 5000 4500
+			3800 3500 3200 3000 2800
+			2500 2200 1900 1600 900
+			500>;
+
+		lx,normal-thermal-mitigation =
+			<3600 2700 2500 2300 2100
+			1900 1700 1500 1000 1000
+			1000 1000 1000 900 500
+			500>;
+	};
+
+	lx_cp_policy {
+		lx_cp_policy,cv_offset = <120>;
+		lx_cp_policy,exit_cc = <1800>;
+		lx_cp_policy,min_vbat = <3500>;
+		lx_cp_policy,step_volt = <20>;
+		lx_cp_policy,warm_temp = <480>;
+
+		lx_cp_policy,max_request_volt = <11000>;
+		lx_cp_policy,min_request_volt = <3000>;
+		lx_cp_policy,max_request_curr = <3000>;
+		lx_cp_policy,min_request_curr = <1850>;
+
+		lx_cp_policy,max_ibat = <5900>;
+		lx_cp_policy,max_vbat = <4560>;
+	};
+
+	lx_qc_policy {
+	    max_vbus = <12000>;
+	    max_ibus_qc3_18w = <2000>;
+	    max_ibat_qc3_18w = <3500>;
+	    max_ibus_qc3_27w = <3000>;
+	    max_ibat_qc3_27w = <5400>;
+	    max_ibus_qc35 = <2250>;
+	    max_ibat_qc35 = <4400>;
+	    tune_step_ibat_qc3_27 = <2000>;
+	    tune_step_ibat_qc3_18 = <1900>;
+	    tune_step_ibat_qc35 = <200>;
+	    tune_step_ibus_qc3_27 = <1000>;
+	    tune_step_ibus_qc3_18 = <950>;
+	    tune_step_ibus_qc35 = <50>;
+	    high_soc = <95>;
+	    cv_vbat = <4440>;
+	    cv_vbat_ffc = <4450>;
+	    cv_ibat = <2000>;
+	};
+
+	xm_pd_adapter:xm_pd_adapter {
+		status = "okay";
+		adapter_name = "pd_adapter";
+	};
+
+	lx_pd_adapter:lx_pd_adapter {
+		status = "okay";
+		pd_adapter_name = "lx_pd_adapter";
+	};
+	//jeita
+	lxchg_jeita:lxchg_jeita {
+
+           jeita_normal_cfg = <
+           /*     t0       t1     ibat1  vbat1   ibat2    fv  iterm0 iterm1 iterm2 */
+             (-400) (-100)    0  (-1)  (-1)  4530  470   470   411
+              (-99)     0   587  (-1)  (-1)  4530  470   470   411
+                  1    50  1174  (-1)  (-1)  4530  470   470   411
+                 51   100  2935	 (-1)  (-1)  4530  470   470   411
+                101   150  4696  (-1)  (-1)  4530  470   470   411
+                151   350  6000  4250  5400  4510  470   470   411
+                351   450  6000  4250  5400  4510  470   470   411
+                451   550  2935  4100  2935  4100  470   470   411
+                551   580     0  (-1)  (-1)  4100  470   470   411 >;
+
+           jeita_ffc_cfg = <
+            /*    t0    t1     ibat1  vbat1  ibat2  vbat2   ibat3    fv    iterm0 iterm1 iterm2  */
+                150  350  6000  4250  5400  4530  4696  4560  1174  1100  998
+                351  400  6000  4250  5400  4530  4696  4560  1468  1350  1057
+                401  450  6000  4250  5400  4530  4696  4560  1644  1526  1174>;
+
+			rechg_fv_offset_cfg = <
+			(-100)	0	250
+				0	50	200
+				50	100	200
+				100	150	100
+				150	350	150
+				350	450	100
+				450	550	100 >;
+	};
+
+	ffc_chg_cfg_bat_cycle {
+		cycle_count_data = <0 100 300 800>;
+		cycle_temp_data = <150 450>;
+
+		cycle_vol_data =
+			<4250 4530 4560>, /* cycle 0 ~ 100, temp 15 ~ 45 */
+			<4200 4480 4540>, /* cycle 101 ~ 300, temp 15 ~ 45 */
+			<4170 4450 4520>, /* cycle 301 ~ 800, temp 15 ~ 45 */
+			<4150 4430 4510>; /* cycle > 800 , temp 15 ~ 45 */
+
+		cycle_curr_data =
+			<6000 5400 4696>, /* cycle 0 ~ 100, temp 15 ~ 45 */
+			<6000 5400 4696>, /* cycle 101 ~ 300, temp 15 ~ 45 */
+			<6000 5400 4696>, /* cycle 301 ~ 800, temp 15 ~ 45 */
+			<5400 4320 3757>; /* cycle > 800 , temp 15 ~ 45 */
+	};
+
+	normal_chg_cfg_bat_cycle {
+		cycle_count_data = <0 100 300 800>;
+		cycle_temp_data = <150 450>;
+
+		cycle_vol_data =
+			<4250 4510>,
+			<4200 4500>,
+			<4170 4490>,
+			<4150 4470>;
+
+		cycle_curr_data =
+			<6000 5400>,
+			<6000 5400>,
+			<6000 5400>,
+			<6000 5400>;
+	};
+};
+
+&u2port0 {
+	mediatek,eye-vrt = <7>;
+	mediatek,eye-term = <7>;
+	mediatek,rev6 = <3>;
+	mediatek,discth = <12>;
+
+	mediatek,eye-vrt-host = <7>;
+	mediatek,eye-term-host = <7>;
+	mediatek,rev6-host = <3>;
+};
+
+&sc660x_pd {
+	pd-data {
+		pd,sink-pdo-data = <0x3601912c 0x3602d12c 0xc0dc243c>;
+	};
+};
+
+&nu6601_pd {
+	pd-data {
+		pd,sink-pdo-data = <0x3601912c 0x3602d12c 0xc0dc243c>;
+	};
+};
+
+&lk_charger {
+	fast_charge_voltage = <3000000>;
+	hvdcp_charger_current = <3600000>;
+	hvdcp_charger_input_current = <2500000>;
+};
+
+

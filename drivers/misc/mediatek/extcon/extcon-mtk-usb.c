@@ -19,12 +19,17 @@
 #include <linux/usb/role.h>
 #include <linux/workqueue.h>
 #include <linux/proc_fs.h>
+/* P7 add code */
+#include <linux/delay.h>
 
 #include "extcon-mtk-usb.h"
 
 #if IS_ENABLED(CONFIG_TCPC_CLASS)
 #include "tcpm.h"
 #endif
+
+#include <linux/jiffies.h>
+static unsigned long swch_d_time, swch_h_time;
 
 static const unsigned int usb_extcon_cable[] = {
 	EXTCON_USB,
@@ -100,11 +105,28 @@ static int mtk_usb_extcon_set_role(struct mtk_extcon_info *extcon,
 	return 0;
 }
 
+static bool mtk_usb_extcon_get_usb_psy(struct mtk_extcon_info *extcon)
+{
+	extcon->usb_psy = power_supply_get_by_name("usb");
+	if (!extcon->usb_psy) {
+		pr_err("%s: fail to get usb_psy\n", __func__);
+		return false;
+	}
+	return true;
+}
+
 static bool usb_is_online(struct mtk_extcon_info *extcon)
 {
 	union power_supply_propval pval;
 	union power_supply_propval tval;
 	int ret;
+
+	if (!extcon->usb_psy) {
+		if (!mtk_usb_extcon_get_usb_psy(extcon)) {
+			pr_err("failed to usb_psy\n");
+			return false;
+		}
+	}
 
 	ret = power_supply_get_property(extcon->usb_psy,
 				POWER_SUPPLY_PROP_ONLINE, &pval);
@@ -155,6 +177,13 @@ static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
 	struct mtk_extcon_info *extcon = container_of(nb,
 					struct mtk_extcon_info, psy_nb);
 
+	if (!extcon->usb_psy) {
+		if (!mtk_usb_extcon_get_usb_psy(extcon)) {
+			pr_err("failed to usb_psy\n");
+			return NOTIFY_DONE;
+		}
+	}
+
 	if (event != PSY_EVENT_PROP_CHANGED || psy != extcon->usb_psy)
 		return NOTIFY_DONE;
 
@@ -168,10 +197,14 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 	int ret = 0;
 	struct device *dev = extcon->dev;
 
-	extcon->usb_psy = devm_power_supply_get_by_phandle(dev, "charger");
+	extcon->usb_psy = devm_power_supply_get_by_phandle(dev, "usb");
+	if (IS_ERR_OR_NULL(extcon->usb_psy)) {
+		extcon->usb_psy = power_supply_get_by_name("usb");
+		dev_err(dev, "get usb_psy_by_phandle failed, try by name\n");
+	}
+
 	if (IS_ERR_OR_NULL(extcon->usb_psy)) {
 		dev_err(dev, "fail to get usb_psy\n");
-		return -EINVAL;
 	}
 
 	INIT_DELAYED_WORK(&extcon->wq_psy, mtk_usb_extcon_psy_detector);
@@ -279,16 +312,31 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 		}
 		break;
 	case TCP_NOTIFY_DR_SWAP:
-		dev_info(dev, "%s dr_swap, new role=%d\n",
-				__func__, noti->swap_state.new_role);
+		dev_info(dev, "%s dr_swap, new role=%d, c_role=%d\n",
+				__func__, noti->swap_state.new_role, extcon->c_role);
+
 		if (noti->swap_state.new_role == PD_ROLE_UFP &&
-				extcon->c_role == USB_ROLE_HOST) {
+				extcon->c_role != USB_ROLE_DEVICE) {
 			dev_info(dev, "switch role to device\n");
+            swch_d_time = jiffies;
+            if (time_after(swch_h_time + 10*HZ, swch_d_time)) {
+                    pr_err("%s delay for switch\n", __func__);
+                    msleep(500);
+            }else{
+                    pr_err("%s device sub time = %lu\n", __func__, swch_d_time - swch_h_time);
+            }
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
 		} else if (noti->swap_state.new_role == PD_ROLE_DFP &&
-				extcon->c_role == USB_ROLE_DEVICE) {
+				extcon->c_role != USB_ROLE_HOST) {
 			dev_info(dev, "switch role to host\n");
+            swch_h_time = jiffies;
+            if (time_after(swch_d_time + 10*HZ, swch_h_time)) {
+                    pr_err("%s delay for switch\n", __func__);
+                    msleep(500);
+            }else{
+                    pr_err("%s host sub time = %lu\n", __func__, swch_h_time - swch_d_time);
+            }
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_HOST);
 		}

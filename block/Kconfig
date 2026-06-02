@@ -251,3 +251,4 @@ config MTK_BLOCK_IO_PM_DEBUG
 	  records the pm information.
 
 source "block/Kconfig.iosched"
+source "block/cpq/Kconfig"

@@ -1,0 +1,59 @@
+/* Start of this file, DO NOT ADD ANYTHING HERE */
+#include "mediatek/lx_chg/lxchg.dtsi"
+
+&mtk_gauge {
+	status = "okay";
+};
+
+&charger {
+	status = "disabled";
+};
+
+&mt6358_batoc_throttle {
+	status = "okay";
+};
+
+&mt6375_typec {
+	status = "disabled";
+};
+
+&mt6358_dynamic_loading_throttling {
+	status = "okay";
+};
+
+&mt6375_chg {
+    status = "disabled";
+};
+
+&pe {
+    status = "disabled";
+};
+
+&pe2 {
+    status = "disabled";
+};
+
+&pe4 {
+    status = "disabled";
+};
+
+&pe5 {
+    status = "disabled";
+};
+
+&pdc {
+    status = "disabled";
+};
+
+&pd_adapter {
+    status = "disabled";
+};
+
+&low_battery_throttling {
+	status="disabled";
+};
+
+&sy6976_pd {
+	status = "disabled";
+};
+

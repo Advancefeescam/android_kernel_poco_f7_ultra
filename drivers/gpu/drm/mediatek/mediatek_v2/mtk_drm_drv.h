@@ -31,6 +31,10 @@
 #define MTK_FILL_MIPI_IMPEDANCE
 #endif
 
+#ifdef CONFIG_MI_ESD_SUPPORT
+extern atomic_t is_lcm_inited_esd;
+extern atomic_t lcm_valid_irq;
+#endif
 struct device;
 struct device_node;
 struct drm_crtc;

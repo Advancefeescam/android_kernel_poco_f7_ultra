@@ -184,6 +184,7 @@ int disp_met_set(void *data, u64 val);
 #define RDMA_BG_CON_1_TOP REG_FLD_MSB_LSB(12, 0)
 #define RDMA_BG_CON_1_BOTTOM REG_FLD_MSB_LSB(28, 16)
 
+#define RDMA_FIFO_UNDERFLOW_BUFFER_SIZE 500
 /* golden setting */
 enum GS_RDMA_FLD {
 	GS_RDMA_PRE_ULTRA_TH_LOW = 0,
@@ -689,7 +690,7 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	/* DISP_RDMA_FIFO_CON */
 
 	if (gsc->is_vdo_mode || (rdma->data->dsi_buffer))
-		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = 0;
+		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = RDMA_FIFO_UNDERFLOW_BUFFER_SIZE;
 	else
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
 

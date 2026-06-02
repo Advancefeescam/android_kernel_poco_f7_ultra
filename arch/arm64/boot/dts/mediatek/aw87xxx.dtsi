@@ -1,0 +1,21 @@
+/*stereo dtsi config*/
+&i2c6 {
+/* AWINIC AW87XXX Smart K PA */
+	clock-frequency = <400000>;
+	aw87xxx_pa@58 {
+		compatible = "awinic,aw87xxx_pa","ocs,oca72xxx_pa";
+		reg = <0x58>;
+		reset-gpio = <&pio 21 0>;
+		dev_index = < 0 >;
+		status = "okay";
+	};
+
+	aw87xxx_pa@5B {
+		compatible = "awinic,aw87xxx_pa","ocs,oca72xxx_pa";
+		reg = <0x5B>;
+		reset-gpio = <&pio 10 0>;
+		dev_index = < 1 >;
+		status = "okay";
+	};
+/* AWINIC AW87XXX Smart K PA End */
+};

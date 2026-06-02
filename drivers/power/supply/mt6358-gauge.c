@@ -3986,6 +3986,21 @@ static int mt6358_gauge_probe(struct platform_device *pdev)
 	struct mtk_gauge *gauge;
 	int ret;
 	struct iio_channel *chan_bat_temp;
+#if IS_ENABLED(CONFIG_LIXUN_CHARGER_CLASS)
+	struct power_supply *psy = power_supply_get_by_name("bms");
+	if (psy != NULL) {
+		bm_err("%s: already mach other fg!\n", __func__);
+		return -ENODEV;
+	}
+	psy = power_supply_get_by_name("fake_bms");
+	if (psy == NULL) {
+		bm_err("%s: wait for other fg detect firstly, deferral\n", __func__);
+		return -EPROBE_DEFER;
+	} else {
+		bm_err("%s: already detect, but not mached, try use mtk gauge\n", __func__);
+		power_supply_unregister(psy);
+	}
+#endif
 
 	bm_err("%s: starts\n", __func__);
 

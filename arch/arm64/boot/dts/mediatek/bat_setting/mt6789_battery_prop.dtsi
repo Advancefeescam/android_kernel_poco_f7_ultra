@@ -7,6 +7,7 @@
 
 &mtk_gauge {
 	DIFFERENCE_FULLOCV_ITH = <(200)>;
+	DIFFERENCE_FULL_CV  = <(400)>;
 	/* Charging termination current */
 	SHUTDOWN_1_TIME = <(5)>;
 	/* If ui_soc shows 1% more than X minites, system will shutdown */
@@ -19,7 +20,7 @@
 	/* System shutdown current */
 	FG_METER_RESISTANCE = <(70)>;
 	/* The resistance of PCB */
-	CAR_TUNE_VALUE = <(101)>;
+	CAR_TUNE_VALUE = <(99)>;
 	/* Tune value for current measurement */
 	PMIC_MIN_VOL = <(33500)>;
 	/* vboot voltage for gauge 0%*/
@@ -35,9 +36,9 @@
 	/* Battery temperature T2 */
 	TEMPERATURE_T3 = <(0)>;
 	/* Battery temperature T3 */
-	TEMPERATURE_T4 = <(-7)>;
+	TEMPERATURE_T4 = <(-10)>;
 	/* Battery temperature T4 */
-	TEMPERATURE_T5 = <(-10)>;
+	TEMPERATURE_T5 = <(-15)>;
 	/* Battery temperature T5 */
 	g_FG_PSEUDO100_T0 = <(100)>;
 	/* Pseudo 100% percentage at T0 */
@@ -63,11 +64,16 @@
 	/* compensate R_sense resistance */
 	enable_tmp_intr_suspend = <(0)>;
 	/* Enable update temp when suspend */
-	ACTIVE_TABLE = <(6)>;
+	ACTIVE_TABLE = <(5)>;
 	/* Table numbers per battery */
 	MULTI_TEMP_GAUGE0 = <(1)>;
 	/* Multi gauge0 enable */
 	RBAT_PULL_UP_VOLT = <(2800)>;
-#include "mt6789_battery_table.dtsi"
+#include "mt6789_battery_table0_P7_SWD.dtsi"
+#include "mt6789_battery_table0_P7_SWD_aging.dtsi"
+#include "mt6789_battery_table1_P7_NVT.dtsi"
+#include "mt6789_battery_table1_P7_NVT_aging.dtsi"
+#include "mt6789_battery_table2_P7_COS.dtsi"
+#include "mt6789_battery_table2_P7_COS_aging.dtsi"
 #include "mt6789_battery_prop_dim2_ext.dtsi"
 };

@@ -35,6 +35,36 @@ static ssize_t mt6358_codec_sysfs_write(struct file *filp, struct kobject *kobj,
 					struct bin_attribute *bin_attr,
 					char *buf, loff_t off, size_t count);
 
+#if IS_ENABLED(CONFIG_SND_SOC_FS1815CN)
+extern frsm_add_codec_controls(struct snd_soc_component *codec);
+#endif
+
+#if IS_ENABLED(CONFIG_SND_SOC_AW87XXX)
+extern int aw87xxx_add_codec_controls(void *codec);
+#endif
+
+#if IS_ENABLED(CONFIG_SND_SOC_OCA72XXX)
+extern int oca72xxx_add_codec_controls(void *codec);
+#endif
+
+#if IS_ENABLED(CONFIG_USB_SWITCH_ET7480_MT6366)
+bool is_hp_plugout(void);
+void enable_micbias1(void);
+bool is_micbias1_en(void);
+static struct timer_list micbias1en_timer;
+static void en_micbias_timerhandler(struct timer_list *t);
+
+static void en_micbias_timerhandler(struct timer_list *t)
+{
+	bool hp_status = false;
+	pr_info("et7480 accdet %s enter\n", __func__);
+	hp_status = is_hp_plugout();
+	if (!is_micbias1_en()) {
+		enable_micbias1();
+	}
+}
+#endif
+
 int mt6358_set_codec_ops(struct snd_soc_component *cmpnt,
 			 struct mt6358_codec_ops *ops)
 {
@@ -47,6 +77,12 @@ int mt6358_set_codec_ops(struct snd_soc_component *cmpnt,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt6358_set_codec_ops);
+
+struct mic_timing {
+	bool m_amicenable;
+	unsigned int g_mux_pga_r;
+};
+static struct mic_timing m_mic_timing;
 
 static struct bin_attribute codec_dev_attr_reg = {
 	.attr = {
@@ -2733,9 +2769,17 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 		if (mic_type == MIC_TYPE_MUX_DCC_ECM_SINGLE)
 			regmap_write(priv->regmap,
 				     MT6358_AUDENC_ANA_CON10, 0x0161);
-		else
-			regmap_write(priv->regmap,
-				     MT6358_AUDENC_ANA_CON10, 0x0061);
+		else {
+			if (is_hp_plugout() == false) {
+				//del_timer_sync(&micbias1en_timer);
+				regmap_write(priv->regmap, MT6358_AUDENC_ANA_CON10, 0x0061);
+			} else {
+				// start a timer to enable micbias1
+					mod_timer(&micbias1en_timer,
+					jiffies + (1 * HZ));
+
+			}
+		}
 	}
 
 	/* set mic pga gain */
@@ -2805,6 +2849,9 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 				   RG_AUDADCRPWRUP_MASK_SFT,
 				   0x1 << RG_AUDADCRPWRUP_SFT);
 	}
+
+	m_mic_timing.m_amicenable = true;
+	m_mic_timing.g_mux_pga_r = mux_pga_r;
 
 	if (IS_DCC_BASE(mic_type)) {
 		usleep_range(100, 150);
@@ -2917,6 +2964,10 @@ static void mt6358_amic_disable(struct mt6358_priv *priv)
 		regmap_write(priv->regmap, MT6358_AFE_DCCLK_CFG0, 0x2062);
 		/* dcclk_div=11'b00100000011 */
 		regmap_write(priv->regmap, MT6358_AFE_DCCLK_CFG0, 0x2062);
+	}
+
+	if (m_mic_timing.m_amicenable) {
+		m_mic_timing.m_amicenable = false;
 	}
 }
 
@@ -3388,6 +3439,33 @@ static int mt_pga_right_event(struct snd_soc_dapm_widget *w,
 		__func__, event, mux);
 
 	priv->mux_select[MUX_PGA_R] = mux;
+
+	if (m_mic_timing.m_amicenable) {
+		dev_info(priv->dev, "%s(), m_mic_timing.g_mux_pga_r %u, mux_pga_r %u\n",
+			__func__, m_mic_timing.g_mux_pga_r, mux);
+		if (m_mic_timing.g_mux_pga_r != mux) {
+			/* R preamplifier input sel */
+			regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
+				   RG_AUDPREAMPRINPUTSEL_MASK_SFT,
+				   mux << RG_AUDPREAMPRINPUTSEL_SFT);
+
+			/* R preamplifier enable */
+			regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
+				   RG_AUDPREAMPRON_MASK_SFT,
+				   0x1 << RG_AUDPREAMPRON_SFT);
+
+			/* R ADC input sel : R PGA. Enable audio R ADC */
+			regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
+				   RG_AUDADCRINPUTSEL_MASK_SFT,
+				   ADC_MUX_PREAMPLIFIER <<
+				   RG_AUDADCRINPUTSEL_SFT);
+			usleep_range(1000, 1050);
+			regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
+				   RG_AUDADCRPWRUP_MASK_SFT,
+				   0x1 << RG_AUDADCRPWRUP_SFT);
+		}
+		m_mic_timing.m_amicenable = false;
+	}
 
 	return 0;
 }
@@ -6568,9 +6646,11 @@ static void mt6358_codec_init_reg(struct mt6358_priv *priv)
 			   RG_AUDLOLSCDISABLE_VAUDP15_MASK_SFT,
 			   0x1 << RG_AUDLOLSCDISABLE_VAUDP15_SFT);
 
+#if !IS_ENABLED(CONFIG_SND_SOC_MT6366_ACCDET)
 	/* accdet s/w enable */
 	regmap_update_bits(priv->regmap, MT6358_ACCDET_CON13,
 			   0xFFFF, 0x700E);
+#endif
 
 	/* Set HP_EINT trigger level to 2.0v */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON11,
@@ -6638,8 +6718,38 @@ static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 	struct snd_soc_card *sndcard = cmpnt->card;
 	struct snd_card *card = sndcard->snd_card;
 	int ret = 0;
-
+	int err = 0;
 	dev_info(priv->dev, "%s()\n", __func__);
+
+#if IS_ENABLED(CONFIG_USB_SWITCH_ET7480_MT6366)
+	/* setup timer */
+	timer_setup(&micbias1en_timer, en_micbias_timerhandler, 0);
+	micbias1en_timer.expires = jiffies + (1 * HZ);
+#endif
+
+	// add fsm pa controls
+	#if IS_ENABLED(CONFIG_SND_SOC_FS1815CN)
+	frsm_add_codec_controls(cmpnt);
+	#endif
+
+	//add aw pa controls
+	#if IS_ENABLED(CONFIG_SND_SOC_AW87XXX)
+	pr_info("%s: aw87xxx_add_codec_controls enter \n", __func__);
+	err = aw87xxx_add_codec_controls((void *)cmpnt);
+	if (err < 0) {
+	    pr_err("%s: add_codec_controls failed, err %d\n", __func__, err);
+	    return err;
+	};
+	#endif
+
+	//add oca pa controls
+	#if IS_ENABLED(CONFIG_SND_SOC_OCA72XXX)
+ 	ret = oca72xxx_add_codec_controls((void *)cmpnt);
+ 	if (ret < 0) {
+ 		pr_err("%s: add_codec_controls failed, ret %d\n", __func__, ret);
+		return ret;
+ 	};
+	#endif
 
 	codec_dev_attr_reg.private = priv;
 	ret = snd_card_add_dev_attr(card, &codec_bin_attr_group);
@@ -7673,6 +7783,9 @@ static int mt6358_platform_driver_probe(struct platform_device *pdev)
 
 	dev_info(priv->dev, "%s(), dev name %s\n",
 		 __func__, dev_name(&pdev->dev));
+
+	m_mic_timing.m_amicenable = false;
+	m_mic_timing.g_mux_pga_r = 0;
 
 	return devm_snd_soc_register_component(&pdev->dev,
 				      &mt6358_soc_component_driver,

@@ -19,6 +19,7 @@ obj-$(CONFIG_MTK_FLASHLIGHT_MT6360)      += flashlights-mt6360.o
 obj-$(CONFIG_MTK_FLASHLIGHT_AW3644)      += flashlights-aw3644.o
 obj-$(CONFIG_MTK_FLASHLIGHT_DUMMY)       += flashlights-dummy.o
 obj-$(CONFIG_MTK_FLASHLIGHT_DUMMY_GPIO)  += flashlights-dummy-gpio.o
+obj-$(CONFIG_MTK_FLASHLIGHT_SC6601)      += flashlights-sc6601.o
 
 ccflags-$(CONFIG_MTK_FLASHLIGHT_DEBUG)     := -DDEBUG
 ccflags-$(CONFIG_MTK_FLASHLIGHT_PT)        += -DCONFIG_MTK_FLASHLIGHT_PT
@@ -34,3 +35,4 @@ subdir-ccflags-y += \
 	-I$(MTK_CUSTOM_PATH)/power_throttling
 subdir-ccflags-y += \
     -I$(MTK_CUSTOM_PATH)/pbm
+subdir-ccflags-y += -I$(srctree)/drivers/power/supply/lxchg_v2/manager

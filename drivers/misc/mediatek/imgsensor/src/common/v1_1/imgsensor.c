@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/types.h>
+#include <linux/hardware_info.h>
 
 #ifdef CONFIG_OF
 /* device tree */
@@ -59,6 +60,15 @@
 
 static DEFINE_MUTEX(gimgsensor_mutex);
 static DEFINE_MUTEX(gimgsensor_open_mutex);
+#define SENSOR_NUM 3
+#define SENSOR_LENGTH 40
+unsigned char fusion_id_main[96] = {0};
+unsigned char sn_main[96] = {0};
+unsigned char fusion_id_front[96] = {0};
+unsigned char sn_front[96] = {0};
+unsigned char fusion_id_depth[96] = {0};
+unsigned char sn_depth[96] = {0};
+char imgsensor_name[SENSOR_NUM][SENSOR_LENGTH] = {0};
 
 struct IMGSENSOR gimgsensor;
 MUINT32 last_id;
@@ -550,6 +560,30 @@ static inline int imgsensor_check_is_alive(struct IMGSENSOR_SENSOR *psensor)
 	} else {
 		PK_DBG("Sensor found ID = 0x%x\n", sensorID);
 		err = ERROR_NONE;
+		if (psensor_inst->sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN) {
+			hardwareinfo_set_prop(HARDWARE_BACK_CAM, psensor->inst.psensor_list->name);
+			if (!strcmp("s5khm9_sunny_main_mipi_raw", (char *)psensor->inst.psensor_list->name)) {
+				hardwareinfo_set_prop(HARDWARE_BACK_CAM_MOUDULE_ID, "sunny");
+			} else if (!strcmp("s5khm9_aac_main_mipi_raw", (char *)psensor->inst.psensor_list->name)){
+				hardwareinfo_set_prop(HARDWARE_BACK_CAM_MOUDULE_ID, "aac");
+			} else if (!strcmp("s5khm9_ofilm_main_mipi_raw", (char *)psensor->inst.psensor_list->name)){
+				hardwareinfo_set_prop(HARDWARE_BACK_CAM_MOUDULE_ID, "ofilm");
+			}
+		} else if (psensor_inst->sensor_idx == IMGSENSOR_SENSOR_IDX_SUB) {
+				hardwareinfo_set_prop(HARDWARE_FRONT_CAM, psensor->inst.psensor_list->name);
+			if (!strcmp("ov20b40_ofilm_front_mipi_raw", (char *)psensor->inst.psensor_list->name)) {
+				hardwareinfo_set_prop(HARDWARE_FRONT_CAM_MOUDULE_ID, "ofilm");
+			} else if (!strcmp("ov20b40_aac_front_mipi_raw", (char *)psensor->inst.psensor_list->name)){
+				hardwareinfo_set_prop(HARDWARE_FRONT_CAM_MOUDULE_ID, "aac");
+			}
+		} else if (psensor_inst->sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN2) {
+				hardwareinfo_set_prop(HARDWARE_BACK_SUBCAM, psensor->inst.psensor_list->name);
+			if (!strcmp("sc202v_sunny_depth_mipi_raw", (char *)psensor->inst.psensor_list->name)) {
+				hardwareinfo_set_prop(HARDWARE_BACK_SUBCAM_MODULEID, "sunny");
+			} else if (!strcmp("sc202v_aac_depth_mipi_raw", (char *)psensor->inst.psensor_list->name)){
+				hardwareinfo_set_prop(HARDWARE_BACK_SUBCAM_MODULEID, "aac");
+			}
+		}
 	}
 
 	imgsensor_hw_power(&pimgsensor->hw,
@@ -601,6 +635,7 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 						psensor->pfunc->SensorSetPlatformInfo(
 							phw->g_platform_id);
 					ret = 0;
+					strcpy(imgsensor_name[psensor->inst.sensor_idx], psensor_inst->psensor_list->name);
 					break;
 				}
 			} else {
@@ -2360,12 +2395,101 @@ static const struct file_operations gimgsensor_file_operations = {
 	.compat_ioctl   = imgsensor_compat_ioctl
 #endif
 };
+static ssize_t imgsensor_name_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	int num1 = 0;
+	int num2 = 0;
+	int num3 = 0;
+	unsigned int i = 0;
+	for (i = 0; i < SENSOR_NUM; i++) {
+		if (!strcmp("s5khm9_sunny_main_mipi_raw", imgsensor_name[i]) ||
+			!strcmp("s5khm9_aac_main_mipi_raw", imgsensor_name[i]) ||
+			!strcmp("s5khm9_ofilm_main_mipi_raw", imgsensor_name[i])) {
+			num1 = sprintf(buf, "MAIN=%s\n", imgsensor_name[i]);
+			pr_err("MAIN=%s\n", imgsensor_name[i]);
+			continue;
+		}
+		if (!strcmp("ov20b40_ofilm_front_mipi_raw", imgsensor_name[i]) ||
+			!strcmp("ov20b40_aac_front_mipi_raw", imgsensor_name[i])) {
+			num2 = sprintf(buf + num1, "FRONT=%s\n", imgsensor_name[i]);
+			pr_err("FRONT=%s\n", imgsensor_name[i]);
+			continue;
+		}
+		if (!strcmp("sc202v_sunny_depth_mipi_raw", imgsensor_name[i]) ||
+			!strcmp("sc202v_aac_depth_mipi_raw", imgsensor_name[i])) {
+			num3 = sprintf(buf + num1 + num2, "DEPTH=%s\n", imgsensor_name[i]);
+			pr_err("DEPTH=%s\n", imgsensor_name[i]);
+			continue;
+		}
+	}
+	ret = strlen(buf) + 1;
+	return ret;
+}
+static DEVICE_ATTR(sensor, 0664, imgsensor_name_show, NULL);
+static ssize_t sensorid_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+int i;
+ssize_t size = 0;
+
+//main
+for (i = 0; i < 16; i++) {
+	sprintf(buf + 2*i, "%02x", fusion_id_main[i]);
+}
+size = strlen(buf);
+pr_err("size=%s\n", size);
+//front
+for (i = 0; i < 16; i++) {
+	sprintf(buf + 32 + 2*i, "%02x", fusion_id_front[i]);
+}
+//depth
+for (i = 0; i < 16; i++) {
+	sprintf(buf + 64 + 2*i, "%02x", fusion_id_depth[i]);
+}
+return 100;
+
+}
+static DEVICE_ATTR(sensorid, 0664, sensorid_show, NULL);
+static ssize_t sensorsn_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int i;
+	ssize_t size = 0;
+//main
+//pr_err("[wpc] NULL sensor main3 =%02x.\n",sn_main[i]);
+
+	//strncpy(buf, "main:", 5);
+	for (i = 0; i < 14; i++) {
+	sprintf(buf + i, "%1c", sn_main[i]);
+	pr_err("sn_main[%d] = %02x = %1c", i, sn_main[i], sn_main[i]);
+	}
+	size = strlen(buf);
+	pr_err("size=%s\n", size);
+//front
+	//strncpy(buf + size, "1", 1);
+	for (i = 0; i < 14; i++) {
+	sprintf(buf + size + i, "%1cx", sn_front[i]);
+	pr_err("sn_front[%d] = %02x = %1c", i, sn_front[i], sn_front[i]);
+	}
+	size = strlen(buf);
+	pr_err("size=%s\n", size);
+//depth
+	//strncpy(buf + size, "1", 1);
+	for (i = 0; i < 14; i++) {
+	sprintf(buf + size + i, "%1cx", sn_depth[i]);
+	pr_err("sn_depth[%d] = %02x = %1c", i, sn_depth[i], sn_depth[i]);
+	}
+return 179;
+
+}
+
+static DEVICE_ATTR(sensorsn, 0664, sensorsn_show, NULL);
 
 static int imgsensor_probe(struct platform_device *pplatform_device)
 {
 	struct IMGSENSOR *pimgsensor = &gimgsensor;
 	struct IMGSENSOR_HW *phw = &pimgsensor->hw;
 	struct device *pdevice;
+	int ret1;
 
 	/* Get the platform id */
 	phw->g_platform_id = GET_PLATFORM_ID("mediatek,seninf_top");
@@ -2413,6 +2537,9 @@ static int imgsensor_probe(struct platform_device *pplatform_device)
 		PK_DBG("Get cust camera node failed!\n");
 		return -ENODEV;
 	}
+	ret1 = sysfs_create_file(&pdevice->kobj, &dev_attr_sensor.attr);
+	ret1 = sysfs_create_file(&pdevice->kobj, &dev_attr_sensorid.attr);
+	ret1= sysfs_create_file(&pdevice->kobj, &dev_attr_sensorsn.attr);
 
 	phw->common.pplatform_device = pplatform_device;
 

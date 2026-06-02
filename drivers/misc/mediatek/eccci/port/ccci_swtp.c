@@ -19,6 +19,10 @@
 #include "ccci_modem.h"
 #include "ccci_swtp.h"
 #include "ccci_fsm.h"
+//+P7  p-duxiong.lx 2025.06.05  add swtp proc start
+#include <linux/proc_fs.h>
+static unsigned int swtp_gpio_value=1;
+//P7   p-duxiong.lx 2025.06.05  add swtp proc end
 
 /* must keep ARRAY_SIZE(swtp_of_match) = ARRAY_SIZE(irq_name) */
 const struct of_device_id swtp_of_match[] = {
@@ -115,6 +119,9 @@ static int swtp_switch_state(int irq, struct swtp_t *swtp)
 	inject_pin_status_event(swtp->curr_mode, rf_name);
 	spin_unlock_irqrestore(&swtp->spinlock, flags);
 
+//+P7  p-duxiong.lx 2025.06.05  add swtp proc start
+	swtp_gpio_value = (swtp->tx_power_mode);
+//-P7  p-duxiong.lx 2024.06.05  add swtp proc end
 	return swtp->tx_power_mode;
 }
 
@@ -190,6 +197,30 @@ int swtp_md_tx_power_req_hdlr(int md_id, int data)
 
 	return 0;
 }
+//+P7  p-duxiong.lx.wt 2025.06.05  add swtp proc start
+static int swtp_gpio_show(struct seq_file *m, void *v)
+{
+	seq_printf(m,"%d\n", swtp_gpio_value);
+	return 0;
+}
+
+static int swtp_gpio_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, swtp_gpio_show, NULL);
+}
+
+static const struct proc_ops swtp_gpio_fops = {
+	.proc_open    = swtp_gpio_proc_open,
+	.proc_read    = seq_read,
+	.proc_lseek  = seq_lseek,
+	.proc_release = single_release,
+};
+
+static void swtp_gpio_create_proc(void)
+{
+	proc_create("swtp_status_value", 0444, NULL, &swtp_gpio_fops);
+}
+//-P7  p-duxiong.lx 2025.06.05 add swtp proc end
 
 static void swtp_init_delayed_work(struct work_struct *work)
 {
@@ -281,6 +312,9 @@ static void swtp_init_delayed_work(struct work_struct *work)
 	}
 	register_ccci_sys_call_back(md_id, MD_SW_MD1_TX_POWER_REQ,
 		swtp_md_tx_power_req_hdlr);
+//+P7  p-duxiong.lx 2025.06.05  add swtp proc start
+	swtp_gpio_create_proc();
+//-P7  p-duxiong.lx 2025.06.05  add swtp proc end
 
 SWTP_INIT_END:
 	CCCI_BOOTUP_LOG(md_id, SYS, "%s end: ret = %d\n", __func__, ret);

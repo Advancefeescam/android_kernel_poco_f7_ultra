@@ -12,8 +12,18 @@
 #define MAX_EEPROM_SIZE_32K 0x8000
 #define MAX_EEPROM_SIZE_16K 0x4000
 
+extern unsigned int sc202v_sunny_read_otp_info(struct i2c_client *client,unsigned int addr, unsigned char *data, unsigned int size);
+extern unsigned int sc202v_aac_read_otp_info(struct i2c_client *client,unsigned int addr, unsigned char *data, unsigned int size);
+
 struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
+	{SC202V_SUNNY_DEPTH_SENSOR_ID, 0xA2, sc202v_sunny_read_otp_info},
+	{SC202V_AAC_DEPTH_SENSOR_ID, 0xA2, sc202v_aac_read_otp_info},
+	{OV20B40_OFILM_FRONT_SENSOR_ID, 0xA2, Common_read_region},
+	{OV20B40_AAC_FRONT_SENSOR_ID, 0xA2, Common_read_region},
 	/*Below is commom sensor */
+	{S5KHM9_SUNNY_MAIN_SENSOR_ID, 0xA2, Common_read_region,MAX_EEPROM_SIZE_16K},
+	{S5KHM9_AAC_MAIN_SENSOR_ID, 0xA2, Common_read_region,MAX_EEPROM_SIZE_16K},
+	{S5KHM9_OFILM_MAIN_SENSOR_ID, 0xA2, Common_read_region,MAX_EEPROM_SIZE_16K},
 	{OV48B_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
 	{IMX766_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_32K},
 	{IMX766DUAL_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_16K},

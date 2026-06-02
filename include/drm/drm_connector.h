@@ -1162,7 +1162,9 @@ struct drm_connector {
 	/** @tile_h_size: horizontal size of this tile. */
 	/** @tile_v_size: vertical size of this tile. */
 	uint16_t tile_h_size, tile_v_size;
-
+	/*L19 code for HQ-159420 by chenzimo at 2021/12/20 start*/
+	int panel_event;
+	/*L19 code for HQ-159420 by chenzimo at 2021/12/20 end*/
 	/**
 	 * @free_node:
 	 *

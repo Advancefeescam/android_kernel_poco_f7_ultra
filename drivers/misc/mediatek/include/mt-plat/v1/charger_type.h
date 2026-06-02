@@ -16,7 +16,23 @@ enum charger_type {
 	APPLE_1_0A_CHARGER, /* 1A apple charger */
 	APPLE_0_5A_CHARGER, /* 0.5A apple charger */
 	WIRELESS_CHARGER,
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	HVDCP_CHARGER,
+	CHECK_HV,
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 };
+/*L19 HQ-159093 quick charge type node by tongjiacheng at 2021/11/19 start*/
+enum quick_charge_type {
+	QUICK_CHARGE_NORMAL = 0,
+	QUICK_CHARGE_FAST,
+	QUICK_CHARGE_FLASH,
+	QUICK_CHARGE_TURPE,
+	QUICK_CHARGE_MAX,
+};
+/*L19 HQ-159093 quick charge type node by tongjiacheng at 2021/11/19 end*/
+
 #if defined(CONFIG_USB_MTK_HDRC) || defined(CONFIG_USB_MU3D_DRV) \
 	|| defined(CONFIG_EXTCON_MTK_USB)
 extern void mt_usb_connect_v1(void);

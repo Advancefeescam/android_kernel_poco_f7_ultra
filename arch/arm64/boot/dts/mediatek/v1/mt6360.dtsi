@@ -55,7 +55,9 @@
 			aicr = <500000>;		/* uA */
 			mivr = <4400000>;		/* uV */
 			cv = <4350000>;			/* uA */
-			ieoc = <150000>;		/* uA */
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 start*/
+			ieoc = <200000>;		/* uA */
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 end*/
 			safety_timer = <12>;		/* hour */
 			ircmp_resistor = <25000>;	/* uohm */
 			ircmp_vclamp = <32000>;		/* uV */

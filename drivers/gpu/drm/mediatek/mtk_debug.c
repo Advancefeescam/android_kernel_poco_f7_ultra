@@ -1731,7 +1731,9 @@ int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 
 	return ret;
 }
-
+/*L19 code for HQ-178720 by feiwen at 2022/01/21 start*/
+extern int mtk_drm_esd_recover(struct drm_crtc *crtc);
+/*L19 code for HQ-178720 by feiwen at 2022/01/21 end*/
 static void process_dbg_opt(const char *opt)
 {
 	DDPINFO("display_debug cmd %s\n", opt);
@@ -1987,7 +1989,7 @@ static void process_dbg_opt(const char *opt)
 		struct mtk_ddp_comp *comp;
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
-		int enable;
+		struct mtk_drm_private *private_temp = NULL;
 
 		/* this debug cmd only for crtc0 */
 		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
@@ -1996,7 +1998,13 @@ static void process_dbg_opt(const char *opt)
 			DDPPR_ERR("find crtc fail\n");
 			return;
 		}
-
+/*L19 code for HQ-178720 by feiwen at 2022/01/21 start*/
+		private_temp = crtc->dev->dev_private;
+		if (!private_temp) {
+			DDPPR_ERR("find private_temp fail\n");
+			return;
+		}
+/*L19 code for HQ-178720 by feiwen at 2022/01/21 end*/
 		mtk_crtc = to_mtk_crtc(crtc);
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
 		if (!comp || !comp->funcs || !comp->funcs->io_cmd) {
@@ -2004,15 +2012,13 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
-		DDPMSG("lcm0_reset tset\n");
-		enable = 1;
-		comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
-		msleep(20);
-		enable = 0;
-		comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
-		msleep(20);
-		enable = 1;
-		comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
+		DDPMSG("lcm0_reset test\n");
+/*L19 code for HQ-178720 by feiwen at 2022/01/21 start*/
+		mutex_lock(&private_temp->commit.lock);
+		mtk_drm_esd_recover(crtc);
+		DDPMSG("vivien esd recover\n");
+		mutex_unlock(&private_temp->commit.lock);
+/*L19 code for HQ-178720 by feiwen at 2022/01/21 end*/
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	} else if (strncmp(opt, "backlight:", 10) == 0) {
 		unsigned int level;

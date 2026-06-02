@@ -39,6 +39,8 @@
 #endif
 
 #include "mt6358.h"
+#include "../mediatek/common/mtk-sram-manager.h"
+extern int fac_mic;
 
 enum {
 	AUDIO_ANALOG_VOLUME_HSOUTL,
@@ -3145,7 +3147,7 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 	int mic_gain_l = priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1];
 	int mic_gain_r = priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2];
 	unsigned int reg_value = 0, rc_1 = 0, rc_2 = 0;
-
+	fac_mic = 0;
 	dev_info(priv->dev, "%s(), mux, mic %u, pga l %u, pga r %u, mic_gain l %d, r %d\n",
 		 __func__, mic_type, mux_pga_l, mux_pga_r,
 		 mic_gain_l, mic_gain_r);
@@ -3787,11 +3789,16 @@ static int mt_pga_left_event(struct snd_soc_dapm_widget *w,
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
 
-	dev_dbg(priv->dev, "%s(), event = 0x%x, mux %u\n",
+	dev_info(priv->dev, "%s(), event = 0x%x, mux %u\n",
 		__func__, event, mux);
 
 	priv->mux_select[MUX_PGA_L] = mux;
-
+	if(fac_mic != 9){
+	if(mux==1)
+		priv->mux_select[MUX_PGA_R] = 3;
+	if(mux==3)
+		priv->mux_select[MUX_PGA_R] = 1;
+	}
 	return 0;
 }
 
@@ -3803,11 +3810,16 @@ static int mt_pga_right_event(struct snd_soc_dapm_widget *w,
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
 
-	dev_dbg(priv->dev, "%s(), event = 0x%x, mux %u\n",
+	dev_info(priv->dev, "%s(), event = 0x%x, mux %u\n",
 		__func__, event, mux);
 
 	priv->mux_select[MUX_PGA_R] = mux;
-
+	if(fac_mic != 9){
+	if(mux==1)
+	   priv->mux_select[MUX_PGA_L] = 3;
+	if(mux==3)
+	   priv->mux_select[MUX_PGA_L] = 1;
+	}
 	return 0;
 }
 

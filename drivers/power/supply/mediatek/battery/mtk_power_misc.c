@@ -387,18 +387,24 @@ static int shutdown_event_handler(struct shutdown_controller *sdd)
 				if (IS_ENABLED(
 					LOW_TEMP_DISABLE_LOW_BAT_SHUTDOWN)) {
 					if (tmp >= LOW_TEMP_THRESHOLD) {
-						down_to_low_bat = 1;
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7 start*/
+						//down_to_low_bat = 1;
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7 end*/
 						bm_err("normal tmp, battery voltage is low shutdown\n");
 						notify_fg_shutdown();
 					} else if (sdd->avgvbat <=
 						LOW_TMP_BAT_VOLTAGE_LOW_BOUND) {
-						down_to_low_bat = 1;
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7 start*/
+						//down_to_low_bat = 1;
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7 end*/
 						bm_err("cold tmp, battery voltage is low shutdown\n");
 						notify_fg_shutdown();
 					} else
 						bm_err("low temp disable low battery sd\n");
 				} else {
-					down_to_low_bat = 1;
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7 start*/
+					//down_to_low_bat = 1;
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7 end*/
 					bm_err("[%s]avg vbat is low to shutdown\n",
 						__func__);
 					notify_fg_shutdown();
@@ -532,7 +538,10 @@ int mtk_power_misc_psy_event(
 			psy, POWER_SUPPLY_PROP_TEMP, &val);
 		if (!ret) {
 			tmp = val.intval / 10;
-			if (tmp >= BATTERY_SHUTDOWN_TEMPERATURE) {
+/*L19 HQ-171104 high tempture display charging animation by miaozhichao at 2021/11/5 start*/
+			if (tmp >= BATTERY_SHUTDOWN_TEMPERATURE &&
+					(is_kernel_power_off_charging() != true)) {
+/*L19 HQ-171104 high tempture display charging animation by miaozhichao at 2021/11/5 end*/
 				bm_err(
 					"battery temperature >= %d,shutdown",
 					tmp);

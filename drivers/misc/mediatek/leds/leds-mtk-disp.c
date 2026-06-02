@@ -18,6 +18,12 @@
 
 #include "leds-mtk-disp.h"
 
+#ifdef CONFIG_LM3697_SUPPORT
+#include <linux/mfd/ti-lmu-backlight.h>
+#endif
+#ifdef CONFIG_KTD3136_SUPPORT
+#include <linux/mfd/ktd3136.h>
+#endif
 
 #ifdef CONFIG_DRM_MEDIATEK
 extern int mtkfb_set_backlight_level(unsigned int level);
@@ -162,17 +168,41 @@ static int getLedDespIndex(char *name)
 /****************************************************************************
  * driver functions
  ***************************************************************************/
+extern char *saved_command_line;
 static int led_level_disp_set(struct mtk_led_data *s_led,
 	int brightness)
 {
-
+#if defined(CONFIG_KTD3136_SUPPORT) || defined(CONFIG_LM3697_SUPPORT)
+	int bkl_id = 0;
+	char *bkl_ptr = (char *)strnstr(saved_command_line, ":bklic=", strlen(saved_command_line));
+#endif
 	brightness = min(brightness, s_led->conf.max_level);
 	if (brightness == s_led->conf.level)
 		return 0;
 
+/* Huaqin add for HQ-158035 by caogaojie at 2021/10/29 start */
+#if defined(CONFIG_KTD3136_SUPPORT) || defined(CONFIG_LM3697_SUPPORT)
+	bkl_ptr += strlen(":bklic=");
+	bkl_id = simple_strtol(bkl_ptr, NULL, 10);
+	/*L19 code for L19-142 by chenzimo at 2022/3/8 start*/
+	if (bkl_id == 24) {
+		ktd3137_brightness_set(brightness);
+		s_led->conf.level = brightness;
+		printk("[%s]: backlight is ktd3136 contrl! level=%d\n", __func__, brightness);
+	} else if (bkl_id == 1) {
+		lm3697_set_brightness(brightness);
+		s_led->conf.level = brightness;
+		printk("[%s]: backlight is lm3697 contrl! level=%d\n", __func__, brightness);
+	} else {
+		printk("[%s]: No backlight\n", __func__);
+	}
+	/*L19 code for L19-142 by chenzimo at 2022/3/8 end*/
+#else
 #ifdef CONFIG_DRM_MEDIATEK
 	mtkfb_set_backlight_level(brightness);
 	s_led->conf.level = brightness;
+#endif
+/* Huaqin add for HQ-158035 by caogaojie at 2021/10/29 end */
 #endif
 	return 0;
 
@@ -233,10 +263,14 @@ int mt_leds_brightness_set(char *name, int level)
 	}
 	led_dat = container_of(leds_info->leds[index],
 		struct mtk_led_data, desp);
+#if defined(CONFIG_KTD3136_SUPPORT) || defined(CONFIG_LM3697_SUPPORT)
+	led_Level = level;
+#else
 	led_Level = (
 		(((1 << led_dat->conf.led_bits) - 1) * level
 		+ (((1 << led_dat->conf.trans_bits) - 1) / 2))
 		/ ((1 << led_dat->conf.trans_bits) - 1));
+#endif
 	led_level_disp_set(led_dat, led_Level);
 	led_dat->last_level = led_Level;
 

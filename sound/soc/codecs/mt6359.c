@@ -46,6 +46,10 @@
 #include <linux/soc/mediatek/pmic_wrap.h>
 #endif
 
+#ifdef CONFIG_SND_SOC_AW87XXX
+extern int aw87xxx_add_codec_controls(void *codec);
+#endif /*CONFIG_SND_SOC_AWINIC_AW87XXX*/
+
 #include "mt6359.h"
 
 enum {
@@ -6684,6 +6688,7 @@ static int mt6359_codec_probe(struct snd_soc_component *cmpnt)
 {
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	int ret;
+        int index = 0;
 
 	snd_soc_component_init_regmap(cmpnt, priv->regmap);
 
@@ -6700,6 +6705,12 @@ static int mt6359_codec_probe(struct snd_soc_component *cmpnt)
 	snd_soc_add_component_controls(cmpnt,
 				       mt6359_snd_vow_controls,
 				       ARRAY_SIZE(mt6359_snd_vow_controls));
+
+        pr_err("%s: aw87xxx_add_codec_controls enter \n", __func__);
+	index = aw87xxx_add_codec_controls(cmpnt);
+	if (index < 0) {
+		pr_err("%s: aw87xxx_add_codec_controls failed, ret= %d\n", __func__, index);
+	};
 
 	mt6359_codec_init_reg(priv);
 

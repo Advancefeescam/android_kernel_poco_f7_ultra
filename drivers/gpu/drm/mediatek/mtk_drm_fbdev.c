@@ -423,6 +423,59 @@ int try_free_fb_buf(struct drm_device *dev)
 	}
 	return kref_put(&priv->kref_fb_buf, free_fb_buf);
 }
+/*L19 code for HQ-158620 by caogaojie at 2021/11/29 start*/
+struct fb_lcd_wp_para lcd_wp_para = {0};
+bool set_white_point_x = true;
+
+static int __init mtkfb_get_white_point(char *p)
+{
+	char wpoint[10];
+	strlcpy(wpoint, p, sizeof(wpoint));
+	printk("[%s]: white_point = %s\n", __func__, wpoint);
+	pr_err("mtkfb_get_white_point come in !!!\n");
+	lcd_wp_para.white_point_x = (wpoint[0]-'0') * 100
+		+ (wpoint[1]-'0') * 10 + (wpoint[2]-'0');
+	lcd_wp_para.white_point_y = (wpoint[3]-'0') * 100
+		+ (wpoint[4]-'0') * 10 + (wpoint[5]-'0');
+	lcd_wp_para.white_point_l = (wpoint[6]-'0') * 100
+		+ (wpoint[7]-'0') * 10 + (wpoint[8]-'0');
+	return 0;
+}
+early_param("ro.boot.lcm_white_point", mtkfb_get_white_point);
+
+static ssize_t mtkfb_get_wpoint_level(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%3d\n", lcd_wp_para.white_point_l);
+	return ret;
+}
+static ssize_t mtkfb_set_wpoint_level(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	sscanf(buf, "%3d", &lcd_wp_para.white_point_l);
+	return len;
+}
+
+static ssize_t mtkfb_get_wpoint(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%3d%3d\n",
+			lcd_wp_para.white_point_x, lcd_wp_para.white_point_y);
+	return ret;
+}
+static ssize_t mtkfb_set_wpoint(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	if (set_white_point_x) {
+		sscanf(buf, "%3d", &lcd_wp_para.white_point_x);
+		set_white_point_x = false;
+	} else {
+		sscanf(buf, "%3d", &lcd_wp_para.white_point_y);
+		set_white_point_x = true;
+	}
+		return len;
+}
+static DEVICE_ATTR(mtkfb_dispwpoint, 0644, mtkfb_get_wpoint, mtkfb_set_wpoint);
+static DEVICE_ATTR(mtkfb_dispwpoint_level, 0644, mtkfb_get_wpoint_level, mtkfb_set_wpoint_level);
+/*L19 code for HQ-158620 by caogaojie at 2021/11/29 end*/
 
 static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 			   struct drm_fb_helper_surface_size *sizes)
@@ -439,6 +492,15 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 	phys_addr_t fb_base = 0;
 
 	DDPMSG("%s+\n", __func__);
+	/*L19 code for HQ-158620 by caogaojie at 2021/11/29 start*/
+	err = device_create_file(helper->dev->dev, &dev_attr_mtkfb_dispwpoint);
+	if (err)
+		pr_err("sysfs group creat failed, rc = %d\n", err);
+
+	err = device_create_file(helper->dev->dev, &dev_attr_mtkfb_dispwpoint_level);
+	if (err)
+		pr_err("sysfs wp_lv creat failed, rc = %d\n", err);
+	/*L19 code for HQ-158620 by caogaojie at 2021/11/29 end*/
 	bytes_per_pixel = DIV_ROUND_UP(sizes->surface_bpp, 8);
 	mode.pixel_format = drm_mode_legacy_fb_format(sizes->surface_bpp,
 						      sizes->surface_depth);

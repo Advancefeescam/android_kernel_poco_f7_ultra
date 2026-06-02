@@ -40,6 +40,7 @@
 #include <linux/types.h>
 #include <uapi/scsi/scsi_bsg_ufs.h>
 
+#define MAX_QUERY_IDN	0x12
 #define MAX_CDB_SIZE	16
 #define GENERAL_UPIU_REQUEST_SIZE (sizeof(struct utp_upiu_req))
 #define QUERY_DESC_MAX_SIZE       255
@@ -284,6 +285,7 @@ enum device_desc_param {
 	DEVICE_DESC_PARAM_NUM_SEC_WPA		= 0x24,
 	DEVICE_DESC_PARAM_PSA_MAX_DATA		= 0x25,
 	DEVICE_DESC_PARAM_PSA_TMT		= 0x29,
+	DEVICE_DESC_PARAM_EXT_UFS_FEATURE_SUP	= 0x4F,
 	DEVICE_DESC_PARAM_PRDCT_REV		= 0x2A,
 #if defined(CONFIG_SCSI_UFS_HPB) || defined(CONFIG_SCSI_SKHPB)
 	DEVICE_DESC_PARAM_HPB_VER		= 0x40,
@@ -359,11 +361,11 @@ enum geometry_desc_param {
 
 /* Health descriptor parameters offsets in bytes*/
 enum health_desc_param {
-	HEALTH_DESC_PARAM_LEN			= 0x0,
-	HEALTH_DESC_PARAM_TYPE			= 0x1,
-	HEALTH_DESC_PARAM_EOL_INFO		= 0x2,
-	HEALTH_DESC_PARAM_LIFE_TIME_EST_A	= 0x3,
-	HEALTH_DESC_PARAM_LIFE_TIME_EST_B	= 0x4,
+       HEALTH_DESC_PARAM_LEN                   = 0x0,
+       HEALTH_DESC_PARAM_TYPE                  = 0x1,
+       HEALTH_DESC_PARAM_EOL_INFO              = 0x2,
+       HEALTH_DESC_PARAM_LIFE_TIME_EST_A       = 0x3,
+       HEALTH_DESC_PARAM_LIFE_TIME_EST_B       = 0x4,
 };
 
 /*
@@ -441,6 +443,7 @@ enum query_opcode {
 	UPIU_QUERY_OPCODE_SET_FLAG	= 0x6,
 	UPIU_QUERY_OPCODE_CLEAR_FLAG	= 0x7,
 	UPIU_QUERY_OPCODE_TOGGLE_FLAG	= 0x8,
+	UPIU_QUERY_OPCODE_MAX,
 };
 
 /* bRefClkFreq attribute values */
@@ -477,6 +480,7 @@ enum {
 	UPIU_COMMAND_SET_TYPE_SCSI	= 0x0,
 	UPIU_COMMAND_SET_TYPE_UFS	= 0x1,
 	UPIU_COMMAND_SET_TYPE_QUERY	= 0x2,
+	UPIU_COMMAND_SET_TYPE_VENDOR_HY	= 0xB,
 };
 
 /* UTP Transfer Request Command Offset */

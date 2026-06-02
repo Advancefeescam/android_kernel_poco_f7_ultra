@@ -34,8 +34,15 @@
 #include "mtk_dsi.h"
 #endif
 
+bool esd_flag;
+
 #define ESD_TRY_CNT 5
 #define ESD_CHECK_PERIOD 2000 /* ms */
+
+#ifdef CONFIG_MI_ESD_SUPPORT
+atomic_t lcm_valid_irq = ATOMIC_INIT(0);
+atomic_t is_lcm_inited_esd = ATOMIC_INIT(0);
+#endif
 
 /* pinctrl implementation */
 long _set_state(struct drm_crtc *crtc, const char *name)
@@ -282,9 +289,23 @@ static irqreturn_t _esd_check_ext_te_irq_handler(int irq, void *data)
 {
 	struct mtk_drm_esd_ctx *esd_ctx = (struct mtk_drm_esd_ctx *)data;
 
+#ifdef CONFIG_MI_ESD_SUPPORT
+	if(atomic_read(&is_lcm_inited_esd)) {
+		if(atomic_read(&lcm_valid_irq)) {
+			atomic_set(&lcm_valid_irq, 0);
+			DDPPR_ERR("[ESD]%s   invalid irq, skip\n", __func__);
+		} else {
+			DDPPR_ERR("[ESD]------is_lcm_inited_esd = %d,lcm_vaild_irq = %d\n",
+				atomic_read(&is_lcm_inited_esd),atomic_read(&lcm_valid_irq));
+			atomic_set(&esd_ctx->ext_te_event, 1);
+			wake_up_interruptible(&esd_ctx->ext_te_wq);
+			}
+					}
+#else
+
 	atomic_set(&esd_ctx->ext_te_event, 1);
 	wake_up_interruptible(&esd_ctx->ext_te_wq);
-
+#endif
 	return IRQ_HANDLED;
 }
 
@@ -292,8 +313,10 @@ static int _mtk_esd_check_eint(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
-	int ret = 1;
-
+	int ret = 0;
+/*L19 code for HQ-170229 by caogaojie at 2021/11/26 start*/
+	int count = 0;
+/*L19 code for HQ-170229 by caogaojie at 2021/11/26 end*/
 	DDPINFO("[ESD]ESD check eint\n");
 
 	if (unlikely(!esd_ctx)) {
@@ -303,13 +326,28 @@ static int _mtk_esd_check_eint(struct drm_crtc *crtc)
 
 	enable_irq(esd_ctx->eint_irq);
 
+#ifdef CONFIG_MI_ESD_SUPPORT
+/*L19 code for HQ-170229 by caogaojie at 2021/11/26 start*/
+        while (1) {
+                if (atomic_read(&esd_ctx->ext_te_event)) {
+                        ret = 1;
+                        break;
+                } else {
+                        count++;
+                }
+                if (count >= 5000 || kthread_should_stop())
+                        break;
+        }
+/*L19 code for HQ-170229 by caogaojie at 2021/11/26 end*/
+#else
+
 	/* check if there is TE in the last 2s, if so ESD check is pass */
 	if (wait_event_interruptible_timeout(
 		    esd_ctx->ext_te_wq,
 		    atomic_read(&esd_ctx->ext_te_event),
 		    HZ / 2) > 0)
 		ret = 0;
-
+#endif
 	disable_irq(esd_ctx->eint_irq);
 	atomic_set(&esd_ctx->ext_te_event, 0);
 
@@ -356,8 +394,18 @@ static int mtk_drm_request_eint(struct drm_crtc *crtc)
 
 	esd_ctx->eint_irq = irq_of_parse_and_map(node, 0);
 
+#ifdef CONFIG_MI_ESD_SUPPORT
+	ret = request_irq(esd_ctx->eint_irq, _esd_check_ext_te_irq_handler,
+			  IRQF_TRIGGER_FALLING |IRQF_ONESHOT, "ESD_FLAG-eint", esd_ctx);
+	DDPINFO("%s-------ESD_FLAG-eint",__func__);
+#else
+
 	ret = request_irq(esd_ctx->eint_irq, _esd_check_ext_te_irq_handler,
 			  IRQF_TRIGGER_RISING, "ESD_TE-eint", esd_ctx);
+
+	DDPINFO("%s-------ESD_TE-eint",__func__);
+#endif
+
 	if (ret) {
 		DDPPR_ERR("eint irq line not available!\n");
 		return ret;
@@ -414,7 +462,9 @@ done:
 	return ret;
 }
 
-static int mtk_drm_esd_recover(struct drm_crtc *crtc)
+/*L19 code for HQ-178720 by feiwen at 2022/01/21 start*/
+int mtk_drm_esd_recover(struct drm_crtc *crtc)
+/*L19 code for HQ-178720 by feiwen at 2022/01/21 end*/
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *output_comp;
@@ -501,6 +551,8 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 	int i = 0;
 	int recovery_flg = 0;
 
+	esd_flag = false;
+
 	sched_setscheduler(current, SCHED_RR, &param);
 
 	if (!crtc) {
@@ -553,6 +605,8 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 			DDPPR_ERR(
 				"[ESD]esd check fail, will do esd recovery. try=%d\n",
 				i);
+			esd_flag = true;
+			DDPPR_ERR("[ESD]Now esd_flag = %d\n",esd_flag);
 			mtk_drm_esd_recover(crtc);
 			recovery_flg = 1;
 		} while (++i < ESD_TRY_CNT);
@@ -566,8 +620,9 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 			mutex_unlock(&private->commit.lock);
 			break;
 		} else if (recovery_flg) {
-			DDPINFO("[ESD] esd recovery success\n");
+			DDPPR_ERR("[ESD] esd recovery success\n");
 			recovery_flg = 0;
+			esd_flag = false;
 		}
 		mtk_drm_trace_end();
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);

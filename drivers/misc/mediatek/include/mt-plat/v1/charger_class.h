@@ -134,7 +134,11 @@ struct charger_ops {
 
 	/* charger type detection */
 	int (*enable_chg_type_det)(struct charger_device *dev, bool en);
-
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	int (*rerun_apsd)(struct charger_device *chg_dev, bool en);
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 	/* run AICL */
 	int (*run_aicl)(struct charger_device *dev, u32 *uA);
 

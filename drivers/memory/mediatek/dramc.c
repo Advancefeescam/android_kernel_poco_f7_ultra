@@ -17,6 +17,8 @@
 
 static struct platform_device *dramc_pdev;
 
+void set_ddr_data(struct platform_device *pdev);
+
 static int mr4_v1_init(struct platform_device *pdev,
 	struct mr4_dev_t *mr4_dev_ptr)
 {
@@ -430,6 +432,7 @@ static int dramc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dramc_dev_ptr);
 	dramc_pdev = pdev;
+	set_ddr_data(dramc_pdev);
 
 	pr_info("%s: DRAM data type = %d\n", __func__,
 		mtk_dramc_get_ddr_type());

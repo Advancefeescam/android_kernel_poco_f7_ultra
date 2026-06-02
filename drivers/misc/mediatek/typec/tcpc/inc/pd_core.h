@@ -15,9 +15,11 @@
 
 #define PD_BUG_ON(x)	WARN_ON(x)
 /*---------------------------------------------------------------------------*/
-
+/*L19 HQ-178992 pd and cc charge bring up by miaozhichao at 2022/3/7 start*/
+#define CONFIG_USB_PD_VCONN_SWAP
 #ifndef CONFIG_TCPC_SOURCE_VCONN
-#undef CONFIG_USB_PD_VCONN_SWAP
+//#undef CONFIG_USB_PD_VCONN_SWAP
+/*L19 HQ-178992 pd and cc charge bring up by miaozhichao at 2022/3/7 end*/
 #undef CONFIG_USB_PD_SRC_STARTUP_DISCOVER_ID
 #undef CONFIG_USB_PD_DFP_READY_DISCOVER_ID
 #undef CONFIG_USB_PD_DISCOVER_CABLE_REQUEST_VCONN

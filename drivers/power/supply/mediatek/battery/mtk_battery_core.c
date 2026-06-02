@@ -60,8 +60,11 @@
 #include "mtk_battery_internal.h"
 #include <mtk_gauge_time_service.h>
 
-#include <mach/mtk_battery_property.h>
-#include <mach/mtk_battery_table.h>
+/*L19 HQ-162876 add battery id adc channel by gengyifei at 2021/10/28 start*/
+#include <mt6833/include/mach/mtk_battery_property.h>
+#include <mt6833/include/mach/mtk_battery_table.h>
+/*L19 HQ-162876 add battery id adc channel by gengyifei at 2021/10/28 end*/
+
 #else
 #include <string.h>
 
@@ -72,7 +75,10 @@
 #include <mtk_battery_table.h>
 #include "simulator_kernel.h"
 #endif
-
+/*L19 HQ-162876 add battery id adc channel by gengyifei at 2021/10/28 start*/
+#include <linux/of_platform.h>
+#include <linux/iio/consumer.h>
+/*L19 HQ-162876 add battery id adc channel by gengyifei at 2021/10/28 end*/
 
 
 /* ============================================================ */
@@ -599,7 +605,6 @@ bool __attribute__ ((weak)) mt_usb_is_device(void)
 void fgauge_get_profile_id(void)
 {
 	int id_volt = 0;
-	int id = 0;
 	int ret = 0;
 	int auxadc_voltage = 0;
 	struct iio_channel *channel;
@@ -636,28 +641,18 @@ void fgauge_get_profile_id(void)
 	}
 
 	bm_err("[%s]auxadc_voltage is %d\n", __func__, auxadc_voltage);
-	id_volt = auxadc_voltage * 1500 / 4096;
+/*L19 HQ-162876 add battery_id node by gengyifei at 2021/10/31 start*/
+	id_volt = auxadc_voltage * 1000;
 	bm_err("[%s]battery_id_voltage is %d\n", __func__, id_volt);
 
-	if ((sizeof(g_battery_id_voltage) /
-		sizeof(int)) != TOTAL_BATTERY_NUMBER) {
-		bm_debug("[%s]error! voltage range incorrect!\n",
-			__func__);
-		return;
+	gm.battery_id_voltage = id_volt;
+	if ( id_volt >= COSMX_MIN_VOLTAGE && id_volt <= COSMX_MAX_VOLTAGE) {
+		gm.battery_id = 0;
+	}else if (id_volt >= SWD_MIN_VOLTAGE && id_volt <= SWD_MAX_VOLTAGE) {
+		gm.battery_id = 1;
 	}
-
-	for (id = 0; id < TOTAL_BATTERY_NUMBER; id++) {
-		if (id_volt < g_battery_id_voltage[id]) {
-			gm.battery_id = id;
-			break;
-		} else if (g_battery_id_voltage[id] == -1) {
-			gm.battery_id = TOTAL_BATTERY_NUMBER - 1;
-		}
-	}
-
-	bm_debug("[%s]Battery id (%d)\n",
-		__func__,
-		gm.battery_id);
+	bm_err("[%s]Battery id (%d)\n", __func__, gm.battery_id);
+/*L19 HQ-162876 add battery_id node by gengyifei at 2021/10/31 end*/
 }
 #elif defined(MTK_GET_BATTERY_ID_BY_GPIO)
 void fgauge_get_profile_id(void)
@@ -2010,13 +2005,15 @@ void notify_fg_dlpt_sd(void)
 	bm_err("[%s]\n", __func__);
 	wakeup_fg_algo(FG_INTR_DLPT_SD);
 }
-
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7 start*/
+bool enable_notify_shutdown;
 void notify_fg_shutdown(void)
 {
 	bm_err("[%s]\n", __func__);
-	wakeup_fg_algo(FG_INTR_SHUTDOWN);
+	//wakeup_fg_algo(FG_INTR_SHUTDOWN);
+	enable_notify_shutdown = true;
 }
-
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7 end*/
 void notify_fg_chr_full(void)
 {
 	struct timespec now_time, difftime;

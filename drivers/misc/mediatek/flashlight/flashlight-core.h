@@ -102,6 +102,10 @@ struct flashlight_dev {
 	int low_pt_level;
 	int charger_status;
 	int sw_disable_status;
+/*L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 start*/
+	int need_cooler;
+	int cooler_level;
+/*L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 end*/
 };
 
 /* device arguments */
@@ -127,6 +131,10 @@ int flashlight_dev_register_by_device_id(
 		struct flashlight_device_id *dev_id,
 		struct flashlight_operations *dev_ops);
 int flashlight_dev_unregister_by_device_id(struct flashlight_device_id *dev_id);
+/*L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 start*/
+int flashlight_get_max_duty(void);
+int flashlight_set_cooler_level(int level);
+/*L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 end*/
 
 /* get id and index */
 int flashlight_get_type_id(int type_index);

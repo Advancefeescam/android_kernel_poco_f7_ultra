@@ -86,10 +86,10 @@ static int EEPROM_set_i2c_bus(unsigned int deviceID,
 	if (idx == IMGSENSOR_SENSOR_IDX_NONE)
 		return -EFAULT;
 
-	if (i2c_idx >= I2C_DEV_IDX_MAX)
+	if (i2c_idx < I2C_DEV_IDX_1 || i2c_idx >= I2C_DEV_IDX_MAX)
 		return -EFAULT;
 
-	client = g_pstI2Cclients[(unsigned int)i2c_idx];
+	client = g_pstI2Cclients[i2c_idx];
 	pr_debug("%s end! deviceID=%d index=%u client=%p\n",
 		 __func__, deviceID, idx, client);
 
@@ -693,33 +693,12 @@ static long EEPROM_drv_ioctl(struct file *file,
 		}
 
 		if (pcmdInf != NULL) {
-			if (pcmdInf->readCMDFunc != NULL) {
-				if ((ptempbuf->sensorID == 0x885a)
-				&& (ptempbuf->u4Offset == 0x7500))
-					*pu1Params = i4RetValue = ov8856_af_inf;
-				else if ((ptempbuf->sensorID == 0x885a)
-				&& (ptempbuf->u4Offset == 0x7501))
-					*pu1Params = i4RetValue = ov8856_af_mac;
-				else if ((ptempbuf->sensorID == 0x885a)
-				&& (ptempbuf->u4Offset == 0x7502))
-					*pu1Params = i4RetValue = ov8856_af_lsb;
-				else if ((ptempbuf->sensorID == 0x487b)
-				&& (ptempbuf->u4Offset == 0x7500))
-					*pu1Params = i4RetValue = s5k4h7_af_inf;
-				else if ((ptempbuf->sensorID == 0x487b)
-				&& (ptempbuf->u4Offset == 0x7501))
-					*pu1Params = i4RetValue = s5k4h7_af_mac;
-				else if ((ptempbuf->sensorID == 0x487b)
-				&& (ptempbuf->u4Offset == 0x7502))
-					*pu1Params = i4RetValue = s5k4h7_af_lsb;
-				else
-					i4RetValue =
-						pcmdInf->readCMDFunc(
-							  pcmdInf->client,
+			if (pcmdInf->readCMDFunc != NULL)
+				i4RetValue =
+					pcmdInf->readCMDFunc(pcmdInf->client,
 							  ptempbuf->u4Offset,
 							  pu1Params,
 							  ptempbuf->u4Length);
-			}
 			else {
 				pr_debug("pcmdInf->readCMDFunc == NULL\n");
 				kfree(pBuff);

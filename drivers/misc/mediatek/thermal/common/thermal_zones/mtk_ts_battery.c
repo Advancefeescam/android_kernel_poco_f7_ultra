@@ -423,7 +423,9 @@ struct thermal_cooling_device *cdev, unsigned long state)
 		/* To trigger data abort to reset the system
 		 * for thermal protection.
 		 */
-		BUG();
+        /* L19 code for HQ-157692 by make at 2021/11/25 start */
+		//BUG();
+        /* L19 code for HQ-157692 by make at 2021/11/25 end */
 	}
 	return 0;
 }

@@ -2796,6 +2796,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "index property is missing \n");
 		host_index = -1;
 	}
+  
 	boot_type = check_boot_type(pdev);
 	if ((boot_type != BOOTDEV_SDMMC) && (host_index == 0)) {
 		dev_info(&pdev->dev, "no eMMC boot\n");
@@ -2806,10 +2807,9 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	mmc = mmc_alloc_host(sizeof(struct msdc_host), &pdev->dev);
 	if (!mmc)
 		return -ENOMEM;
-
+     
 	host = mmc_priv(mmc);
 	ret = mmc_of_parse(mmc);
-
 	/* fix uaf(use afer free) issue:backup pdev->name,
 	 * device_rename will free pdev->name
 	 */
@@ -2846,6 +2846,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "host_function isn't found in device tree\n");
 		mmc->host_function = -1;
 	}
+  
 
 	if (mmc->host_function == MSDC_SD)
 		mmc->caps |= MMC_CAP_AGGRESSIVE_PM;

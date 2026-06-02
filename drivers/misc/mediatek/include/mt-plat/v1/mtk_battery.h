@@ -12,8 +12,9 @@
 #else
 #include "simulator_kernel.h"
 #endif
-
-
+/*L19 HQ-165907 modify battery ntc by miaozhichao at 2021/11/3 start*/
+#define TEMP_TABLE_ITEM_NUM	27
+/*L19 HQ-165907 modify battery ntc by miaozhichao at 2021/11/3 end*/
 /* ============================================================ */
 /* typedef */
 /* ============================================================ */

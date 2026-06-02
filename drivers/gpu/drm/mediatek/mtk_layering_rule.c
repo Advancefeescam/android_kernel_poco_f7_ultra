@@ -149,6 +149,12 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 					yuv_gpu_cnt++;
 				}
 			}
+			/* L19 code for HQ-183591 by zhouhaitao at 20220713 start */
+			if(info->dst_width==1080 && info->dst_height==2408 && info->secure == 0) {
+				mtk_rollback_layer_to_GPU(disp_info,disp_idx, i);
+				//printk("mtkadd ----filter_by_yuv_layers 111\n");
+			}
+			/* L19 code for HQ-183591 by zhouhaitao at 20220713 end */
 		}
 
 		if (yuv_gpu_cnt == 0)

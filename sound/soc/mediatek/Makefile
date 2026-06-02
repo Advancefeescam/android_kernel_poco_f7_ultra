@@ -152,6 +152,8 @@ obj-y += codec/$(MTK_CODEC)/
 endif
 obj-y += common_int/
 
+obj-y += sia81xx/
+
 ifeq ($(MTK_PLATFORM),mt6758)
   obj-y += mt6758_int/
   subdir-ccflags-y += -I$(src)/mt6758_int

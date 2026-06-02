@@ -180,6 +180,8 @@ config TOUCHSCREEN_MTK_GT9157
 	  module will be called
 
 source "drivers/input/touchscreen/mediatek/GT9157/Kconfig"
+source "drivers/input/touchscreen/mediatek/NT36672C/Kconfig"
+source "drivers/input/touchscreen/mediatek/FT8722/Kconfig"
 
 config TOUCHSCREEN_HIMAX_CHIPSET
 	bool "Himax touchpanel CHIPSET"
@@ -201,5 +203,9 @@ config TOUCHSCREEN_GOODIX_BRL
 	  If build module, say M.
 	  If unsure, say N.
 source "drivers/input/touchscreen/mediatek/goodix_berlin_driver/Kconfig"
+
+# L19 code for HQ-159151 by sunfeiting at 20211109 start
+source "drivers/input/touchscreen/mediatek/xiaomi/Kconfig"
+# L19 code for HQ-159151 by sunfeiting at 20211109 end
 
 endif

@@ -7,6 +7,8 @@ source "drivers/base/Kconfig"
 
 source "drivers/bus/Kconfig"
 
+source "drivers/mihw/Kconfig"
+
 source "drivers/connector/Kconfig"
 
 source "drivers/gnss/Kconfig"
@@ -226,4 +228,7 @@ source "drivers/slimbus/Kconfig"
 source "drivers/interconnect/Kconfig"
 
 source "drivers/energy_model/Kconfig"
+
+source "drivers/switch/Kconfig"
+
 endmenu

@@ -1270,7 +1270,7 @@ int do_send_sig_info(int sig, struct siginfo *info, struct task_struct *p,
 {
 	unsigned long flags;
 	int ret = -ESRCH;
-
+	trace_do_send_sig_info_hook(sig, current, p);
 	if (lock_task_sighand(p, &flags)) {
 		ret = send_signal(sig, info, p, type);
 		unlock_task_sighand(p, &flags);
@@ -2795,6 +2795,9 @@ EXPORT_SYMBOL(flush_signals);
 EXPORT_SYMBOL(force_sig);
 EXPORT_SYMBOL(send_sig);
 EXPORT_SYMBOL(send_sig_info);
+/* L19 code for HQ-159057 by lukuan at 2021.10.27 start */
+EXPORT_SYMBOL(force_sig_info);
+/* L19 code for HQ-159057 by lukuan at 2021.10.27 end */
 EXPORT_SYMBOL(sigprocmask);
 
 /*

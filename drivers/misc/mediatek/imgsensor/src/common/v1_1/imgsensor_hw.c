@@ -5,6 +5,9 @@
 
 #include <linux/delay.h>
 #include <linux/string.h>
+#if defined(FACTORY_CAMERA_MODE) || defined(__XIAOMI_CAMERA__)
+#include "hqsys_pcba.h"
+#endif
 
 #include "kd_camera_typedef.h"
 #include "kd_camera_feature.h"
@@ -55,7 +58,7 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 
 	/* update the imgsensor_custom_cfg by dts */
 	for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
-		PK_DBG("IMGSENSOR_SENSOR_IDX: %d\n", i);
+		pr_err("IMGSENSOR_SENSOR_IDX: %d\n", i);
 		pcust_pwr_cfg = imgsensor_custom_config;
 		while (pcust_pwr_cfg->sensor_idx != i &&
 		       pcust_pwr_cfg->sensor_idx != IMGSENSOR_SENSOR_IDX_NONE)
@@ -79,7 +82,7 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 					len = strlen(imgsensor_hw_id_names[j]);
 					if (strncmp(pin_hw_id_name, imgsensor_hw_id_names[j], len)
 						== 0) {
-						PK_DBG(
+						pr_err(
 							"imgsensor_hw_cfg hw_pin:%s, id name:%s, id:%d\n",
 							str_prop_name, pin_hw_id_name, j);
 						ppwr_info->id = j;
@@ -135,7 +138,7 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 		if (of_property_read_string(
 			of_node, str_prop_name,
 			&phw->enable_sensor_by_index[i]) < 0) {
-			PK_DBG("Property cust-sensor not defined\n");
+			pr_err("Property cust-sensor not defined\n");
 			phw->enable_sensor_by_index[i] = NULL;
 		}
 	}
@@ -172,7 +175,7 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 
 #ifdef CONFIG_FPGA_EARLY_PORTING  /*for FPGA*/
 	if (1) {
-		PK_DBG("FPGA return true for power control\n");
+		pr_err("FPGA return true for power control\n");
 		return IMGSENSOR_RETURN_SUCCESS;
 	}
 #endif
@@ -204,7 +207,7 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 				phw->pdev[psensor_pwr->id[ppwr_info->pin]];
 
 				if (__ratelimit(&ratelimit))
-					PK_DBG(
+					pr_err(
 					"sensor_idx %d, ppwr_info->pin %d, ppwr_info->pin_state_on %d, delay %u",
 					sensor_idx,
 					ppwr_info->pin,
@@ -230,7 +233,7 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 			pin_cnt--;
 
 			if (__ratelimit(&ratelimit))
-				PK_DBG(
+				pr_err(
 				"sensor_idx %d, ppwr_info->pin %d, ppwr_info->pin_state_off %d, delay %u",
 				sensor_idx,
 				ppwr_info->pin,
@@ -254,6 +257,12 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 	return IMGSENSOR_RETURN_SUCCESS;
 }
 
+
+#if defined(FACTORY_CAMERA_MODE) || defined(__XIAOMI_CAMERA__)
+extern int cam_pwr_debug ;
+extern PCBA_CONFIG huaqin_pcba_config;
+// echo 1 > /sys/devices/platform/kd_camera_hw1@1a004000/IMGSENSOR_DEBUG
+#endif
 enum IMGSENSOR_RETURN imgsensor_hw_power(
 		struct IMGSENSOR_HW *phw,
 		struct IMGSENSOR_SENSOR *psensor,
@@ -264,7 +273,10 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 	char *curr_sensor_name = psensor->inst.psensor_list->name;
 	char str_index[LENGTH_FOR_SNPRINTF];
 
-	PK_DBG("sensor_idx %d, power %d curr_sensor_name %s, enable list %s\n",
+#if defined(FACTORY_CAMERA_MODE) || defined(__XIAOMI_CAMERA__)
+	struct IMGSENSOR_HW_POWER_SEQ *psensor_power_sequence = NULL;
+#endif
+	pr_err("sensor_idx %d, power %d curr_sensor_name %s, enable list %s\n",
 		sensor_idx,
 		pwr_status,
 		curr_sensor_name,
@@ -289,11 +301,67 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 			platform_power_sequence,
 			str_index);
 
+#if defined(FACTORY_CAMERA_MODE) || defined(__XIAOMI_CAMERA__)
+	pr_err("%s:walf :huaqin_pcba_config = %d",  __func__, huaqin_pcba_config);
+	if (!cam_pwr_debug) {
+		switch (huaqin_pcba_config)
+		{
+			case  PCBA_L19P_P0_1_GLOBAL:
+			case PCBA_L19P_P1_GLOBAL:
+			case PCBA_L19P_P1_1_GLOBAL:
+			case PCBA_L19P_P2_GLOBAL:
+			case  PCBA_L19P_MP_GLOBAL:
+			case PCBA_L19_P0_1_CN:
+			case PCBA_L19X_P0_1_CN:
+			case PCBA_L19X_P1_CN:
+			case PCBA_L19X_P1_1_CN:
+			case PCBA_L19X_P2_CN:
+			case PCBA_L19X_MP_CN:
+				psensor_power_sequence = sensor_power_sequence_V1_1;
+				break;
+			case PCBA_L19_P0_1_GLOBAL:
+			case PCBA_L19_P0_1_IN:
+			case PCBA_L19P_P0_1_IN:
+			case PCBA_L19N_P0_1_GLOBAL:
+			case PCBA_L19_P1_CN :
+			case PCBA_L19_P1_GLOBAL:
+			case PCBA_L19_P1_IN:
+			case PCBA_L19P_P1_IN:
+			case PCBA_L19N_P1_GLOBAL:
+			case PCBA_L19_P1_1_CN :
+			case PCBA_L19_P1_1_GLOBAL:
+			case PCBA_L19_P1_1_IN:
+			case PCBA_L19P_P1_1_IN:
+			case PCBA_L19N_P1_1_GLOBAL:
+			case PCBA_L19_P2_CN:
+			case PCBA_L19_P2_GLOBAL:
+			case PCBA_L19_P2_IN:
+			case PCBA_L19P_P2_IN:
+			case PCBA_L19N_P2_GLOBAL:
+			case PCBA_L19_MP_CN :
+			case PCBA_L19_MP_GLOBAL:
+			case PCBA_L19_MP_IN:
+			case PCBA_L19P_MP_IN:
+			case PCBA_L19N_MP_GLOBAL:
+				psensor_power_sequence = sensor_power_sequence_V1_2;
+				break;
+			default:
+				psensor_power_sequence = sensor_power_sequence;
+				break;
+		};
+	} else 
+		psensor_power_sequence = sensor_power_sequence;
+
+	imgsensor_hw_power_sequence(
+			phw,
+			sensor_idx,
+			pwr_status, psensor_power_sequence, curr_sensor_name);
+#else
 	imgsensor_hw_power_sequence(
 			phw,
 			sensor_idx,
 			pwr_status, sensor_power_sequence, curr_sensor_name);
-
+#endif
 	return IMGSENSOR_RETURN_SUCCESS;
 }
 

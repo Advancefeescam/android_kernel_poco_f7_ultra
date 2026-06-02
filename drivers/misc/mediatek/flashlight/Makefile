@@ -1,7 +1,9 @@
 #
 # Makefile for the kernel flashlight device drivers.
 #
-
+ifeq ($(TARGET_PRODUCT),$(filter $(TARGET_PRODUCT),light))
+ccflags-y += -D__XIAOMI_CAMERA__
+endif
 flashlight-y := flashlight-core.o
 flashlight-y += flashlight-device.o
 

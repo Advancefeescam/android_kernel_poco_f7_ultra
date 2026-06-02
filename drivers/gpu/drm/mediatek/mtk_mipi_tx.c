@@ -1152,8 +1152,10 @@ static int mtk_mipi_tx_pll_cphy_prepare_mt6873(struct clk_hw *hw)
 	} else {
 		return -EINVAL;
 	}
+	/*L19 code for HQ-159430 by chenzimo at 20211210 start*/
 	/*set volate*/
-	writel(0x4444236A, mipi_tx->regs + MIPITX_VOLTAGE_SEL);
+	writel(0x444423EA, mipi_tx->regs + MIPITX_VOLTAGE_SEL);
+	/*L19 code for HQ-159430 by chenzimo at 20211210 end*/
 
 	/* change the mipi_volt */
 	if (mipi_volt) {

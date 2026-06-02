@@ -528,6 +528,16 @@ config UID_SYS_STATS_DEBUG
 	help
 	  Per TASK based io statistics exported to /proc/uid_io
 
+config SERIAL_NUM
+	bool "SERIAL_NUM"
+	default n
+
+# L19 code for HQ-000000 by lizheng at 2021/10/25 start
+config DEBUG_POLICY
+	bool "Enable DebugPolicy Proc Interface"
+	help
+	Provide a interface for reading debug policy status
+# L19 code for HQ-000000 by lizheng at 2021/10/25 end
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -543,4 +553,8 @@ source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/mediatek/Kconfig"
+#huaqin wangzhaoguo modify for L19 2021/10/9 start
+source "drivers/misc/hqsysfs/Kconfig"
+#huaqin wangzhaoguo modify for L19 2021/10/9 end
+source "drivers/misc/mi-memory/Kconfig"
 endmenu

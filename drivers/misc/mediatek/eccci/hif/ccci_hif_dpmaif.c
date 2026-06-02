@@ -2795,6 +2795,7 @@ static inline int cs_type(struct sk_buff *skb)
 			skb->ip_summed);
 		return 0;
 	} else if (packet_type == IPV4_VERSION) {
+
 		if (skb->ip_summed == CHECKSUM_NONE ||
 			skb->ip_summed == CHECKSUM_UNNECESSARY ||
 			skb->ip_summed == CHECKSUM_COMPLETE)

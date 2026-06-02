@@ -305,8 +305,8 @@
 	cam2_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
 	cam3_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
 
-	cam0_vcamd-supply = <&mt_pmic_vcn13_ldo_reg>;
-	cam1_vcamd-supply = <&mt_pmic_vcn13_ldo_reg>;
+	//cam0_vcamd-supply = <&mt_pmic_vcn13_ldo_reg>;
+	//cam1_vcamd-supply = <&mt_pmic_vcn13_ldo_reg>;
 
 	vcammainaf-supply = <&mt_pmic_vtp_ldo_reg>;
 

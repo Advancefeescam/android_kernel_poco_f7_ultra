@@ -71,7 +71,9 @@ DECLARE_SEMA(pm_sema, 0);
 DECLARE_COMPLETION(boot_decryto_lock);
 
 #ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
-#define TZ_PREFER_BIND_CORE (6)
+/*Huaqin modify for HQ-159420  by xiongwei7 at 2021/12/16 start */
+#define TZ_PREFER_BIND_CORE (7)
+/*Huaqin modify for HQ-159420  by xiongwei7 at 2021/12/16 end */
 #endif
 
 #define TEEI_RT_POLICY			(0x01)

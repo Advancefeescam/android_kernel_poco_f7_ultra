@@ -70,6 +70,11 @@
 #define DRIVER_MAJOR 1
 #define DRIVER_MINOR 0
 
+/*L19 code for HQ-159420 by chenzimo at 2021/12/20 start*/
+atomic_t resume_pending;
+wait_queue_head_t resume_wait_q;
+/*L19 code for HQ-159420 by chenzimo at 2021/12/20 end*/
+
 static atomic_t top_isr_ref; /* irq power status protection */
 static atomic_t top_clk_ref; /* top clk status protection*/
 static spinlock_t top_clk_lock; /* power status protection*/
@@ -88,6 +93,11 @@ struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
 
 static int manual_shift;
 static bool no_shift;
+/*L19 code for HQ-173453 by caogaojie at 2021/12/21 start*/
+#ifdef CONFIG_MI_ESD_SUPPORT
+extern bool is_fts_fisrt_esd;
+#endif
+/*L19 code for HQ-173453 by caogaojie at 2021/12/21 end*/
 
 int mtk_atoi(const char *str)
 {
@@ -968,16 +978,27 @@ static void drm_atomic_esd_chk_first_enable(struct drm_device *dev,
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
 
-
 	if (is_first) {
 		for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 			if (drm_crtc_index(crtc) == 0) {
-				if  (mtk_drm_lcm_is_connect())
+				if  (mtk_drm_lcm_is_connect()) {
+#ifdef CONFIG_MI_ESD_SUPPORT
+/*L19 code for HQ-173453 by caogaojie at 2021/12/21 start*/
+					if(is_fts_fisrt_esd) {
+						atomic_set(&lcm_valid_irq,1);
+						DDPPR_ERR("%s ---is focal\n", __func__);
+					} else {
+						atomic_set(&lcm_valid_irq,0);
+						DDPPR_ERR("%s ---is nova\n", __func__);
+					}
+						atomic_set(&is_lcm_inited_esd,1);
+/*L19 code for HQ-173453 by caogaojie at 2021/12/21 end*/
+#endif
 					mtk_disp_esd_check_switch(crtc, true);
 				break;
+				}
 			}
-		}
-
+		}	
 		is_first = false;
 	}
 }
@@ -3974,6 +3995,22 @@ static int mtk_drm_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
+
+/*L19 code for HQ-159420 by chenzimo at 2021/12/20 start*/
+static int mtk_drm_sys_prepare(struct device *dev)
+{
+	atomic_inc(&resume_pending);
+	return 0;
+}
+
+static void mtk_drm_sys_complete(struct device *dev)
+{
+	atomic_set(&resume_pending, 0);
+	wake_up_all(&resume_wait_q);
+	return;
+}
+/*L19 code for HQ-159420 by chenzimo at 2021/12/20 end*/
+
 static int mtk_drm_sys_suspend(struct device *dev)
 {
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
@@ -4016,8 +4053,17 @@ static int mtk_drm_sys_resume(struct device *dev)
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(mtk_drm_pm_ops, mtk_drm_sys_suspend,
-			 mtk_drm_sys_resume);
+/*L19 code for HQ-159420 by chenzimo at 2021/12/20 start*/
+//static SIMPLE_DEV_PM_OPS(mtk_drm_pm_ops, mtk_drm_sys_suspend,
+//			 mtk_drm_sys_resume);
+
+static const struct dev_pm_ops mtk_drm_pm_ops = {
+	.prepare = mtk_drm_sys_prepare,
+	.complete = mtk_drm_sys_complete,
+	.suspend = mtk_drm_sys_suspend,
+	.resume = mtk_drm_sys_resume,
+};
+/*L19 code for HQ-159420 by chenzimo at 2021/12/20 end*/
 
 static const struct of_device_id mtk_drm_of_ids[] = {
 	{.compatible = "mediatek,mt2701-mmsys",

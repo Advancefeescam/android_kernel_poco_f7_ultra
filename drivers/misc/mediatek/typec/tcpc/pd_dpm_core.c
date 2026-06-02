@@ -1692,14 +1692,15 @@ void pd_dpm_vcs_evaluate_swap(struct pd_port *pd_port)
 
 #ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
 	struct tcpc_device *tcpc = pd_port->tcpc;
-
+/*L19 HQ-178992 pd and cc charge bring up by miaozhichao at 2022/3/7 start*/
+	pr_err("pd_port->vconn_role:%d,tcpc->tcpc_vconn_supply:%d",pd_port->vconn_role,tcpc->tcpc_vconn_supply);
 	/* Reject it if we don't want supply vconn */
-	if ((!pd_port->vconn_role) &&
-		(tcpc->tcpc_vconn_supply == TCPC_VCONN_SUPPLY_NEVER))
+	if ((!pd_port->vconn_role) || (tcpc->tcpc_vconn_supply == TCPC_VCONN_SUPPLY_NEVER))
 		accept = false;
 #endif	/* CONFIG_TCPC_VCONN_SUPPLY_MODE */
 
-	dpm_response_request(pd_port, accept);
+/*L19 HQ-178992 pd and cc charge bring up by miaozhichao at 2022/3/7 end*/	
+  	dpm_response_request(pd_port, accept);
 }
 
 void pd_dpm_vcs_enable_vconn(struct pd_port *pd_port, uint8_t role)

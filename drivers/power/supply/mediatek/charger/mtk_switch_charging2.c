@@ -112,6 +112,11 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 	struct tag_bootmode *tag = NULL;
 	int boot_mode = 11;//UNKNOWN_BOOT
 
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 start*/
+	struct power_supply *psy;
+	union power_supply_propval val;
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 end*/
+
 	dev = &(info->pdev->dev);
 	if (dev != NULL) {
 		boot_node = of_parse_phandle(dev->of_node, "bootmode", 0);
@@ -189,11 +194,16 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 
 	if (info->atm_enabled == true && (info->chr_type == STANDARD_HOST ||
 	    info->chr_type == CHARGING_HOST)) {
-		pdata->input_current_limit = 100000; /* 100mA */
+/*L19 HQ-157883 atm modify USB current  by miaozhichao at 2021/10/23 start*/
+		pdata->input_current_limit = 500000; /* 500mA */
+		pdata->charging_current_limit = 500000; /* 500mA */
+/*L19 HQ-157883 atm modify USB current by miaozhichao at 2021/10/23 end*/
 		goto done;
 	}
 
-	if (is_typec_adapter(info)) {
+/*L19 HQ-178992 pd and cc charge bring up by miaozhichao at 2022/3/7 start*/
+	if (is_typec_adapter(info) && (info->chr_type != HVDCP_CHARGER)) {
+/*L19 HQ-178992 pd and cc charge bring up by miaozhichao at 2022/3/7 end*/
 		if (adapter_dev_get_property(info->pd_adapter, TYPEC_RP_LEVEL)
 			== 3000) {
 			pdata->input_current_limit = 3000000;
@@ -268,19 +278,33 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 		pdata->charging_current_limit =
 				info->data.apple_2_1a_charger_current;
 	}
-
-	if (info->enable_sw_jeita) {
-		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)
-		    && info->chr_type == STANDARD_HOST)
-			chr_err("USBIF & STAND_HOST skip current check\n");
-		else {
-			if (info->sw_jeita.sm == TEMP_T0_TO_T1) {
-				pdata->input_current_limit = 500000;
-				pdata->charging_current_limit = 350000;
-			}
-		}
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	else if (info->chr_type == CHECK_HV) {
+		pdata->input_current_limit =
+				info->data.ac_charger_current;
+		pdata->charging_current_limit =
+				info->data.ac_charger_current;
+	} else if (info->chr_type == HVDCP_CHARGER) {
+		pdata->input_current_limit =
+				info->data.ac_charger_current;
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 start*/
+		pdata->charging_current_limit = info->sw_jeita.cc;
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 end*/
+	} else if (info->chr_type == CHARGER_UNKNOWN) {
+		pdata->input_current_limit = 0;
+		pdata->charging_current_limit = 0;
 	}
-
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 start*/
+	if (info->enable_sw_jeita) {
+		if (pdata->charging_current_limit > info->sw_jeita.cc)
+			pdata->charging_current_limit = info->sw_jeita.cc;
+	}
+	pr_info("charging_current_limit: %d, sw_jeita.cc: %d\n",
+		pdata->charging_current_limit, info->sw_jeita.cc);
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 end*/
 	sc_select_charging_current(info, pdata);
 
 	if (pdata->thermal_input_current_limit != -1) {
@@ -306,7 +330,20 @@ done:
 	ret = charger_dev_get_min_input_current(info->chg1_dev, &aicr1_min);
 	if (ret != -ENOTSUPP && pdata->input_current_limit < aicr1_min)
 		pdata->input_current_limit = 0;
-
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 start*/
+	psy = power_supply_get_by_name("charger");
+	if (!psy) {
+		pr_err("%s : power_supply_get_by_name error!\n", __func__);
+		return;
+	}
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &val);
+	if (ret) {
+		pr_err("%s : power_supply_get_property error!\n", __func__);
+		return;
+	}
+	if ((val.intval > 0) && (pdata->input_current_limit > val.intval * 1000))
+		pdata->input_current_limit = val.intval * 1000;
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 end*/
 	chr_err("force:%d thermal:%d,%d pe4:%d,%d,%d setting:%d %d sc:%d,%d,%d type:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d\n",
 		_uA_to_mA(pdata->force_charging_current),
 		_uA_to_mA(pdata->thermal_input_current_limit),
@@ -352,18 +389,64 @@ done:
 		charger_dev_enable(info->chg1_dev, true);
 	mutex_unlock(&swchgalg->ichg_aicr_access_mutex);
 }
-
+/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 start*/
+static u32 get_charge_cycle_count_level(struct charger_manager *info)
+{
+	struct power_supply *psy;
+	union power_supply_propval val;
+	int  ret;
+	u32 ffc_constant_voltage = 0;
+	psy = power_supply_get_by_name("battery");
+	if (!psy) {
+		pr_err("%s : power_supply_get_by_name error!\n", __func__);
+	/*L19 HQ-179788 modify null by miaozhichao at 2022/1/21 start*/
+		return 0;
+	/*L19 HQ-179788 modify null by miaozhichao at 2022/1/21 end*/
+	}
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CYCLE_COUNT, &val);
+	if (ret) {
+		pr_err("%s : power_supply_get_property error!\n", __func__);
+	}
+	pr_err("%s : charger cycle count  = %d\n", __func__, val.intval);
+	if ((val.intval >= info->chg_cycle_count_level1) && (val.intval <= (info->chg_cycle_count_level2 - 1)))
+		ffc_constant_voltage = info->ffc_cv_1;
+	if ((val.intval > info->chg_cycle_count_level2) && (val.intval <= (info->chg_cycle_count_level3 - 1)))
+		ffc_constant_voltage = info->ffc_cv_2;
+	if ((val.intval > info->chg_cycle_count_level3) && (val.intval <= (info->chg_cycle_count_level4 - 1)))
+		ffc_constant_voltage = info->ffc_cv_3;
+	if (val.intval >= info->chg_cycle_count_level4)
+		ffc_constant_voltage = info->ffc_cv_4;
+	return  ffc_constant_voltage;
+}
+/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 end*/
 static void swchg_select_cv(struct charger_manager *info)
 {
 	u32 constant_voltage;
-
-	if (info->enable_sw_jeita)
+/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 start*/
+	u32 ffc_constant_voltage = 0;
+/*L19 HQ-159470 modify high temp voltage not correct by miaozhichao at 2021/12/9 start*/
+	if (info->enable_sw_ffc) {
+		ffc_constant_voltage = get_charge_cycle_count_level(info);
+		if (ffc_constant_voltage != 0) {
+			if (info->enable_sw_jeita && (info->sw_jeita.cv != 0)) {
+				constant_voltage = (ffc_constant_voltage < info->sw_jeita.cv)
+							? ffc_constant_voltage : info->sw_jeita.cv;
+			}
+			chr_err("%s, ffc_constant_voltage  = %d\n", __func__, constant_voltage);
+			charger_dev_set_constant_voltage(info->chg1_dev, constant_voltage);
+			return;
+		}
+	}
+/*L19 HQ-159470 modify high temp voltage not correct by miaozhichao at 2021/12/9 end*/
+	if (info->enable_sw_jeita) {
 		if (info->sw_jeita.cv != 0) {
+			chr_err("%s, info->sw_jeita.cv  = %d\n", __func__, info->sw_jeita.cv);
 			charger_dev_set_constant_voltage(info->chg1_dev,
 							info->sw_jeita.cv);
 			return;
 		}
-
+	}
+/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 end*/
 	/* dynamic cv*/
 	constant_voltage = info->data.battery_cv;
 	mtk_get_dynamic_cv(info, &constant_voltage);
@@ -679,12 +762,29 @@ static int select_pdc_charging_current_limit(struct charger_manager *info)
 	int ret = 0;
 
 	pdata = &info->chg1_data;
-
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	if ((info->chr_type == HVDCP_CHARGER)
+			|| (info->chr_type == CHECK_HV)
+			|| (info->chr_type == STANDARD_CHARGER)) {
+		pdata->input_current_limit =
+			info->data.pd_charger_current;
+		pdata->charging_current_limit =
+			info->data.pd_charger_current;
+	} else if (info->chr_type == STANDARD_HOST) {
+		pdata->input_current_limit = 1500000;
+		pdata->charging_current_limit = 1500000;
+	} else {
+		pdata->input_current_limit = 0;
+		pdata->charging_current_limit = 0;
+	}
+#else
 	pdata->input_current_limit =
 		info->data.pd_charger_current;
 	pdata->charging_current_limit =
 		info->data.pd_charger_current;
-
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 	sc_select_charging_current(info, pdata);
 
 	if (pdata->thermal_input_current_limit != -1) {
@@ -789,7 +889,52 @@ static bool mtk_switch_check_charging_time(struct charger_manager *info)
 
 	return true;
 }
-
+/*L19 HQ-159124 add recharge ways by miaozhichao at 2021/11/30 start*/
+static int judge_recharge_status(struct charger_manager *info)
+{
+	bool chg_done = false;
+	unsigned int battery_uisoc = 0;
+	long int battery_volt = 0;
+	int battery_health = 0;
+	int ret;
+	struct power_supply *psy;
+	union power_supply_propval val;
+	psy = power_supply_get_by_name("battery");
+	if (!psy) {
+		pr_err("%s : power_supply_get_by_name error!\n", __func__);
+	/*L19 HQ-179788 modify null by miaozhichao at 2022/1/21 start*/	
+		return 0;
+	/*L19 HQ-179788 modify null by miaozhichao at 2022/1/21 end*/
+	}
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_HEALTH, &val);
+	if (ret) {
+		pr_err("%s : power_supply_get_property error!\n", __func__);
+	}
+	battery_health = val.intval;
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_VOLTAGE_NOW, &val);
+	if (ret) {
+		pr_err("%s : power_supply_get_property error!\n", __func__);
+	}
+	battery_volt = val.intval;
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CAPACITY, &val);
+	if (ret) {
+		pr_err("%s : power_supply_get_property error!\n", __func__);
+	}
+	battery_uisoc = val.intval;
+	pr_err("%s : battery_health = %d, battery_volt = %d, battery_uisoc = %d, recharger_uisoc_limit = %d\n", __func__,
+						battery_health, battery_volt, battery_uisoc,  info->recharger_uisoc_limit);
+	if (battery_health  == POWER_SUPPLY_HEALTH_OVERHEAT) {
+			chr_err("over heat , battery recharging!\n");
+			chg_done = true;
+	} else {
+		if (battery_uisoc < info->recharger_uisoc_limit) {
+			chr_err("not over heat , battery recharging!\n");
+			chg_done = true;
+		}
+	}
+	return chg_done;
+}
+/*L19 HQ-159124 add recharge ways by miaozhichao at 2021/11/30 end*/
 static int mtk_switch_chr_cc(struct charger_manager *info)
 {
 	bool chg_done = false;
@@ -915,21 +1060,21 @@ static int mtk_switch_chr_cc(struct charger_manager *info)
 static int mtk_switch_chr_err(struct charger_manager *info)
 {
 	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
-
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 start*/
 	if (info->enable_sw_jeita) {
 		if ((info->sw_jeita.sm == TEMP_BELOW_T0) ||
-			(info->sw_jeita.sm == TEMP_ABOVE_T4))
+			(info->sw_jeita.sm == TEMP_ABOVE_T5))
 			info->sw_jeita.error_recovery_flag = false;
 
 		if ((info->sw_jeita.error_recovery_flag == false) &&
 			(info->sw_jeita.sm != TEMP_BELOW_T0) &&
-			(info->sw_jeita.sm != TEMP_ABOVE_T4)) {
+			(info->sw_jeita.sm != TEMP_ABOVE_T5)) {
 			info->sw_jeita.error_recovery_flag = true;
 			swchgalg->state = CHR_CC;
 			get_monotonic_boottime(&swchgalg->charging_begin_time);
 		}
 	}
-
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 end*/
 	swchgalg->total_charging_time = 0;
 
 	_disable_all_charging(info);
@@ -939,6 +1084,9 @@ static int mtk_switch_chr_err(struct charger_manager *info)
 static int mtk_switch_chr_full(struct charger_manager *info)
 {
 	bool chg_done = false;
+	/*L19 HQ-159124 add recharge ways by miaozhichao at 2021/11/30 start*/
+	bool recharge_flag = false;
+	/*L19 HQ-159124 add recharge ways by miaozhichao at 2021/11/30 end*/
 	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
 
 	swchgalg->total_charging_time = 0;
@@ -952,7 +1100,10 @@ static int mtk_switch_chr_full(struct charger_manager *info)
 	swchg_select_cv(info);
 	info->polling_interval = CHARGING_FULL_INTERVAL;
 	charger_dev_is_charging_done(info->chg1_dev, &chg_done);
-	if (!chg_done) {
+	/*L19 HQ-159124 add recharge ways by miaozhichao at 2021/11/30 start*/
+	recharge_flag = judge_recharge_status(info);
+	if ((!chg_done) && recharge_flag) {
+	/*L19 HQ-159124 add recharge ways by miaozhichao at 2021/11/30 end*/
 		swchgalg->state = CHR_CC;
 		charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
 		mtk_pe20_set_to_check_chr_type(info, true);

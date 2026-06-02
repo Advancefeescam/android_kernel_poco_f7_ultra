@@ -16,8 +16,8 @@
 #define BTS_RAP_PULL_UP_R		100000 /* 100K, pull up resister */
 
 #define BTS_TAP_OVER_CRITICAL_LOW	4397119 /* base on 100K NTC temp
-						 * default value -40 deg
-						 */
+						 					 * default value -40 deg
+						 					 */
 
 #define BTS_RAP_PULL_UP_VOLTAGE		1800 /* 1.8V ,pull up voltage */
 
@@ -28,14 +28,21 @@
 #define BTSMDPA_RAP_PULL_UP_R		100000 /* 100K, pull up resister */
 
 #define BTSMDPA_TAP_OVER_CRITICAL_LOW	4397119 /* base on 100K NTC temp
-						 * default value -40 deg
-						 */
+						 						* default value -40 deg
+						 						*/
 
 #define BTSMDPA_RAP_PULL_UP_VOLTAGE	1800 /* 1.8V ,pull up voltage */
 
 #define BTSMDPA_RAP_NTC_TABLE		7 /* default is NCP15WF104F03RC(100K) */
 
 #define BTSMDPA_RAP_ADC_CHANNEL		AUX_IN1_NTC /* default is 1 */
+
+/*L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 start*/
+#define BTS_BLKNTC_RAP_PULL_UP_R	100000 /* PULL UP resister */
+#define BTS_BLKNTC_TAP_OVER_CRITICAL_LOW 4397119 /* 40 DEG */
+#define BTS_BLKNTC_RAP_PULL_UP_VOLTAGE	1800 /* PULL UP VOLTAGE */
+#define BTS_BLKNTC_RAP_NTC_TABLE	7 /* default is ncp 15wf104f03rc 100k */
+/*L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 end*/
 
 
 #define BTSNRPA_RAP_PULL_UP_R		100000	/* 100K,pull up resister */

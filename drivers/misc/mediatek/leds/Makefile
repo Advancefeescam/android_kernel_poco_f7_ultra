@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0
 
+obj-$(CONFIG_KTD3136_SUPPORT) += ktd3136_bl.o
+obj-$(CONFIG_LM3697_SUPPORT) += ti-lmu-backlight-core.o
+obj-$(CONFIG_LM3697_SUPPORT) += ti-lmu-backlight-data.o
+
 ifdef CONFIG_LEDS_MTK_DISP
 obj-$(CONFIG_LEDS_MTK_DISP)		+= leds-mtk-disp.o
 else ifdef CONFIG_LEDS_MTK_PWM

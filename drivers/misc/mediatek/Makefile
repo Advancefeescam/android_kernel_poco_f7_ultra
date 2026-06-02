@@ -5,6 +5,9 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLA
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 subdir-ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/$(MTK_PLATFORM)
 
+#huaqin wangzhaoguo modify for L19 2021/10/9 start
+obj-y += simtray/
+#huaqin wangzhaoguo modify for L19 2021/10/9 start
 ifeq ($(CONFIG_MACH_MT6768),y)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/v1
 else ifeq ($(CONFIG_MACH_MT6739),y)

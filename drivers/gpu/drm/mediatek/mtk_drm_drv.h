@@ -57,6 +57,11 @@
 #define CONFIG_MTK_DISPLAY_M4U
 #endif
 
+#ifdef CONFIG_MI_ESD_SUPPORT
+extern atomic_t is_lcm_inited_esd;
+extern atomic_t lcm_valid_irq;
+#endif
+
 struct device;
 struct device_node;
 struct drm_crtc;
@@ -65,6 +70,13 @@ struct drm_property;
 struct regmap;
 struct mm_qos_request;
 struct mtk_pm_qos_request;
+/*L19 code for HQ-158620 by caogaojie at 2021/11/29 start*/
+struct fb_lcd_wp_para {
+	int white_point_x;
+	int white_point_y;
+	int white_point_l;
+};
+/*L19 code for HQ-158620 by caogaojie at 2021/11/29 end*/
 
 struct mtk_atomic_state {
 	struct drm_atomic_state base;
@@ -259,6 +271,12 @@ extern struct platform_driver mtk_lvds_driver;
 extern struct platform_driver mtk_lvds_tx_driver;
 extern struct platform_driver mtk_disp_dsc_driver;
 extern struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
+
+/*L19 code for HQ-159420 by chenzimo at 2021/12/20 start*/
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
+/*L19 code for HQ-159420 by chenzimo at 2021/12/20 end*/
+
 extern struct platform_driver mtk_disp_merge_driver;
 #ifdef CONFIG_MTK_HDMI_SUPPORT
 extern struct platform_driver mtk_dp_tx_driver;

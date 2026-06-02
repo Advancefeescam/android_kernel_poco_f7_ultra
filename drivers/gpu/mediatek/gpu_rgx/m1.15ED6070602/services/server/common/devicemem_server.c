@@ -224,6 +224,7 @@ DevmemIntUnpinInvalidate(DEVMEMINT_MAPPING *psDevmemMapping, PMR *psPMR)
 	PVR_UNREFERENCED_PARAMETER(psPMR);
 	return PVRSRV_ERROR_NOT_IMPLEMENTED;
 }
+
 PVRSRV_ERROR
 DevmemIntPin(PMR *psPMR)
 {

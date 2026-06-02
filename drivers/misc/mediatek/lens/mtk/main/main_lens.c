@@ -65,7 +65,7 @@ static struct i2c_board_info kd_lens_dev __initdata = {
 #define AF_DEBUG
 #ifdef AF_DEBUG
 #define LOG_INF(format, args...)                                               \
-	pr_info(AF_DRVNAME " [%s] " format, __func__, ##args)
+	pr_err(AF_DRVNAME " [%s] " format, __func__, ##args)
 #else
 #define LOG_INF(format, args...)
 #endif
@@ -85,8 +85,6 @@ static struct stAF_OisPosInfo OisPosInfo;
 static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	{1, AFDRV_DW9718TAF, DW9718TAF_SetI2Cclient, DW9718TAF_Ioctl,
 	 DW9718TAF_Release, DW9718TAF_GetFileName, NULL},
-	{1, AFDRV_GT9772AF, GT9772AF_SetI2Cclient, GT9772AF_Ioctl,
-	 GT9772AF_Release, GT9772AF_GetFileName, NULL},
 	{1, AFDRV_AK7371AF, AK7371AF_SetI2Cclient, AK7371AF_Ioctl,
 	 AK7371AF_Release, AK7371AF_GetFileName, NULL},
 	{1, AFDRV_BU6424AF, BU6424AF_SetI2Cclient, BU6424AF_Ioctl,
@@ -126,30 +124,9 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	 FP5510E2AF_Release, FP5510E2AF_GetFileName, NULL},
 	{1, AFDRV_DW9718AF, DW9718AF_SetI2Cclient, DW9718AF_Ioctl,
 	 DW9718AF_Release, DW9718AF_GetFileName, NULL},
-	{1, AFDRV_GT9764AF, GT9764AF_SetI2Cclient, GT9764AF_Ioctl,
-	GT9764AF_Release, GT9764AF_GetFileName, NULL},
-//#ifdef SUPPORT_GT9768AF
-	{1, AFDRV_GT9768AF, GT9768AF_SetI2Cclient, GT9768AF_Ioctl,
-	GT9768AF_Release, GT9768AF_GetFileName, NULL},
-//#endif
-	{1, AFDRV_LC898212AF, LC898212AF_SetI2Cclient, LC898212AF_Ioctl,
-	 LC898212AF_Release, LC898212AF_GetFileName, NULL},
-	{1, AFDRV_LC898214AF, LC898214AF_SetI2Cclient, LC898214AF_Ioctl,
-	 LC898214AF_Release, LC898214AF_GetFileName, NULL},
-	{1, AFDRV_LC898217AF, LC898217AF_SetI2Cclient, LC898217AF_Ioctl,
-	 LC898217AF_Release, LC898217AF_GetFileName, NULL},
-	{1, AFDRV_LC898217AFA, LC898217AFA_SetI2Cclient, LC898217AFA_Ioctl,
-	 LC898217AFA_Release, LC898217AFA_GetFileName, NULL},
-	{1, AFDRV_LC898217AFB, LC898217AFB_SetI2Cclient, LC898217AFB_Ioctl,
-	 LC898217AFB_Release, LC898217AFB_GetFileName, NULL},
-	{1, AFDRV_LC898217AFC, LC898217AFC_SetI2Cclient, LC898217AFC_Ioctl,
-	 LC898217AFC_Release, LC898217AFC_GetFileName, NULL},
-	{1, AFDRV_LC898229AF, LC898229AF_SetI2Cclient, LC898229AF_Ioctl,
-	 LC898229AF_Release, LC898229AF_GetFileName, NULL},
-	{1, AFDRV_LC898122AF, LC898122AF_SetI2Cclient, LC898122AF_Ioctl,
-	 LC898122AF_Release, LC898122AF_GetFileName, NULL},
-	{1, AFDRV_WV511AAF, WV511AAF_SetI2Cclient, WV511AAF_Ioctl,
-	 WV511AAF_Release, WV511AAF_GetFileName, NULL},
+	{1, AFDRV_GT9764AF, GT9764AF_SetI2Cclient, GT9764AF_Ioctl, GT9764AF_Release, GT9764AF_GetFileName, NULL},//ov50c40 sunny
+	{1, AFDRV_CN3927AF, CN3927AF_SetI2Cclient, CN3927AF_Ioctl, CN3927AF_Release, CN3927AF_GetFileName, NULL}, //hi1337 aac
+	{1, AFDRV_GT9772AF, GT9772AF_SetI2Cclient, GT9772AF_Ioctl, GT9772AF_Release, GT9772AF_GetFileName, NULL},//hi1337 ofilm
 };
 
 static struct stAF_DrvList *g_pstAF_CurDrv;
@@ -170,7 +147,7 @@ static struct pinctrl *vcamaf_pio;
 static struct pinctrl_state *vcamaf_pio_on;
 static struct pinctrl_state *vcamaf_pio_off;
 
-#define CAMAF_PMIC     "camaf_m1_pmic"
+#define CAMAF_PMIC     "vtp"
 #define CAMAF_GPIO_ON  "camaf_m1_gpio_on"
 #define CAMAF_GPIO_OFF "camaf_m1_gpio_off"
 
@@ -230,11 +207,24 @@ static void camaf_power_init(void)
 static void camaf_power_on(void)
 {
 	int ret;
-
+        int Status;
 	if (vcamaf_ldo) {
 		ret = regulator_enable(vcamaf_ldo);
 		LOG_INF("regulator enable (%d)\n", ret);
-	}
+                        if (!ret) {
+                                Status = regulator_set_voltage(
+                                vcamaf_ldo, 2800000, 2800000);
+                                LOG_INF("regulator_set_voltage %d\n", Status);
+
+                                if (ret != 0)
+                                LOG_INF("regulator_set_voltage fail\n");
+                                usleep_range(5000, 5500);
+                        } else {
+                                LOG_INF("AF Power on\n");
+                        }
+                }
+
+	
 
 	if (vcamaf_pio && vcamaf_pio_on) {
 		ret = pinctrl_select_state(vcamaf_pio, vcamaf_pio_on);

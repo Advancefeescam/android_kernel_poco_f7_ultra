@@ -18,6 +18,8 @@
 #include "../../codecs/mt6359.h"
 #include "../common/mtk-sp-spk-amp.h"
 
+#include "../../codecs/sia81xx/sia81xx_aux_dev_if.h"
+
 #ifdef CONFIG_SND_SOC_AW87339
 #include "aw87339.h"
 #endif
@@ -1108,6 +1110,11 @@ static int mt6833_mt6359_dev_probe(struct platform_device *pdev)
 	}
 
 	card->dev = &pdev->dev;
+
+        ret = soc_aux_init_only_sia81xx(pdev, card);
+	if (ret)
+			dev_err(&pdev->dev, "%s soc_aux_init_only_sia81xx fail %d\n",
+					__func__, ret);
 
 	dev_info(&pdev->dev, "%s(), devm_snd_soc_register_card\n", __func__);
 

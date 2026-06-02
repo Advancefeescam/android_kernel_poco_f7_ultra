@@ -58,6 +58,12 @@ static DEFINE_MUTEX(gimgsensor_open_mutex);
 struct IMGSENSOR gimgsensor;
 MUINT32 last_id;
 
+
+
+#if defined(FACTORY_CAMERA_MODE) || defined(__XIAOMI_CAMERA__)
+int cam_pwr_debug = 0;
+#endif
+
 /******************************************************************************
  * Profiling
  ******************************************************************************/
@@ -2362,6 +2368,28 @@ static const struct file_operations gimgsensor_file_operations = {
 #endif
 };
 
+
+#if defined(FACTORY_CAMERA_MODE) || defined(__XIAOMI_CAMERA__)
+static ssize_t debug_info_set(struct device *dev, struct device_attribute * attr, 
+																const char *buf, size_t count)
+{
+	if (sscanf(buf,  "%d", &cam_pwr_debug) == 1) {
+		pr_err("set imgsensor cam_pwr_debug success:%d\n", cam_pwr_debug);
+	} else {
+		cam_pwr_debug = 0;
+		pr_err("set imgsensor cam_pwr_debug fail:%d\n", cam_pwr_debug);
+	}
+	return count;
+}
+
+static ssize_t debug_info_get(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", cam_pwr_debug);
+}
+
+static DEVICE_ATTR(IMGSENSOR_DEBUG, 0664, debug_info_get, debug_info_set);
+#endif
+
 static int imgsensor_probe(struct platform_device *pplatform_device)
 {
 	struct IMGSENSOR *pimgsensor = &gimgsensor;
@@ -2420,6 +2448,10 @@ static int imgsensor_probe(struct platform_device *pplatform_device)
 
 #ifdef IMGSENSOR_OC_ENABLE
 	imgsensor_oc_init();
+#endif
+
+#if defined(FACTORY_CAMERA_MODE) || defined(__XIAOMI_CAMERA__)
+	sysfs_create_file(&pplatform_device->dev.kobj, &dev_attr_IMGSENSOR_DEBUG.attr);
 #endif
 
 	return 0;

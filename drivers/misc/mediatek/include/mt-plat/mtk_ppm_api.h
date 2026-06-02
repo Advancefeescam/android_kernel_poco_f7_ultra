@@ -40,6 +40,9 @@ enum ppm_sysboost_user {
 	BOOST_BY_DEBUGD = 5,
 	BOOST_BY_DEBUGD_64,
 	BOOST_BY_BOOT_TIME_OPT,
+/*L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 start*/
+	BOOST_BY_XM_THERMAL,
+/*L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 end*/
 
 	NR_PPM_SYSBOOST_USER,
 };

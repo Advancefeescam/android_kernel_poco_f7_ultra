@@ -3332,6 +3332,8 @@ static int sd_format_disk_name(char *prefix, int index, char *buf, int buflen)
 	return 0;
 }
 
+int ufs_ffu(struct scsi_device *sdev);
+
 /*
  * The asynchronous part of sd_probe
  */
@@ -3390,6 +3392,10 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 		sdkp->opal_dev = init_opal_dev(sdp, &sd_sec_submit);
 		if (sdkp->opal_dev)
 			sd_printk(KERN_NOTICE, sdkp, "supports TCG Opal\n");
+	}
+
+	if (sdp->lun == 2) {
+		ufs_ffu(sdp);
 	}
 
 	sd_printk(KERN_NOTICE, sdkp, "Attached SCSI %sdisk\n",

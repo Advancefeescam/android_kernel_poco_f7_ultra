@@ -65,7 +65,9 @@
 #define PMIC_MIN_VOL 33500
 
 /*ui_soc related */
-#define DIFFERENCE_FULL_CV 1000 /*0.01%*/
+/*L19X HQ-231701 modify recharge power down by miaozhichao at 2022/8/22 start*/
+#define DIFFERENCE_FULL_CV 100 /*0.01%*/
+/*L19X HQ-231701 modify recharge power down by miaozhichao at 2022/8/22 end*/
 #define PSEUDO1_EN 1
 #define PSEUDO100_EN 1
 #define PSEUDO100_EN_DIS 0

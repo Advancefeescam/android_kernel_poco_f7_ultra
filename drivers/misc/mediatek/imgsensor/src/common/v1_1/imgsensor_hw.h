@@ -86,6 +86,10 @@ enum IMGSENSOR_RETURN imgsensor_hw_dump(struct IMGSENSOR_HW *phw);
 extern struct IMGSENSOR_HW_CFG imgsensor_custom_config[];
 extern struct IMGSENSOR_HW_POWER_SEQ platform_power_sequence[];
 extern struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[];
+#if defined(FACTORY_CAMERA_MODE) || defined(__XIAOMI_CAMERA__)
+extern struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence_V1_1[];
+extern struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence_V1_2[];
+#endif
 extern enum IMGSENSOR_RETURN (*hw_open[IMGSENSOR_HW_ID_MAX_NUM])
 					(struct IMGSENSOR_HW_DEVICE **);
 

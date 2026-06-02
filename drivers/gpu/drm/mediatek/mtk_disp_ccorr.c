@@ -898,11 +898,11 @@ int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 	}
 
 	color_transform = data;
-
+/* L19 code for HQ-191417 by zhoujinxiang at 2022.03.08 start */
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
-	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877) \
 	 || defined(CONFIG_MACH_MT6781)
+/* L19 code for HQ-191417 by zhoujinxiang at 2022.03.08 end */
 	// Support matrix:
 	// AOSP is 4x3 matrix. Offset is located at 4th row (not zero)
 

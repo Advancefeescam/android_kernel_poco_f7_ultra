@@ -1436,6 +1436,8 @@ config SND_SOC_RT5512
 	  multi-band DRC, equalizer function. It would
 	  be set to yes if device with RT5512 on it.
 
+source "sound/soc/codecs/awinic/Kconfig"
+
 config SND_SOC_SMARTPAINFO
 	tristate "smartpa info"
 	depends on I2C

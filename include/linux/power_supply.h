@@ -228,12 +228,23 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
+/*L19 HQ-162876 add battery id node by gengyifei at 2021/10/28 start*/
+	POWER_SUPPLY_PROP_BATTERY_ID_VOLTAGE,
+	POWER_SUPPLY_PROP_BATTERY_ID,
+	POWER_SUPPLY_PROP_BATTERY_VENDOR,
+/*L19 HQ-162876 add battery id node by gengyifei at 2021/10/28 end*/
 	POWER_SUPPLY_PROP_TYPE, /* use power_supply.type instead */
 	POWER_SUPPLY_PROP_USB_TYPE,
+/*L19 HQ-159093 quick charge type node by tongjiacheng at 2021/11/19 start*/
+	POWER_SUPPLY_PROP_QUICK_CHARGE_TYPE,
+/*L19 HQ-159093 quick charge type node by tongjiacheng at 2021/11/19 end*/
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_PRECHARGE_CURRENT,
 	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
 	POWER_SUPPLY_PROP_CALIBRATE,
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 start*/
+	POWER_SUPPLY_PROPER_TYPEC_CC_ORIENTATION,
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 end*/
 	/* Local extensions */
 	POWER_SUPPLY_PROP_USB_HC,
 	POWER_SUPPLY_PROP_USB_OTG,
@@ -249,6 +260,9 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_STEP_CHARGING_STEP,
 	POWER_SUPPLY_PROP_PIN_ENABLED,
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7 start*/
+	POWER_SUPPLY_PROP_SHUTDOWN_DELAY,
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7end*/
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM,

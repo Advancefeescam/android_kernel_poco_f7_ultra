@@ -647,6 +647,13 @@ struct fgd_cmd_param_t_custom {
 	struct fuel_gauge_table_custom_data fg_table_cust_data;
 };
 
+/*L19 HQ-168938 bms infor by tongjiacheng at 2021/11/18 start*/
+struct bms_data {
+	struct power_supply_desc psd;
+	struct power_supply *psy;
+	struct power_supply_config cfg;
+};
+/*L19 HQ-168938 bms infor by tongjiacheng at 2021/11/18 end*/
 
 struct battery_data {
 	struct power_supply_desc psd;
@@ -756,7 +763,9 @@ struct ag_center_data_st {
 	struct timespec times[3];
 };
 struct mtk_battery {
-
+/*L19 HQ-162876 add battery id node by gengyifei at 2021/10/28 start*/
+	int battery_id_voltage;
+/*L19 HQ-162876 add battery id node by gengyifei at 2021/10/28 end*/
 	int fix_coverity;
 	struct gauge_device *gdev;
 
@@ -778,6 +787,9 @@ struct mtk_battery {
 
 /*custom related*/
 	int battery_id;
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7 start*/
+	bool shutdown_delay;
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7 end*/
 
 	struct zcv_filter zcvf;
 

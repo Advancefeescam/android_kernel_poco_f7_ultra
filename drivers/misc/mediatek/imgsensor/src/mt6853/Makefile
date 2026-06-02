@@ -20,7 +20,7 @@ ARCH_MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
 IMGSENSOR_DRIVER_PATH  := $(srctree)/drivers/misc/mediatek/imgsensor/src
 MTK_DRIVER_PATH  := $(srctree)/drivers/misc/mediatek
 COMMON_VERSION := v1_1
-
+$(info ARCH_MTK_PROJECT:$(ARCH_MTK_PROJECT))
 subdir-ccflags-y += -I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION) \
 	-I$(MTK_DRIVER_PATH)/mmdvfs \
 	-I$(srctree)/drivers/i2c/busses/
@@ -58,7 +58,7 @@ ifneq ($(platform_drv),)
 $(info imgsensor drv by platform $(platform_drv))
 endif
 
-$(info imgsensor drv by platform $(project_drv))
+$(info imgsensor drv by project $(project_drv))
 
 obj-y				+= $(platform_drv)
 

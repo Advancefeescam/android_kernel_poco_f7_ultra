@@ -8,6 +8,7 @@
 #define _MTK_SRAM_MANAGER_H_
 
 #include <sound/soc.h>
+extern int fac_mic;
 
 enum mtk_audio_sram_mode {
 	MTK_AUDIO_SRAM_NORMAL_MODE = 0,

@@ -588,7 +588,9 @@ void nvt_bootloader_reset(void)
 	CTP_I2C_WRITE(ts->client, I2C_HW_Address, buf, 2);
 
 	// need 35ms delay after bootloader reset
-	msleep(35);
+	/*L19 code for HQ-170436 by chenzimo at 2021/12/15 start*/
+	usleep_range(35000,35001);
+	/*L19 code for HQ-170436 by chenzimo at 2021/12/15 end*/
 }
 
 /*******************************************************
@@ -688,7 +690,9 @@ int32_t nvt_check_fw_reset_state(enum RST_COMPLETE_STATE check_reset_state)
 	int32_t retry = 0;
 
 	while (1) {
-		msleep(20);
+		/*L19 code for HQ-170436 by chenzimo at 2021/12/15 start*/
+		usleep_range(20000,20001);
+		/*L19 code for HQ-170436 by chenzimo at 2021/12/15 end*/
 
 		//---read reset state---
 		buf[0] = EVENT_MAP_RESET_COMPLETE;

@@ -280,6 +280,10 @@ snd-soc-tpa6130a2-objs := tpa6130a2.o
 snd-soc-tas2552-objs := tas2552.o
 snd-soc-smartpa-info-objs := smartpa-info.o
 
+
+obj-$(CONFIG_SND_SOC_AW87XXX) += awinic/aw87xxx.o awinic/aw_device.o awinic/aw_monitor.o awinic/aw_bin_parse.o awinic/aw_dsp.o awinic/aw_acf_bin.o
+
+
 obj-$(CONFIG_SND_RICHTEK_SPM)   += richtek_spm_cls.o
 obj-$(CONFIG_SND_SOC_88PM860X)	+= snd-soc-88pm860x.o
 obj-$(CONFIG_SND_SOC_AB8500_CODEC)	+= snd-soc-ab8500-codec.o
@@ -555,6 +559,8 @@ obj-$(CONFIG_SND_SOC_RT5512)	+= snd-soc-rt5512.o
 obj-$(CONFIG_SND_SOC_MT6660)	+= snd-soc-mt6660.o
 obj-$(CONFIG_SND_SOC_SMARTPAINFO)	+= snd-soc-smartpa-info.o
 obj-$(CONFIG_SND_SOC_AW87339)	+= aw87339/
+
+obj-y += sia81xx/
 
 ifneq (, $(filter y,$(CONFIG_SND_SOC_MT6358) $(CONFIG_SND_SOC_MT6366)))
   MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))

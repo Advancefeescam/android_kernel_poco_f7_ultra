@@ -136,6 +136,9 @@ struct thermal_cooling_device_ops {
 	int (*get_max_state) (struct thermal_cooling_device *, unsigned long *);
 	int (*get_cur_state) (struct thermal_cooling_device *, unsigned long *);
 	int (*set_cur_state) (struct thermal_cooling_device *, unsigned long);
+/*L19 HQ-159006 thermal available node by gengyifei at 2021/11/15 start*/
+	int (*get_available) (struct thermal_cooling_device *, char *);
+/*L19 HQ-159006 thermal available node by gengyifei at 2021/11/15 end*/
 	int (*set_min_state)(struct thermal_cooling_device *cdev,
 				unsigned long target);
 	int (*get_min_state)(struct thermal_cooling_device *cdev,

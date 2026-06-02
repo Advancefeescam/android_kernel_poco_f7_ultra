@@ -77,6 +77,12 @@ static const char * const power_supply_capacity_level_text[] = {
 	"Unknown", "Critical", "Low", "Normal", "High", "Full"
 };
 
+/*L19 HQ-162876 add battery id node by gengyifei at 2021/10/28 start*/
+static const char * const power_supply_battery_type_text[] = {
+	"COSMX_100K", "SWD_330K", "Unuse", "Unknown"
+};
+/*L19 HQ-162876 add battery id node by gengyifei at 2021/10/28 end*/
+
 static const char * const power_supply_scope_text[] = {
 	"Unknown", "System", "Device"
 };
@@ -195,6 +201,12 @@ static ssize_t power_supply_show_property(struct device *dev,
 						 psy->desc->num_usb_types,
 						 &value, buf);
 		break;
+        /*L19 HQ-162876 add battery id adc channel by gengyifei at 2021/10/28 start*/
+	case POWER_SUPPLY_PROP_BATTERY_VENDOR:
+        case POWER_SUPPLY_PROP_BATTERY_TYPE:
+		return sprintf(buf, "%s\n",
+					power_supply_battery_type_text[value.intval]);
+	/*L19 HQ-162876 add battery id adc channel by gengyifei at 2021/10/28 start*/
 	case POWER_SUPPLY_PROP_SCOPE:
 		ret = sprintf(buf, "%s\n",
 			      power_supply_scope_text[value.intval]);
@@ -220,7 +232,11 @@ static ssize_t power_supply_show_property(struct device *dev,
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT:
 		ret = sprintf(buf, "%lld\n", value.int64val);
 		break;
-	case POWER_SUPPLY_PROP_MODEL_NAME ... POWER_SUPPLY_PROP_SERIAL_NUMBER:
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+	case POWER_SUPPLY_PROP_PTMC_ID:
+	case POWER_SUPPLY_PROP_MANUFACTURER:
+	case POWER_SUPPLY_PROP_CYCLE_COUNTS:
+	case POWER_SUPPLY_PROP_SERIAL_NUMBER:
 		ret = sprintf(buf, "%s\n", value.strval);
 		break;
 	default:
@@ -345,12 +361,23 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(time_to_empty_avg),
 	POWER_SUPPLY_ATTR(time_to_full_now),
 	POWER_SUPPLY_ATTR(time_to_full_avg),
+/*L19 HQ-162876 add battery id adc channel by gengyifei at 2021/10/28 start*/
+	POWER_SUPPLY_ATTR(battery_id_voltage),
+	POWER_SUPPLY_ATTR(battery_id),
+	POWER_SUPPLY_ATTR(battery_vendor),
+/*L19 HQ-162876 add battery id adc channel by gengyifei at 2021/10/28 end*/
 	POWER_SUPPLY_ATTR(type),
 	POWER_SUPPLY_ATTR(usb_type),
+/*L19 HQ-159093 quick charge type node by tongjiacheng at 2021/11/19 start*/
+	POWER_SUPPLY_ATTR(quick_charge_type),
+/*L19 HQ-159093 quick charge type node by tongjiacheng at 2021/11/19 end*/
 	POWER_SUPPLY_ATTR(scope),
 	POWER_SUPPLY_ATTR(precharge_current),
 	POWER_SUPPLY_ATTR(charge_term_current),
 	POWER_SUPPLY_ATTR(calibrate),
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 start*/
+	POWER_SUPPLY_ATTR(typec_cc_orientation),
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 end*/
 	/* Local extensions */
 	POWER_SUPPLY_ATTR(usb_hc),
 	POWER_SUPPLY_ATTR(usb_otg),
@@ -366,6 +393,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(step_charging_step),
 	POWER_SUPPLY_ATTR(pin_enabled),
 	POWER_SUPPLY_ATTR(input_suspend),
+	POWER_SUPPLY_ATTR(shutdown_delay),
 	POWER_SUPPLY_ATTR(input_voltage_regulation),
 	POWER_SUPPLY_ATTR(input_current_max),
 	POWER_SUPPLY_ATTR(input_current_trim),

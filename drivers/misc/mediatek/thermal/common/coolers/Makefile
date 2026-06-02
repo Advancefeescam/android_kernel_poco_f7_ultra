@@ -235,4 +235,8 @@ obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
 #obj-$(CONFIG_THERMAL) += mtk_cooler_NR.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_VR_FPS.o
 endif
-
+ifeq ($(CONFIG_MACH_MT6833),y)
+obj-$(CONFIG_THERMAL) += mtk_cooler_gpu_cus.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_md_cus.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_char_curr_cus.o
+endif

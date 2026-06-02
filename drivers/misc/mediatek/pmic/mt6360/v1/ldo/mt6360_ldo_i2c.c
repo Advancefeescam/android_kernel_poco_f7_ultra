@@ -19,7 +19,7 @@ module_param(dbg_log_en, bool, 0644);
 
 static const struct mt6360_ldo_platform_data def_platform_data = {
 	.sdcard_det_en = true,
-	.sdcard_hlact = true,
+	.sdcard_hlact = false, // true
 };
 
 struct mt6360_regulator_desc {
@@ -302,16 +302,16 @@ static void mt6360_ldo_irq_register(struct mt6360_ldo_info *mli)
 static int mt6360_ldo_enable(struct regulator_dev *rdev)
 {
 	struct mt6360_ldo_info *mli = rdev_get_drvdata(rdev);
-	struct mt6360_ldo_platform_data *pdata = dev_get_platdata(mli->dev);
+	//struct mt6360_ldo_platform_data *pdata = dev_get_platdata(mli->dev);
 	const struct regulator_desc *desc = rdev->desc;
 	int id = rdev_get_id(rdev), ret;
 
 	mt_dbg(&rdev->dev, "%s, id = %d\n", __func__, id);
 
 	/* Enable SDCARD_DET before LDO5 enables. */
-	if (id == MT6360_LDO_LDO5 && pdata->sdcard_det_en) {
+	if (id == MT6360_LDO_LDO5/* && pdata->sdcard_det_en */) {
 		ret = mt6360_ldo_reg_update_bits(mli, MT6360_LDO_LDO5_CTRL0,
-						 0x80, pdata->sdcard_hlact ? 0xff : 0);
+						 0x80, /*pdata->sdcard_hlact ? 0xff :*/0);
 		if (ret < 0) {
 			dev_info(&rdev->dev,
 				"%s: sdcard_hlact fail (%d)\n", __func__, ret);
@@ -339,7 +339,7 @@ static int mt6360_ldo_enable(struct regulator_dev *rdev)
 static int mt6360_ldo_disable(struct regulator_dev *rdev)
 {
 	struct mt6360_ldo_info *mli = rdev_get_drvdata(rdev);
-	struct mt6360_ldo_platform_data *pdata = dev_get_platdata(mli->dev);
+	//struct mt6360_ldo_platform_data *pdata = dev_get_platdata(mli->dev);
 	const struct regulator_desc *desc = rdev->desc;
 	int id = rdev_get_id(rdev), ret;
 
@@ -351,7 +351,7 @@ static int mt6360_ldo_disable(struct regulator_dev *rdev)
 		return ret;
 	}
 	/* when LDO5 disable, disable SDCARD_DET */
-	if (id == MT6360_LDO_LDO5 && pdata->sdcard_det_en) {
+	if (id == MT6360_LDO_LDO5/* && pdata->sdcard_det_en */) {
 		ret = mt6360_ldo_reg_update_bits(mli, MT6360_LDO_LDO5_CTRL0,
 						 0x40, 0);
 		if (ret < 0) {
@@ -808,7 +808,7 @@ static SIMPLE_DEV_PM_OPS(mt6360_ldo_pm_ops,
 
 static const struct of_device_id __maybe_unused mt6360_ldo_of_id[] = {
 	{ .compatible = "mediatek,mt6360_ldo", },
-	{ .compatible = "mediatek,subpmic_ldo", },
+        { .compatible = "mediatek,subpmic_ldo", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mt6360_ldo_of_id);

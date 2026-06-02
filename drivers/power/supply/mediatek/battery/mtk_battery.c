@@ -89,7 +89,6 @@
 #define Set_BAT_DISABLE_NAFG _IOW('k', 14, int)
 #define Set_CARTUNE_TO_KERNEL _IOW('k', 15, int)
 /* add for meta tool----------------------------------------- */
-
 static struct class *adc_cali_class;
 static int adc_cali_major;
 static dev_t adc_cali_devno;
@@ -122,6 +121,26 @@ static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 start*/
+       POWER_SUPPLY_PROP_CHARGING_ENABLED,
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 end*/
+/*L19 HQ-162876 add battery id node by gengyifei at 2021/10/28 start*/
+	POWER_SUPPLY_PROP_BATTERY_ID_VOLTAGE,
+	POWER_SUPPLY_PROP_BATTERY_ID,
+	POWER_SUPPLY_PROP_BATTERY_VENDOR,
+/*L19 HQ-162876 add battery id node by gengyifei at 2021/10/28 end*/
+/*L19 HQ-159325 input_suspend node bring up by gengyifei at 2021/11/3 start*/
+	POWER_SUPPLY_PROP_INPUT_SUSPEND,
+/*L19 HQ-159325 input_suspend node bring up by gengyifei at 2021/11/3 end*/
+/*L19 L19-13 add thermal limit current by miaozhichao at 2021/11/18 start*/
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
+/*L19 L19-13 add thermal limit current by miaozhichao at 2021/11/18 end*/
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7 start*/
+	POWER_SUPPLY_PROP_SHUTDOWN_DELAY,
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2021/12/7 end*/
+/*L19 HQ-159363 add resistance node by tongjiacheng at 2021/12/30 start*/
+	POWER_SUPPLY_PROP_RESISTANCE,
+/*L19 HQ-159363 add resistance node by tongjiacheng at 2021/12/30 end*/
 };
 
 /* boot mode */
@@ -441,12 +460,83 @@ int check_cap_level(int uisoc)
 		return POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN;
 }
 
+/*L19 HQ-168938 bms infor by tongjiacheng at 2021/11/18 start*/
+static enum power_supply_property bms_props[] = {
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_RESISTANCE_ID,
+	POWER_SUPPLY_PROP_BATTERY_TYPE,
+	/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 start*/
+	POWER_SUPPLY_PROP_CYCLE_COUNT,
+	/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 end*/
+/*L19 HQ-159363 add charge full node by tongjiacheng at 2021/12/13 start*/
+	POWER_SUPPLY_PROP_CHARGE_FULL,
+/*L19 HQ-159363 add charge full node by tongjiacheng at 2021/12/13 end*/
+/*L19 HQ-159363 add resistance node by tongjiacheng at 2021/12/15 start*/
+	POWER_SUPPLY_PROP_RESISTANCE,
+/*L19 HQ-159363 add resistance node by tongjiacheng at 2021/12/15 end*/
+};
+
+static int bms_get_property(struct power_supply *psy,
+			    enum power_supply_property psp,
+			    union power_supply_propval *val)
+{
+	int ret = 0;
+
+	switch (psp) {
+		case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+			val->intval = 5000000;
+			break;
+		case POWER_SUPPLY_PROP_RESISTANCE_ID:
+			val->intval = gm.battery_id_voltage;
+			break;
+		case POWER_SUPPLY_PROP_BATTERY_TYPE:
+			val->intval = gm.battery_id;
+			break;
+/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 start*/
+		case POWER_SUPPLY_PROP_CYCLE_COUNT:
+			val->intval = gm.bat_cycle;
+			break;
+/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 end*/
+/*L19 HQ-159363 add charge full node by tongjiacheng at 2021/12/13 start*/
+		case POWER_SUPPLY_PROP_CHARGE_FULL:
+			val->intval = gm.algo_qmax * gm.aging_factor / 100;
+			break;
+/*L19 HQ-159363 add charge full node by tongjiacheng at 2021/12/13 end*/
+/*L19 HQ-159363 add resistance node by tongjiacheng at 2021/12/15 start*/
+		case POWER_SUPPLY_PROP_RESISTANCE:
+			val->intval = 75000;
+			break;
+/*L19 HQ-159363 add resistance node by tongjiacheng at 2021/12/15 end*/
+		default:
+			ret = -EINVAL;
+			break;
+	}
+
+	return ret;
+}
+
+struct bms_data bms_main = {
+	.psd = {
+		.name = "bms",
+		.type = POWER_SUPPLY_TYPE_BMS,
+		.properties = bms_props,
+		.num_properties = ARRAY_SIZE(bms_props),
+		.get_property = bms_get_property,
+	},
+};
+/*L19 HQ-168938 bms infor by tongjiacheng at 2021/11/18 end*/
+
 void battery_update_psd(struct battery_data *bat_data)
 {
 	bat_data->BAT_batt_vol = battery_get_bat_voltage();
 	bat_data->BAT_batt_temp = battery_get_bat_temperature();
 }
-
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2022/2/7 start*/
+/*L19 HQ-180605 modify shutdown delay by miaozhichao at 2022/2/7 start*/
+#define SHUTDOWN_DELAY_VOL	3400
+extern bool enable_notify_shutdown;
+/*L19 HQ-180605 modify shutdown delay by miaozhichao at 2022/2/7 end*/
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2022/2/7 end*/
 static int battery_get_property(struct power_supply *psy,
 	enum power_supply_property psp,
 	union power_supply_propval *val)
@@ -454,13 +544,22 @@ static int battery_get_property(struct power_supply *psy,
 	int ret = 0;
 	int fgcurrent = 0;
 	bool b_ischarging = 0;
-
+	/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2022/2/7 start*/
+	static bool shutdown_delay_cancel;
+	static bool last_shutdown_delay = 0;
+	bool mtk_shutdown_delay_enable = 1;
+	int vbat_mv;
+	/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2022/2/7 end*/
 	struct battery_data *data =
 		container_of(psy->desc, struct battery_data, psd);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		val->intval = data->BAT_STATUS;
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 start*/
+		if (charger_manager_is_input_suspend())
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 end*/
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = data->BAT_HEALTH;/* do not change before*/
@@ -487,10 +586,53 @@ static int battery_get_property(struct power_supply *psy,
 			val->intval = gm.fixed_uisoc;
 		else
 			val->intval = data->BAT_CAPACITY;
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2022/2/7 start*/
+/*L19 HQ-180605 modify shutdown delay by miaozhichao at 2022/2/7 start*/
+		if (enable_notify_shutdown) {
+			if (data->BAT_STATUS == POWER_SUPPLY_STATUS_CHARGING) {
+				enable_notify_shutdown = false;
+			}
+		}
+		if(mtk_shutdown_delay_enable) {
+			if (val->intval  <= 1){
+				vbat_mv = battery_get_bat_voltage();
+				if ( vbat_mv <= SHUTDOWN_DELAY_VOL
+					&& data->BAT_STATUS != POWER_SUPPLY_STATUS_CHARGING) {
+					gm.shutdown_delay = true;
+					val->intval = 1;
+				} else if (data->BAT_STATUS == POWER_SUPPLY_STATUS_CHARGING
+					&& gm.shutdown_delay) {
+					gm.shutdown_delay = false;
+					shutdown_delay_cancel = true;
+					val->intval = 1;
+				} else {
+					gm.shutdown_delay = false;
+					if (shutdown_delay_cancel){
+						val->intval = 1;
+					}
+				}
+			}else {
+				gm.shutdown_delay = false;
+				shutdown_delay_cancel = false;
+			}
+			if (last_shutdown_delay != gm.shutdown_delay) {
+				pr_err("last_shutdown_delay:%d,gm.shutdown_delay:%d\n",last_shutdown_delay,gm.shutdown_delay);
+				last_shutdown_delay = gm.shutdown_delay;
+				if (data->psy)
+					power_supply_changed(data->psy);
+			}
+		}
 		break;
+	case POWER_SUPPLY_PROP_SHUTDOWN_DELAY:
+		val->intval= gm.shutdown_delay;
+		break;
+/*L19 HQ-180605 modify shutdown delay by miaozhichao at 2022/2/7 end*/
+/*L19 HQ-170869 add shutdown delay 30s by miaozhichao at 2022/2/7 end*/
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		b_ischarging = gauge_get_current(&fgcurrent);
-		if (b_ischarging == false)
+/*L19 HQ-158677 Charge negative by miaozhichao at 2021/10/22 start*/
+		if (b_ischarging == true)
+/*L19 HQ-158677 Charge negative by miaozhichao at 2021/10/22 end*/
 			fgcurrent = 0 - fgcurrent;
 
 		val->intval = fgcurrent * 100;
@@ -499,9 +641,9 @@ static int battery_get_property(struct power_supply *psy,
 		val->intval = battery_get_bat_avg_current() * 100;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		val->intval =
-			fg_table_cust_data.fg_profile[gm.battery_id].q_max
-			* 1000;
+/*L19 HQ-159363 add charge full node by tongjiacheng at 2021/12/13 start*/
+		val->intval = gm.algo_qmax * gm.aging_factor / 100;
+/*L19 HQ-159363 add charge full node by tongjiacheng at 2021/12/13 end*/
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		val->intval = gm.ui_soc *
@@ -544,28 +686,39 @@ static int battery_get_property(struct power_supply *psy,
 		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		if (check_cap_level(data->BAT_CAPACITY) ==
-			POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN)
-			val->intval = 0;
-		else {
-			int q_max_mah = 0;
-			int q_max_uah = 0;
-
-			q_max_mah =
-				fg_table_cust_data.fg_profile[
-				gm.battery_id].q_max / 10;
-
-			q_max_uah = q_max_mah * 1000;
-			if (q_max_uah <= 100000) {
-				bm_debug("%s q_max_mah:%d q_max_uah:%d\n",
-					__func__, q_max_mah, q_max_uah);
-				q_max_uah = 100001;
-			}
-			val->intval = q_max_uah;
-		}
+/*L19 HQ-159465 charge_full_design node by tongjiacheng at 2021/11/18 start*/
+		val->intval = 5000000;
+/*L19 HQ-159465 charge_full_design node by tongjiacheng at 2021/11/18 end*/
 		break;
-
-
+/*L19 HQ-159325 input_suspend node bring up by gengyifei at 2021/11/3 start*/
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+/*L19 HQ-159325 input_suspend node bring up by gengyifei at 2021/11/3 end*/
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 start*/
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		val->intval = charger_manager_is_input_suspend();
+		break;
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 end*/
+/*L19 HQ-162876 add battery id node by gengyifei at 2021/10/28 start*/
+	case POWER_SUPPLY_PROP_BATTERY_ID_VOLTAGE:
+		val->intval = gm.battery_id_voltage;
+		break;
+	case POWER_SUPPLY_PROP_BATTERY_ID:
+		val->intval = gm.battery_id;
+		break;
+	case POWER_SUPPLY_PROP_BATTERY_VENDOR:
+		val->intval = gm.battery_id;
+		break;
+/*L19 HQ-162876 add battery id node by gengyifei at 2021/10/28 end*/
+/*L19 L19-13 add thermal limit current by miaozhichao at 2021/11/18 start*/
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		val->intval = charger_manager_get_system_temp_level();
+		break;
+/*L19 L19-13 add thermal limit current by miaozhichao at 2021/11/18 end*/
+/*L19 HQ-159363 add resistance node by tongjiacheng at 2021/12/30 start*/
+	case POWER_SUPPLY_PROP_RESISTANCE:
+		val->intval = 75000;
+		break;
+/*L19 HQ-159363 add resistance node by tongjiacheng at 2021/12/30 end*/
 	default:
 		ret = -EINVAL;
 		break;
@@ -573,7 +726,53 @@ static int battery_get_property(struct power_supply *psy,
 
 	return ret;
 }
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 start*/
+static int battery_set_property(struct power_supply *psy,
+	enum power_supply_property psp,const union power_supply_propval *val)
+{
+	int rc = 0;
+	switch (psp) {
+/*L19 HQ-159325 input_suspend node bring up by gengyifei at 2021/11/3 start*/
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+/*L19 HQ-159325 input_suspend node bring up by gengyifei at 2021/11/3 end*/
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		charger_manager_set_input_suspend(val->intval);
+		break;
+/*L19 L19-13 add thermal limit current by miaozhichao at 2021/11/18 start*/
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		charger_manager_set_system_temp_level(val->intval);
+		break;
+/*L19 L19-13 add thermal limit current by miaozhichao at 2021/11/18 end*/
+/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 start*/
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		 gm.bat_cycle  = val->intval;
+		break;
+/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 end*/
+	default:
+		rc = -EINVAL;
+		break;
+	}
+	return rc;
+}
 
+static int battery_prop_is_writeable(struct power_supply *psy,
+	enum power_supply_property psp)
+{
+	switch (psp) {
+/*L19 HQ-159325 input_suspend node bring up by gengyifei at 2021/11/3 start*/
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+/*L19 HQ-159325 input_suspend node bring up by gengyifei at 2021/11/3 end*/
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+/*L19 L19-13 add thermal limit current by miaozhichao at 2021/11/18 start*/
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+/*L19 L19-13 add thermal limit current by miaozhichao at 2021/11/18 end*/
+		return 1;
+	default:
+		break;
+	}
+	return 0;
+}
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 end*/
 /* battery_data initialization */
 struct battery_data battery_main = {
 	.psd = {
@@ -582,6 +781,10 @@ struct battery_data battery_main = {
 		.properties = battery_props,
 		.num_properties = ARRAY_SIZE(battery_props),
 		.get_property = battery_get_property,
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 start*/
+		.set_property = battery_set_property,
+		.property_is_writeable = battery_prop_is_writeable,
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 end*/
 		},
 
 	.BAT_STATUS = POWER_SUPPLY_STATUS_DISCHARGING,
@@ -654,9 +857,30 @@ bool fg_interrupt_check(void)
 void battery_update(struct battery_data *bat_data)
 {
 	struct power_supply *bat_psy = bat_data->psy;
-
+/*L19 HQ-171096 chagre full by miaozhichao at 2021/12/3 start*/
+	static struct charger_device *primary_charger;
+	bool chg_done = false;
+	if (!primary_charger) {
+		pr_err("primary_charger is NULL\n");
+		primary_charger = get_charger_by_name("primary_chg");
+	}
+	charger_dev_is_charging_done(primary_charger, &chg_done);
+	if (bat_data->BAT_CAPACITY == 100 && upmu_get_rgs_chrdet() != 0
+		&& bat_data->BAT_STATUS != POWER_SUPPLY_STATUS_DISCHARGING
+		&& chg_done && bat_data->BAT_batt_temp < 45) {
+		bat_data->BAT_STATUS = POWER_SUPPLY_STATUS_FULL;
+		bm_err("battery_update set FULL! ui:%d chr:%d %d done:%d\n",
+			bat_data->BAT_CAPACITY, upmu_get_rgs_chrdet(),
+			bat_data->BAT_STATUS, chg_done);
+	}
+	bm_err("battery_update status: ui:%d chr:%d status%d done:%d temp:%d\n",
+		bat_data->BAT_CAPACITY, upmu_get_rgs_chrdet(), bat_data->BAT_STATUS,
+		chg_done, bat_data->BAT_batt_temp);
+/*L19 HQ-171096 chagre full by miaozhichao at 2021/12/3 end*/
 	battery_update_psd(&battery_main);
-	bat_data->BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LION;
+/*L19 HQ-166637 battry technology by tongjiacheng at 2021/11/18 start*/
+	bat_data->BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LIPO;
+/*L19 HQ-166637 battry technology by tongjiacheng at 2021/11/18 end*/
 	bat_data->BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD;
 	bat_data->BAT_PRESENT = 1;
 
@@ -1402,15 +1626,16 @@ unsigned int TempConverBattThermistor(int temp)
 	int i;
 	unsigned int TBatt_R_Value = 0xffff;
 
-	if (temp >= Fg_Temperature_Table[20].BatteryTemp) {
-		TBatt_R_Value = Fg_Temperature_Table[20].TemperatureR;
+	/*L19 HQ-165907 modify battery ntc by miaozhichao at 2021/11/3 start*/
+	if (temp >= Fg_Temperature_Table[TEMP_TABLE_ITEM_NUM - 1].BatteryTemp) {
+		TBatt_R_Value = Fg_Temperature_Table[TEMP_TABLE_ITEM_NUM - 1].TemperatureR;
 	} else if (temp <= Fg_Temperature_Table[0].BatteryTemp) {
 		TBatt_R_Value = Fg_Temperature_Table[0].TemperatureR;
 	} else {
 		RES1 = Fg_Temperature_Table[0].TemperatureR;
 		TMP1 = Fg_Temperature_Table[0].BatteryTemp;
 
-		for (i = 0; i <= 20; i++) {
+		for (i = 0; i <= (TEMP_TABLE_ITEM_NUM - 1); i++) {
 			if (temp <= Fg_Temperature_Table[i].BatteryTemp) {
 				RES2 = Fg_Temperature_Table[i].TemperatureR;
 				TMP2 = Fg_Temperature_Table[i].BatteryTemp;
@@ -1421,7 +1646,7 @@ unsigned int TempConverBattThermistor(int temp)
 				TMP1 = Fg_Temperature_Table[i].BatteryTemp;
 			}
 		}
-
+/*L19 HQ-165907 modify battery ntc by miaozhichao at 2021/11/3 end*/
 
 		TBatt_R_Value = interpolation(TMP1, RES1, TMP2, RES2, temp);
 	}
@@ -1440,16 +1665,16 @@ int BattThermistorConverTemp(int Res)
 	int i = 0;
 	int RES1 = 0, RES2 = 0;
 	int TBatt_Value = -2000, TMP1 = 0, TMP2 = 0;
-
+/*L19 HQ-165907 modify battery ntc by miaozhichao at 2021/11/3 start*/
 	if (Res >= Fg_Temperature_Table[0].TemperatureR) {
 		TBatt_Value = -400;
-	} else if (Res <= Fg_Temperature_Table[20].TemperatureR) {
-		TBatt_Value = 600;
+	} else if (Res <= Fg_Temperature_Table[TEMP_TABLE_ITEM_NUM - 1].TemperatureR) {
+		TBatt_Value = 900;
 	} else {
 		RES1 = Fg_Temperature_Table[0].TemperatureR;
 		TMP1 = Fg_Temperature_Table[0].BatteryTemp;
 
-		for (i = 0; i <= 20; i++) {
+		for (i = 0; i <= (TEMP_TABLE_ITEM_NUM - 1); i++) {
 			if (Res >= Fg_Temperature_Table[i].TemperatureR) {
 				RES2 = Fg_Temperature_Table[i].TemperatureR;
 				TMP2 = Fg_Temperature_Table[i].BatteryTemp;
@@ -1464,12 +1689,12 @@ int BattThermistorConverTemp(int Res)
 		TBatt_Value = (((Res - RES2) * TMP1) +
 			((RES1 - Res) * TMP2)) * 10 / (RES1 - RES2);
 	}
-	bm_trace(
+	bm_err(
 		"[%s] %d %d %d %d %d %d\n",
 		__func__,
 		RES1, RES2, Res, TMP1,
 		TMP2, TBatt_Value);
-
+/*L19 HQ-165907 modify battery ntc by miaozhichao at 2021/11/3 end*/
 	return TBatt_Value;
 }
 
@@ -1744,9 +1969,12 @@ int force_get_tbat_internal(bool update)
 
 int force_get_tbat(bool update)
 {
+/*L19 HQ-157291 USB and Charge bring up by miaozhichao at 2021/10/1 start*/
+#ifndef FIXED_TBAT_25
 	int bat_temperature_val = 0;
 	int counts = 0;
-
+#endif
+/*L19 HQ-157291 USB and Charge bring up by miaozhichao at 2021/10/1 end*/
 	if (is_fg_disabled()) {
 		bm_debug("[%s] fixed TBAT=25 t\n",
 			__func__);
@@ -4445,6 +4673,18 @@ static int __init battery_probe(struct platform_device *dev)
 	}
 	bm_err("[BAT_probe] power_supply_register Battery Success !!\n");
 #endif
+/*L19 HQ-168938 bms infor by tongjiacheng at 2021/11/18 start*/
+	bms_main.psy = 
+		power_supply_register(
+			&(dev->dev), &bms_main.psd, NULL);
+	if (IS_ERR(bms_main.psy)) {
+		bm_err("[BAT_probe] power_supply_register BMS Fail !!\n");
+		ret = PTR_ERR(bms_main.psy);
+		return ret;
+	}
+	bm_err("[BAT_probe] power_supply_register BMS Success !!\n");
+/*L19 HQ-168938 bms infor by tongjiacheng at 2021/11/18 end*/
+
 	ret = device_create_file(&(dev->dev), &dev_attr_Battery_Temperature);
 	ret = device_create_file(&(dev->dev), &dev_attr_UI_SOC);
 

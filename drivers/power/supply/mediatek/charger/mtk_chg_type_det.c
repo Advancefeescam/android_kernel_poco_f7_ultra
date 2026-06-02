@@ -44,6 +44,7 @@
 #include <tcpm.h>
 
 #include "mtk_charger_intf.h"
+bool tp_charger_status;
 
 struct tag_bootmode {
 	u32 size;
@@ -93,6 +94,9 @@ struct chg_type_info {
 	bool ignore_usb;
 	bool plugin;
 	bool bypass_chgdet;
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 start*/
+	int typec_mode;
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 end*/
 #ifdef CONFIG_MACH_MT6771
 	struct power_supply *chr_psy;
 	struct notifier_block psy_nb;
@@ -119,6 +123,12 @@ static const char * const mtk_chg_type_name[] = {
 	"Apple 1.0A Charger",
 	"Apple 0.5A Charger",
 	"Wireless Charger",
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	"HVDCP Charger",
+	"CHECK HV",
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 };
 
 static void dump_charger_name(enum charger_type type)
@@ -132,6 +142,12 @@ static void dump_charger_name(enum charger_type type)
 	case APPLE_2_1A_CHARGER:
 	case APPLE_1_0A_CHARGER:
 	case APPLE_0_5A_CHARGER:
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	case HVDCP_CHARGER:
+	case CHECK_HV:
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 		pr_info("%s: charger type: %d, %s\n", __func__, type,
 			mtk_chg_type_name[type]);
 		break;
@@ -161,6 +177,10 @@ struct mt_charger {
 	#endif
 	bool chg_online; /* Has charger in or not */
 	enum charger_type chg_type;
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 start*/
+	struct charger_device *chg1_dev;
+	int constant_chg_cur_max;
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 end*/
 };
 
 static int mt_charger_online(struct mt_charger *mtk_chg)
@@ -193,6 +213,9 @@ static int mt_charger_online(struct mt_charger *mtk_chg)
 		if (boot_mode == KERNEL_POWER_OFF_CHARGING_BOOT ||
 		    boot_mode == LOW_POWER_OFF_CHARGING_BOOT) {
 			pr_notice("%s: Unplug Charger/USB\n", __func__);
+/*L19 HQ-158658 USB plug out display by miaozhichao at 2021/11/23 start*/
+			msleep(4000);
+/*L19 HQ-158658 USB plug out display by miaozhichao at 2021/11/23 end*/
 			pr_notice("%s: system_state=%d\n", __func__,
 				system_state);
 			if (system_state != SYSTEM_POWER_OFF)
@@ -244,6 +267,13 @@ static int mt_charger_get_property(struct power_supply *psy,
 		default:
 		break;
 	}
+		break;
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 start*/
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		val->intval = mtk_chg->constant_chg_cur_max;
+		pr_info("%s : call mode %d mA\n", __func__, val->intval);
+		break;
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 end*/
 	default:
 		return -EINVAL;
 	}
@@ -301,6 +331,21 @@ static int mt_charger_set_property(struct power_supply *psy,
 			charger_manager_force_disable_power_path(
 				cti->chg_consumer, MAIN_CHARGER, true);
 		break;
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 start*/
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		mtk_chg->constant_chg_cur_max = val->intval;
+		mtk_chg->chg1_dev = get_charger_by_name("primary_chg");
+		if (mtk_chg->chg1_dev)
+			chr_err("Found primary charger [%s]\n",
+				mtk_chg->chg1_dev->props.alias_name);
+		else {
+			chr_err("*** Error : can't find primary charger ***\n");
+			return 0;
+		}
+		charger_dev_set_input_current(mtk_chg->chg1_dev, (u32)val->intval * 1000);
+		pr_info("%s : %d mA\n", __func__, val->intval);
+		break;
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 end*/
 	default:
 		return -EINVAL;
 	}
@@ -339,7 +384,23 @@ static int mt_charger_set_property(struct power_supply *psy,
 
 	return 0;
 }
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 start*/
+static int mt_charger_is_writeable(struct power_supply *psy,
+					   enum power_supply_property prop)
+{
+	int rc;
 
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		rc = 1;
+		break;
+	default:
+		rc = 0;
+		break;
+	}
+	return rc;
+}
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 end*/
 static int mt_ac_get_property(struct power_supply *psy,
 	enum power_supply_property psp, union power_supply_propval *val)
 {
@@ -363,6 +424,52 @@ static int mt_ac_get_property(struct power_supply *psy,
 	return 0;
 }
 
+/*L19 HQ-159093 quick charge type node by tongjiacheng at 2021/11/19 start*/
+struct quick_charge {
+	enum charger_type adaptor_type;
+	enum quick_charge_type adaptor_cap;
+};
+
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+struct quick_charge adaptor_cap[7] = {
+#else
+struct quick_charge adaptor_cap[5] = {
+	{ STANDARD_HOST,		QUICK_CHARGE_NORMAL },
+	{ CHARGING_HOST,		QUICK_CHARGE_NORMAL },
+	{ STANDARD_CHARGER,		QUICK_CHARGE_NORMAL },
+	{ NONSTANDARD_CHARGER,		QUICK_CHARGE_NORMAL },
+#endif
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	{ CHECK_HV,			QUICK_CHARGE_NORMAL },
+	{ HVDCP_CHARGER,		QUICK_CHARGE_FAST},
+#endif
+	{0, 0},
+};
+
+static int mtk_get_quick_charge_type(enum charger_type type)
+{
+	int i = 0;
+
+	if (!type)
+		return 0;
+	
+	while (adaptor_cap[i].adaptor_type !=0) {
+		if (type == adaptor_cap[i].adaptor_type)
+			return adaptor_cap[i].adaptor_cap;
+		
+		i++;
+	}
+
+	return 0;
+}
+/*L19 HQ-159093 quick charge type node by tongjiacheng at 2021/11/19 end*/
+
+/*L19 HQ-157281 USB OTG bring up by tongjiacheng at 2021/10/9 start*/
+extern bool usb_otg;
+/*L19 HQ-157281 USB OTG bring up by tongjiacheng at 2021/10/9 end*/
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 start*/
+extern uint8_t typec_cc_orientation;
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 end*/
 static int mt_usb_get_property(struct power_supply *psy,
 	enum power_supply_property psp, union power_supply_propval *val)
 {
@@ -382,6 +489,70 @@ static int mt_usb_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = 5000000;
 		break;
+	/*L19 HQ-157281 USB OTG bring up by tongjiacheng at 2021/10/9 start*/
+	case POWER_SUPPLY_PROP_USB_OTG:
+		if (usb_otg)
+			val->intval = 1;
+		else
+			val->intval = 0;
+	break;
+	/*L19 HQ-157281 USB OTG bring up by tongjiacheng at 2021/10/9 end*/
+	/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+	case POWER_SUPPLY_PROP_REAL_TYPE:
+		switch (mtk_chg->chg_type) {
+		case STANDARD_HOST:
+			val->intval = POWER_SUPPLY_TYPE_USB;
+			break;
+		case CHARGING_HOST:
+			val->intval = POWER_SUPPLY_TYPE_USB_CDP;
+			break;
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+		case CHECK_HV:
+#endif
+		case STANDARD_CHARGER:
+			val->intval = POWER_SUPPLY_TYPE_USB_DCP;
+			break;
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+		case HVDCP_CHARGER:
+			val->intval = POWER_SUPPLY_TYPE_USB_HVDCP;
+			break;
+#endif
+/*L19 HQ-171148 A detect float error by miaozhichao at 2021/11/4 start*/
+		case NONSTANDARD_CHARGER:
+			val->intval = POWER_SUPPLY_TYPE_USB_FLOAT;
+			break;
+/*L19 HQ-171148 A detect float error by miaozhichao at 2021/11/4 end*/
+		default:
+			val->intval = POWER_SUPPLY_TYPE_UNKNOWN;
+			break;
+		}
+		break;
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 start*/
+	case POWER_SUPPLY_PROP_TYPEC_MODE:
+		val->intval = mtk_chg->cti->typec_mode;
+		break;
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 end*/
+/*L19 HQ-159093 quick charge type node by tongjiacheng at 2021/11/19 start*/
+	case POWER_SUPPLY_PROP_QUICK_CHARGE_TYPE:
+		val->intval = mtk_get_quick_charge_type(mtk_chg->chg_type);
+		break;
+/*L19 HQ-159093 quick charge type node by tongjiacheng at 2021/11/19 end*/
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 start*/
+	case POWER_SUPPLY_PROPER_TYPEC_CC_ORIENTATION:
+		val->intval = typec_cc_orientation;
+		break;
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 end*/
+/*L19 HQ-157281 vbus node bring up by tongjiacheng at 2021/10/13 start*/
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		val->intval = battery_get_vbus();
+		break;
+/*L19 HQ-157281 vbus node bring up by tongjiacheng at 2021/10/13 end*/
+/*L19 HQ-157281 ibus node bring up by tongjiacheng at 2021/10/14 start*/
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		val->intval = charger_get_ibus_ma();
+		break;
+/*L19 HQ-157281 ibus node bring up by tongjiacheng at 2021/10/14 end*/
 	default:
 		return -EINVAL;
 	}
@@ -391,6 +562,9 @@ static int mt_usb_get_property(struct power_supply *psy,
 
 static enum power_supply_property mt_charger_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 start*/
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 end*/
 };
 
 static enum power_supply_property mt_ac_properties[] = {
@@ -401,6 +575,25 @@ static enum power_supply_property mt_usb_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_USB_OTG,
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+	POWER_SUPPLY_PROP_REAL_TYPE,
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 start*/
+	POWER_SUPPLY_PROP_TYPEC_MODE,
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 end*/
+/*L19 HQ-159093 quick charge type node by tongjiacheng at 2021/11/19 start*/
+	POWER_SUPPLY_PROP_QUICK_CHARGE_TYPE,
+/*L19 HQ-159093 quick charge type node by tongjiacheng at 2021/11/19 end*/
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 start*/
+	POWER_SUPPLY_PROPER_TYPEC_CC_ORIENTATION,
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 end*/
+/*L19 HQ-157281 vbus node bring up by tongjiacheng at 2021/10/13 start*/
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+/*L19 HQ-157281 vbus node bring up by tongjiacheng at 2021/10/13 end*/
+/*L19 HQ-157281 ibus node bring up by tongjiacheng at 2021/10/14 start*/
+	POWER_SUPPLY_PROP_CURRENT_NOW,
+/*L19 HQ-157281 ibus node bring up by tongjiacheng at 2021/10/14 end*/
 };
 
 static void tcpc_power_off_work_handler(struct work_struct *work)
@@ -429,7 +622,100 @@ static void plug_in_out_handler(struct chg_type_info *cti, bool en, bool ignore)
 skip:
 	mutex_unlock(&cti->chgdet_lock);
 }
+/*L19 HQ-158658 USB plug out display by miaozhichao at 2021/11/23 start*/
+static void notify_plug_out(void)
+{
+	union power_supply_propval propval;
+	int ret;
+	struct power_supply *charger_psy = power_supply_get_by_name("charger");
+	if (charger_psy == NULL)
+		return;
+	propval.intval = CHARGER_UNKNOWN;
+	ret = power_supply_set_property(charger_psy,
+					POWER_SUPPLY_PROP_CHARGE_TYPE,
+					&propval);
+	propval.intval = !!(0);
+	ret = power_supply_set_property(charger_psy,
+					POWER_SUPPLY_PROP_ONLINE, &propval);
+}
 
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 start*/
+static int get_source_mode(struct tcp_notify *noti)
+{
+	switch (noti->typec_state.rp_level) {
+	case TYPEC_CC_VOLT_SNK_1_5:
+		return POWER_SUPPLY_TYPEC_SOURCE_MEDIUM;
+	case TYPEC_CC_VOLT_SNK_3_0:
+		return POWER_SUPPLY_TYPEC_SOURCE_HIGH;
+	case TYPEC_CC_VOLT_SNK_DFT:
+		return POWER_SUPPLY_TYPEC_SOURCE_DEFAULT;
+	default:
+		break;
+	}
+
+	return POWER_SUPPLY_TYPEC_NONE;
+}
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 end*/
+
+/*L19 HQ-158658 USB plug out display by miaozhichao at 2021/11/23 end*/
+/*L19 HQ-171732 update typec_mode by miaozhichao at 2021/12/17 start*/
+static inline int get_cc_mode(int cc)
+{
+	int ret = 0;
+	switch (cc) {
+		case 0://open
+		case 1://ra
+		case 2://rd
+			ret = cc;
+			break;
+		case 5://rp default
+		case 6://rp medium
+		case 7://rp high
+			ret = 3;
+			break;
+		case 15://drp
+			ret = 4;
+			break;
+		default://unknown
+			break;
+	}
+	return ret;
+}
+
+static int get_sink_mode(unsigned char _cc1, unsigned char _cc2)
+{
+	int mode = 0;
+	int cc1,cc2;
+	_cc1 = get_cc_mode(_cc1);
+	_cc2 = get_cc_mode(_cc2);
+	if (_cc1>_cc2) {
+		cc1 = _cc2;
+		cc2 = _cc1;
+	} else {
+		cc1 = _cc1;
+		cc2 = _cc2;
+	}
+	if (cc1==0) {
+		if (cc2==1) {
+			mode = 5;
+		} else if (cc2==2) {
+			mode = 1;
+		}
+	} else if (cc1==1) {
+		if (cc2==1) {
+			mode = 4;
+		} else if (cc2==2) {
+			mode = 2;
+		}
+	} else if (cc1==2) {
+		if (cc2==2) {
+				mode = 3;
+		}
+	}
+	pr_info("%s cc1=%d:%d cc2=%d:%d mode=%d\n", __func__, _cc1, cc1, _cc2, cc2, mode);
+	return mode;
+}
+/*L19 HQ-171732 update typec_mode by miaozhichao at 2021/12/17 end*/
 static int pd_tcp_notifier_call(struct notifier_block *pnb,
 				unsigned long event, void *data)
 {
@@ -441,7 +727,10 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 	struct power_supply *usb_psy = power_supply_get_by_name("usb");
 	struct mt_charger *mtk_chg_ac;
 	struct mt_charger *mtk_chg_usb;
-
+/*L19 HQ-158658 USB plug out display by miaozhichao at 2021/11/23 start*/
+	static struct charger_device *primary_charger;
+	primary_charger = get_charger_by_name("primary_chg");
+/*L19 HQ-158658 USB plug out display by miaozhichao at 2021/11/23 end*/
 	if (IS_ERR_OR_NULL(usb_psy)) {
 		chr_err("%s, fail to get usb_psy\n", __func__);
 		return NOTIFY_BAD;
@@ -476,7 +765,13 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 		    noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC)) {
 			pr_info("%s USB Plug in, pol = %d\n", __func__,
 					noti->typec_state.polarity);
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 start*/
+			cti->typec_mode = get_source_mode(noti);
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 end*/
 			plug_in_out_handler(cti, true, false);
+			/*L19 code for HQ-159442 by sunfeiting at 20211111 start*/
+			tp_charger_status = true;
+			/*L19 code for HQ-159442 by sunfeiting at 20211111 end*/
 		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SNK ||
 		    noti->typec_state.old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
 		    noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC ||
@@ -490,22 +785,37 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 				mtk_chg_usb->chg_type = CHARGER_UNKNOWN;
 				power_supply_changed(ac_psy);
 				power_supply_changed(usb_psy);
-				queue_work_on(cpumask_first(cpu_online_mask),
-					      cti->pwr_off_wq,
-					      &cti->pwr_off_work);
-				break;
 			}
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 start*/
+			cti->typec_mode = POWER_SUPPLY_TYPEC_NONE;
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 end*/
 			pr_info("%s USB Plug out\n", __func__);
+/*L19 HQ-158658 USB plug out display by miaozhichao at 2021/11/23 start*/
+			notify_plug_out();
+			charger_dev_enable_otg(primary_charger, false);
+/*L19 HQ-158658 USB plug out display by miaozhichao at 2021/11/23 end*/
 			plug_in_out_handler(cti, false, false);
+			tp_charger_status = false;
 		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_SRC &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SNK) {
 			pr_info("%s Source_to_Sink\n", __func__);
-			plug_in_out_handler(cti, true, true);
-		}  else if (noti->typec_state.old_state == TYPEC_ATTACHED_SNK &&
-			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
-			pr_info("%s Sink_to_Source\n", __func__);
-			plug_in_out_handler(cti, false, true);
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 start*/
+			cti->typec_mode = POWER_SUPPLY_TYPEC_SINK;
+/*L19 HQ-171732 typec mode node by tongjiacheng at 2021/12/13 end*/
+                  	plug_in_out_handler(cti, true, true);
+		/*L19 HQ-171732 update typec_mode by miaozhichao at 2021/12/17 start*/
+		}  else if (noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
+			if (noti->typec_state.old_state == TYPEC_ATTACHED_SNK) {
+				pr_info("%s Sink_to_Source\n", __func__);
+				plug_in_out_handler(cti, false, true);
+			}
+			pr_info("%s Source\n", __func__);
+			cti->typec_mode = get_sink_mode(noti->typec_state.cc1, noti->typec_state.cc2);
+		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_SRC && noti->typec_state.new_state == TYPEC_UNATTACHED){
+			pr_info("%s Source Plug out\n", __func__);
+			cti->typec_mode = POWER_SUPPLY_TYPEC_NONE;
 		}
+		/*L19 HQ-171732 update typec_mode by miaozhichao at 2021/12/17 end*/
 		break;
 	}
 	return NOTIFY_OK;
@@ -731,6 +1041,9 @@ static int mt_charger_probe(struct platform_device *pdev)
 	mt_chg->chg_desc.num_properties = ARRAY_SIZE(mt_charger_properties);
 	mt_chg->chg_desc.set_property = mt_charger_set_property;
 	mt_chg->chg_desc.get_property = mt_charger_get_property;
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 start*/
+	mt_chg->chg_desc.property_is_writeable = mt_charger_is_writeable;
+/*L19 L19-14 add node to limit current by miaozhichao at 2021/11/15 end*/
 	mt_chg->chg_cfg.drv_data = mt_chg;
 
 	mt_chg->ac_desc.name = "ac";

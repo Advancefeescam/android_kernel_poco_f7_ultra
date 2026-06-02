@@ -89,6 +89,13 @@ struct mt6360_pmu_chg_info {
 	enum charger_type chg_type;
 	bool pwr_rdy;
 	bool bc12_en;
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	bool rerun_apsd;
+	bool hvdcp_disable;
+	struct delayed_work get_hvdcp_work;
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 #ifdef CONFIG_TCPC_CLASS
 	bool tcpc_attach;
 #else
@@ -100,11 +107,18 @@ struct mt6360_pmu_chg_info {
 	atomic_t pe_complete;
 	/* mivr */
 	atomic_t mivr_cnt;
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 start*/
+	atomic_t bc12_wkard;
+	atomic_t bc12_retry_cnt;
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 end*/
 	wait_queue_head_t waitq;
 	struct task_struct *mivr_task;
 	/* unfinish pe pattern */
 	struct workqueue_struct *pe_wq;
 	struct work_struct pe_work;
+/*L19 HQ-171148 A detect float error by miaozhichao at 2021/11/4 start*/
+	struct delayed_work second_detect_work;
+/*L19 HQ-171148 A detect float error by miaozhichao at 2021/11/4 end*/
 	u8 ctd_dischg_status;
 };
 
@@ -509,7 +523,11 @@ static int __maybe_unused mt6360_is_dcd_tout_enable(
 	return 0;
 }
 #endif
-
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+#define	DP_DM_CTL_N		0x00
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 #if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893) \
 	|| defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) \
 	|| defined(CONFIG_MACH_MT6853)
@@ -590,6 +608,19 @@ static int __mt6360_enable_usbchgen(struct mt6360_pmu_chg_info *mpci, bool en)
 			dev_info(mpci->dev, "%s: CDP free\n", __func__);
 	}
 	mt6360_set_usbsw_state(mpci, usbsw);
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	if (mpci->rerun_apsd) {
+		ret = mt6360_pmu_reg_write(mpci->mpi, MT6360_PMU_DPDM_CTRL, DP_DM_CTL_N);
+		dev_info(mpci->dev, "%s: clear DP_DM_CTRL for rerun apsd.\n", __func__);
+		msleep(50);
+		ret = mt6360_pmu_reg_update_bits(mpci->mpi, MT6360_PMU_DEVICE_TYPE,
+					 MT6360_MASK_USBCHGEN, 0);
+		dev_info(mpci->dev, "%s: MT6360_PMU_DEVICE_TYPE 0 for rerun apsd.\n", __func__);
+		msleep(50);
+	}
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 	ret = mt6360_pmu_reg_update_bits(mpci->mpi, MT6360_PMU_DEVICE_TYPE,
 					 MT6360_MASK_USBCHGEN, en ? 0xff : 0);
 	if (ret >= 0)
@@ -654,7 +685,142 @@ static int mt6360_chgdet_pre_process(struct mt6360_pmu_chg_info *mpci)
 	}
 	return __mt6360_enable_usbchgen(mpci, attach);
 }
-
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 start*/
+static int mt6360_toggle_chgdet_flow(struct mt6360_pmu_chg_info *mpci)
+{
+	int ret = 0;
+	u8 data = 0;
+	/* read data */
+	ret = i2c_smbus_read_i2c_block_data(mpci->mpi->i2c,
+					    MT6360_PMU_DEVICE_TYPE, 1, &data);
+	if (ret < 0) {
+		dev_err(mpci->dev, "%s: read usbd fail\n", __func__);
+		goto out;
+	}
+	/* usbd off */
+	data &= ~MT6360_MASK_USBCHGEN;
+	ret = i2c_smbus_write_i2c_block_data(mpci->mpi->i2c,
+					     MT6360_PMU_DEVICE_TYPE, 1, &data);
+	if (ret < 0) {
+		dev_err(mpci->dev, "%s: usbd off fail\n", __func__);
+		goto out;
+	}
+	udelay(40);
+	/* usbd on */
+	data |= MT6360_MASK_USBCHGEN;
+	ret = i2c_smbus_write_i2c_block_data(mpci->mpi->i2c,
+					     MT6360_PMU_DEVICE_TYPE, 1, &data);
+	if (ret < 0)
+		dev_err(mpci->dev, "%s: usbd on fail\n", __func__);
+out:
+	return ret;
+}
+static int mt6360_bc12_retry_wkard(struct mt6360_pmu_chg_info *mpci)
+{
+	int ret = 0;
+	dev_info(mpci->dev, "%s\n", __func__);
+	mutex_lock(&mpci->mpi->io_lock);
+	ret = mt6360_toggle_chgdet_flow(mpci);
+	if (ret < 0)
+		goto err;
+	mdelay(10);
+	ret = mt6360_toggle_chgdet_flow(mpci);
+	if (ret < 0)
+		goto err;
+	goto out;
+err:
+	dev_err(mpci->dev, "%s: fail\n", __func__);
+out:
+	mutex_unlock(&mpci->mpi->io_lock);
+	return ret;
+}
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 end*/
+/*L19 HQ-171148 A detect float error by miaozhichao at 2021/11/4 start*/
+static int mt6360_rerun_apsd(struct charger_device *chg_dev, bool en);
+static void mt6360_second_detect_work(struct work_struct *work)
+{
+	struct mt6360_pmu_chg_info *mpci = container_of(work,
+					struct mt6360_pmu_chg_info, second_detect_work.work);
+	dev_info(mpci->dev, "%s: enter!\n", __func__);
+	mt6360_rerun_apsd(mpci->chg_dev, false);
+}
+/*L19 HQ-171148 A detect float error by miaozhichao at 2021/11/4 end*/
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+#define	DP_06_DM_06		0x16
+#define	DP_33_DM_06		0x18
+#define	HVDCP_VBUS_LOW_LIMIT	3000
+#define	HVDCP_VBUS_HIGH_LIMIT	7200
+#define	HVDCP_DPDM_DELAY_1S	1500
+static int mt6360_get_vbus(struct charger_device *chg_dev, u32 *vbus);
+static void mt6360_get_hvdcp_work(struct work_struct *work)
+{
+	int ret, i;
+	u32 vbus;
+	struct mt6360_pmu_chg_info *mpci = container_of(work,
+			struct mt6360_pmu_chg_info, get_hvdcp_work.work);
+	if (!mpci->attach) {
+		mpci->chg_type = CHARGER_UNKNOWN;
+		dev_info(mpci->dev, "%s: mpci->attach=0, stop hvdcp_work.\n", __func__);
+		goto out;
+	}
+	if (!mpci->hvdcp_disable) {
+		ret = mt6360_pmu_reg_write(mpci->mpi,
+					MT6360_PMU_DPDM_CTRL, DP_33_DM_06);
+		msleep(300);
+	} else {
+		dev_info(mpci->dev, "%s: hvdcp_disable.\n", __func__);
+		mpci->chg_type = STANDARD_CHARGER;
+		goto out;
+	}
+	for (i = 0; i < 3; i++) {
+		if (!mpci->attach) {
+			mpci->chg_type = CHARGER_UNKNOWN;
+			dev_info(mpci->dev, "%s: mpci->attach=0, stop hvdcp_work.\n", __func__);
+			goto out;
+		}
+		ret = mt6360_get_vbus(mpci->chg_dev, &vbus);
+		if (ret < 0)
+			dev_err(mpci->dev, "%s: get vbus adc fail\n", __func__);
+		vbus = vbus / 1000;
+		dev_info(mpci->dev, "%s:%d: get vbus=%d.\n", __func__, i, vbus);
+		if (vbus > HVDCP_VBUS_HIGH_LIMIT)
+			break;
+		msleep(30);
+	}
+	if (mpci->attach) {
+		if (vbus > HVDCP_VBUS_HIGH_LIMIT) {
+			mpci->chg_type = HVDCP_CHARGER;
+			dev_info(mpci->dev, "%s: Get QC2 succ.\n", __func__);
+		} else if (vbus > HVDCP_VBUS_LOW_LIMIT) {
+			ret = mt6360_pmu_reg_write(mpci->mpi,
+					MT6360_PMU_DPDM_CTRL, DP_06_DM_06);
+			mpci->chg_type = STANDARD_CHARGER;
+			dev_info(mpci->dev, "%s: No QC2, Get DCP.\n", __func__);
+		} else {
+			mpci->chg_type = CHARGER_UNKNOWN;
+			ret = mt6360_pmu_reg_write(mpci->mpi,
+					MT6360_PMU_DPDM_CTRL, DP_DM_CTL_N);
+			dev_info(mpci->dev, "%s:next: No Vbus, plug out.\n", __func__);
+			ret = __mt6360_enable_usbchgen(mpci, false);
+			if (ret < 0)
+				dev_notice(mpci->dev, "%s: disable chgdet fail\n",
+					   __func__);
+		}
+	} else {
+		mpci->chg_type = CHARGER_UNKNOWN;
+		dev_info(mpci->dev, "%s: mpci->attach=0, stop hvdcp_work.\n", __func__);
+	}
+out:
+	ret = mt6360_psy_online_changed(mpci);
+	if (ret < 0)
+		dev_err(mpci->dev, "%s: report psy online fail\n", __func__);
+	ret = mt6360_psy_chg_type_changed(mpci);
+	dev_info(mpci->dev, "%s: Update psy_chg_type:%d.\n",
+			__func__, mpci->chg_type);
+}
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 static int mt6360_chgdet_post_process(struct mt6360_pmu_chg_info *mpci)
 {
 	int ret = 0;
@@ -666,19 +832,41 @@ static int mt6360_chgdet_post_process(struct mt6360_pmu_chg_info *mpci)
 #else
 	attach = mpci->pwr_rdy;
 #endif /* CONFIG_TCPC_CLASS */
-	if (mpci->attach == attach) {
-		dev_info(mpci->dev, "%s: attach(%d) is the same\n",
+/* Plug out during BC12 */
+	if (!attach) {
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+		mpci->attach = attach;
+		dev_info(mpci->dev, "%s: mpci->attach=%d.\n", __func__, mpci->attach);
+		ret = mt6360_pmu_reg_write(mpci->mpi,
+				MT6360_PMU_DPDM_CTRL, DP_DM_CTL_N);
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
+		mpci->chg_type = CHARGER_UNKNOWN;
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 start*/
+		atomic_set(&mpci->bc12_retry_cnt, 0);
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 end*/
+		goto out;
+	}
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 start*/
+	if ((mpci->attach == attach) && (atomic_read(&mpci->bc12_wkard) == 0)
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+		&& (!mpci->rerun_apsd)
+#endif
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 end*/
+		) {
+		dev_info(mpci->dev, "%s: attach(%d) is the same, needn't rerun_apsd.\n",
 				    __func__, attach);
 		inform_psy = !attach;
 		goto out;
 	}
 	mpci->attach = attach;
-	dev_info(mpci->dev, "%s: attach = %d\n", __func__, attach);
-	/* Plug out during BC12 */
-	if (!attach) {
-		mpci->chg_type = CHARGER_UNKNOWN;
-		goto out;
-	}
+	dev_info(mpci->dev, "%s: mpci->attach=%d.\n", __func__, mpci->attach);
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 start*/
+	atomic_inc(&mpci->bc12_retry_cnt);
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 end*/
 	/* Plug in */
 	ret = mt6360_pmu_reg_read(mpci->mpi, MT6360_PMU_USB_STATUS1);
 	if (ret < 0)
@@ -694,27 +882,82 @@ static int mt6360_chgdet_post_process(struct mt6360_pmu_chg_info *mpci)
 		break;
 	case MT6360_CHG_TYPE_SDPNSTD:
 		mpci->chg_type = NONSTANDARD_CHARGER;
+/*L19 HQ-171148 A detect float error by miaozhichao at 2021/11/4 start*/
+		if (!delayed_work_pending(&mpci->second_detect_work))
+			schedule_delayed_work(&mpci->second_detect_work,
+					msecs_to_jiffies(0));
+/*L19 HQ-171148 A detect float error by miaozhichao at 2021/11/4 end*/
 		break;
 	case MT6360_CHG_TYPE_CDP:
 		mpci->chg_type = CHARGING_HOST;
 		break;
 	case MT6360_CHG_TYPE_DCP:
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+		if (!mpci->hvdcp_disable) {
+			mpci->chg_type = CHECK_HV;
+			dev_info(mpci->dev, "%s: start QC2 retry.\n", __func__);
+			if (!delayed_work_pending(&mpci->get_hvdcp_work))
+				schedule_delayed_work(&mpci->get_hvdcp_work,
+						msecs_to_jiffies(HVDCP_DPDM_DELAY_1S));
+		} else {
+			mpci->chg_type = STANDARD_CHARGER;
+			dev_info(mpci->dev, "%s: hvdcp_disable.\n", __func__);
+		}
+#else
 		mpci->chg_type = STANDARD_CHARGER;
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 		break;
 	}
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 start*/
+	dev_info(mpci->dev, "%s bc12_retry_cnt = %d, usb_status = %d\n",
+			 __func__, atomic_read(&mpci->bc12_retry_cnt), usb_status);
+	/* BC12 retry SDP: 2 times */
+	if (atomic_read(&mpci->bc12_retry_cnt) < 2 &&
+			usb_status == MT6360_CHG_TYPE_SDP) {
+		ret = mt6360_bc12_retry_wkard(mpci);
+		/* Wkard success, wait for next event */
+		if (ret >= 0) {
+			atomic_set(&mpci->bc12_wkard, 1);
+			return ret;
+		}
+		goto out;
+}
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 end*/
 out:
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 start*/
+	atomic_set(&mpci->bc12_wkard, 0);
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 end*/
 	if (!attach) {
 		ret = __mt6360_enable_usbchgen(mpci, false);
 		if (ret < 0)
 			dev_notice(mpci->dev, "%s: disable chgdet fail\n",
 				   __func__);
-	} else if (mpci->chg_type != STANDARD_CHARGER)
+	}
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	else if (mpci->chg_type != STANDARD_CHARGER
+			&& mpci->chg_type != CHECK_HV
+			&& mpci->chg_type != HVDCP_CHARGER)
+#else
+	else if (mpci->chg_type != STANDARD_CHARGER)
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 		mt6360_set_usbsw_state(mpci, MT6360_USBSW_USB);
 	if (!inform_psy)
 		return ret;
 	ret = mt6360_psy_online_changed(mpci);
 	if (ret < 0)
 		dev_err(mpci->dev, "%s: report psy online fail\n", __func__);
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	if (mpci->rerun_apsd) {
+		mpci->rerun_apsd = false;
+		dev_info(mpci->dev, "%s: clear rerun_apsd.\n", __func__);
+	}
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 	return mt6360_psy_chg_type_changed(mpci);
 }
 #endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT */
@@ -1508,11 +1751,17 @@ static int mt6360_set_otg_current_limit(struct charger_device *chg_dev,
 					  i << MT6360_SHFT_OTG_OC);
 }
 
+/*L19 HQ-157281 USB OTG bring up by tongjiacheng at 2021/10/9 start*/
+bool usb_otg;
+/*L19 HQ-157281 USB OTG bring up by tongjiacheng at 2021/10/9 end*/
 static int mt6360_enable_otg(struct charger_device *chg_dev, bool en)
 {
 	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
 	int ret = 0;
 
+	/*L19 HQ-157281 USB OTG bring up by tongjiacheng at 2021/10/9 start*/
+	usb_otg = en;
+	/*L19 HQ-157281 USB OTG bring up by tongjiacheng at 2021/10/9 end*/
 	dev_dbg(mpci->dev, "%s: en = %d\n", __func__, en);
 	ret = mt6360_enable_otg_wdt(mpci, en ? true : false);
 	if (ret < 0) {
@@ -1579,9 +1828,16 @@ static int mt6360_enable_chg_type_det(struct charger_device *chg_dev, bool en)
 
 	dev_info(mpci->dev, "%s\n", __func__);
 	mutex_lock(&mpci->chgdet_lock);
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	if (mpci->tcpc_attach == en
+		&& !mpci->rerun_apsd) {
+#else
 	if (mpci->tcpc_attach == en) {
-		dev_info(mpci->dev, "%s attach(%d) is the same\n",
+#endif
+		dev_info(mpci->dev, "%s attach(%d) is the same, needn't rerun apsd.\n",
 			 __func__, mpci->tcpc_attach);
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 		goto out;
 	}
 	mpci->tcpc_attach = en;
@@ -1592,7 +1848,31 @@ out:
 #endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT && CONFIG_TCPC_CLASS */
 	return ret;
 }
-
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+static int mt6360_rerun_apsd(struct charger_device *chg_dev, bool en)
+{
+	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
+	int ret;
+	mpci->hvdcp_disable = en;
+	dev_info(mpci->dev, "%s: hvdcp_disable=%d, chg_type=%d.\n",
+			__func__, mpci->hvdcp_disable, mpci->chg_type);
+	if (mpci->chg_type == NONSTANDARD_CHARGER ||
+			 mpci->chg_type == STANDARD_CHARGER ||
+			 mpci->chg_type == CHECK_HV ||
+			 mpci->chg_type == HVDCP_CHARGER) {
+		mpci->rerun_apsd = true;
+		mpci->hvdcp_disable = en;
+		dev_info(mpci->dev, "%s: rerurn apsd start.\n", __func__);
+		ret = mt6360_enable_chg_type_det(chg_dev, mpci->rerun_apsd);
+	} else {
+		dev_info(mpci->dev, "%s: chg_type needn't rerun apsd.\n", __func__);
+		ret = 0;
+	}
+	return ret;
+}
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 static int mt6360_get_adc(struct charger_device *chg_dev, enum adc_channel chan,
 			  int *min, int *max)
 {
@@ -1997,6 +2277,11 @@ static const struct charger_ops mt6360_chg_ops = {
 	.enable_discharge = mt6360_enable_discharge,
 	/* Charger type detection */
 	.enable_chg_type_det = mt6360_enable_chg_type_det,
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	.rerun_apsd = mt6360_rerun_apsd,
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 	/* ADC */
 	.get_adc = mt6360_get_adc,
 	.get_vbus_adc = mt6360_get_vbus,
@@ -2354,6 +2639,19 @@ static irqreturn_t mt6360_pmu_chrdet_ext_evt_handler(int irq, void *data)
 	dev_info(mpci->dev, "%s: pwr_rdy = %d\n", __func__, pwr_rdy);
 	if (ret < 0)
 		goto out;
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	if (!pwr_rdy) {
+		mpci->attach = false;
+		mpci->rerun_apsd = false;
+		dev_info(mpci->dev, "%s: clear attach & rerun_apsd.\n", __func__);
+		cancel_delayed_work_sync(&mpci->get_hvdcp_work);
+/*L19 HQ-171148 A detect float error by miaozhichao at 2021/11/4 start*/
+		cancel_delayed_work_sync(&mpci->second_detect_work);
+/*L19 HQ-171148 A detect float error by miaozhichao at 2021/11/4 end*/
+	}
+#endif
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 	if (mpci->pwr_rdy == pwr_rdy)
 		goto out;
 	mpci->pwr_rdy = pwr_rdy;
@@ -2929,6 +3227,10 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	init_completion(&mpci->pumpx_done);
 	atomic_set(&mpci->pe_complete, 0);
 	atomic_set(&mpci->mivr_cnt, 0);
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 start*/
+	atomic_set(&mpci->bc12_wkard, 0);
+	atomic_set(&mpci->bc12_retry_cnt, 0);
+/*L19 HQ-158658 plug in slowly USB twice detect by miaozhichao at 2021/11/22 end*/
 	init_waitqueue_head(&mpci->waitq);
 	platform_set_drvdata(pdev, mpci);
 
@@ -2996,7 +3298,14 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		goto err_shipping_mode_attr;
 	}
 	INIT_WORK(&mpci->pe_work, mt6360_trigger_pep_work_handler);
-
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	INIT_DELAYED_WORK(&mpci->get_hvdcp_work, mt6360_get_hvdcp_work);
+#endif
+/*L19 HQ-171148 A detect float error by miaozhichao at 2021/11/4 start*/
+	INIT_DELAYED_WORK(&mpci->second_detect_work, mt6360_second_detect_work);
+/*L19 HQ-171148 A detect float error by miaozhichao at 2021/11/4 end*/
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 	/* register fg bat oc notify */
 	if (pdata->batoc_notify)
 		register_battery_oc_notify(&mt6360_recv_batoc_callback,

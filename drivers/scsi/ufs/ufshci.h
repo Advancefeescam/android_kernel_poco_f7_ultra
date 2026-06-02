@@ -137,6 +137,8 @@ enum {
 #define MANUFACTURE_ID_MASK	UFS_MASK(0xFFFF, 0)
 #define PRODUCT_ID_MASK		UFS_MASK(0xFFFF, 16)
 
+#define UFS_BIT(x)      (1L << (x))
+
 /* AHIT - Auto-Hibernate Idle Timer */
 #define UFSHCI_AHIBERN8_TIMER_MASK		GENMASK(9, 0)
 #define UFSHCI_AHIBERN8_SCALE_MASK		GENMASK(12, 10)
@@ -202,6 +204,43 @@ enum {
 	PWR_ERROR_CAP	= 0x04,
 	PWR_FATAL_ERROR	= 0x05,
 };
+
+/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 start */
+/* Host UIC error type */
+enum ufshcd_uic_err_type {
+	UFS_UIC_ERROR_PA,
+	UFS_UIC_ERROR_DL,
+	UFS_UIC_ERROR_DME,
+};
+/* Host UIC error code PHY adapter layer */
+enum ufshcd_ec_pa {
+	UFS_EC_PA_LANE_0,
+	UFS_EC_PA_LANE_1,
+	UFS_EC_PA_LANE_2,
+	UFS_EC_PA_LANE_3,
+	UFS_EC_PA_LINE_RESET,
+	UFS_EC_PA_MAX,
+};
+/* Host UIC error code data link layer */
+enum ufshcd_ec_dl {
+	UFS_EC_DL_NAC_RECEIVED,
+	UFS_EC_DL_TCx_REPLAY_TIMER_EXPIRED,
+	UFS_EC_DL_AFCx_REQUEST_TIMER_EXPIRED,
+	UFS_EC_DL_FCx_PROTECT_TIMER_EXPIRED,
+	UFS_EC_DL_CRC_ERROR,
+	UFS_EC_DL_RX_BUFFER_OVERFLOW,
+	UFS_EC_DL_MAX_FRAME_LENGTH_EXCEEDED,
+	UFS_EC_DL_WRONG_SEQUENCE_NUMBER,
+	UFS_EC_DL_AFC_FRAME_SYNTAX_ERROR,
+	UFS_EC_DL_NAC_FRAME_SYNTAX_ERROR,
+	UFS_EC_DL_EOF_SYNTAX_ERROR,
+	UFS_EC_DL_FRAME_SYNTAX_ERROR,
+	UFS_EC_DL_BAD_CTRL_SYMBOL_TYPE,
+	UFS_EC_DL_PA_INIT_ERROR,
+	UFS_EC_DL_PA_ERROR_IND_RECEIVED,
+	UFS_EC_DL_MAX,
+};
+/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 end */
 
 /* HCE - Host Controller Enable 34h */
 #define CONTROLLER_ENABLE	0x1
@@ -402,6 +441,7 @@ enum {
 	UTP_CMD_TYPE_SCSI		= 0x0,
 	UTP_CMD_TYPE_UFS		= 0x1,
 	UTP_CMD_TYPE_DEV_MANAGE		= 0x2,
+	UTP_CMD_TYPE_SCSI_VENDOR_HY	= 0xb,
 };
 
 /* To accommodate UFS2.0 required Command type */

@@ -6,7 +6,7 @@
 #ifndef _MTK_BATTERY_TABLE_H
 #define _MTK_BATTERY_TABLE_H
 
-#include "mtk_battery.h"
+#include "v1/mtk_battery.h"
 
 #ifndef _DEA_MODIFY_
 #else
@@ -23,8 +23,18 @@
 #define Q_MAX_H_CURRENT 10000
 
 /* multiple battery profile compile options */
-/*#define MTK_GET_BATTERY_ID_BY_AUXADC*/
+/*L19 HQ-162876 add battery id adc channel by gengyifei at 2021/10/28 start*/
+#define MTK_GET_BATTERY_ID_BY_AUXADC
+/*L19 HQ-162876 add battery id adc channel by gengyifei at 2021/10/28 end*/
 
+
+
+/*L19 HQ-162876 add battery_id by gengyifei at 2021/10/31 start*/
+#define SWD_MIN_VOLTAGE				1302450
+#define SWD_MAX_VOLTAGE				1439550
+#define COSMX_MIN_VOLTAGE			848350
+#define COSMX_MAX_VOLTAGE			937650
+/*L19 HQ-162876 add battery_id by gengyifei at 2021/10/31 end*/
 
 /* if ACTIVE_TABLE == 0 && MULTI_BATTERY == 0
  * load g_FG_PSEUDO100_Tx from dtsi
@@ -187,10 +197,15 @@ int g_temperature[MAX_TABLE] = {
 	-45/*TEMPERATURE_T9*/
 };
 
+/*L19 HQ-165907 modify battery ntc by miaozhichao at 2021/11/3 start*/
+#define BAT_NTC_10	0
+#define BAT_NTC_47	0
+#define BAT_NTC_100	1
 
-#define BAT_NTC_10 1
-#define BAT_NTC_47 0
-
+#if (BAT_NTC_100 == 1)
+#define RBAT_PULL_UP_R             100000
+#endif
+/*L19 HQ-165907 modify battery ntc by miaozhichao at 2021/11/3 end*/
 #if (BAT_NTC_10 == 1)
 #define RBAT_PULL_UP_R             24000
 #endif
@@ -202,7 +217,39 @@ int g_temperature[MAX_TABLE] = {
 #define RBAT_PULL_UP_VOLT          2800
 
 #define BIF_NTC_R 16000
-
+/*L19 HQ-165907 modify battery ntc by miaozhichao at 2021/11/3 start*/
+#if (BAT_NTC_100 == 1)
+struct FUELGAUGE_TEMPERATURE Fg_Temperature_Table[TEMP_TABLE_ITEM_NUM] = {
+		{-40, 4397000},
+		{-35, 3088000},
+		{-30, 2197000},
+		{-25, 1581000},
+		{-20, 1151000},
+		{-15, 846000},
+		{-10, 628000},
+		{-5, 471000},
+		{0, 357000},
+		{5, 272000},
+		{10, 209000},
+		{15, 162000},
+		{20, 127000},
+		{25, 100000},
+		{30, 79000},
+		{35, 63000},
+		{40, 50000},
+		{45, 40000},
+		{50, 33000},
+		{55, 27000},
+		{60, 22000},
+		{65, 18000},
+		{70, 15000},
+		{75, 12000},
+		{80, 10000},
+		{85, 8000},
+		{90, 7000}
+};
+#endif
+/*L19 HQ-165907 modify battery ntc by miaozhichao at 2021/11/3 end*/
 #if (BAT_NTC_10 == 1)
 struct FUELGAUGE_TEMPERATURE Fg_Temperature_Table[21] = {
 		{-40, 195652},

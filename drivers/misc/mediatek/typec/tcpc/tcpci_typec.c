@@ -2018,6 +2018,9 @@ static inline bool typec_is_ignore_cc_change(
 	return false;
 }
 
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 start*/
+uint8_t typec_cc_orientation;
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 end*/
 int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc)
 {
 	int ret;
@@ -2035,6 +2038,15 @@ int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc)
 		return ret;
 
 	TYPEC_INFO("[CC_Alert] %d/%d\n", typec_get_cc1(), typec_get_cc2());
+
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 start*/
+	if (typec_get_cc1() == 0 && typec_get_cc2() == 0)
+		typec_cc_orientation = 0;
+	else if (typec_get_cc2() == 0)
+		typec_cc_orientation = 1;
+	else if (typec_get_cc1() == 0)
+		typec_cc_orientation = 2;
+/*L19 HQ-157281 typec_cc_orientation node bring up by tongjiacheng at 2021/10/13 end*/
 
 	if (typec_is_cc_no_res()) {
 		TYPEC_DBG("[Warning] CC No Res\n");

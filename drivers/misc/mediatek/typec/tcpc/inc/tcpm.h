@@ -158,6 +158,10 @@ struct tcp_ny_typec_state {
 	uint8_t polarity;
 	uint8_t old_state;
 	uint8_t new_state;
+/*L19 HQ-171732 update typec_mode by miaozhichao at 2021/12/17 start*/
+	uint8_t cc1;
+	uint8_t cc2;
+/*L19 HQ-171732 update typec_mode by miaozhichao at 2021/12/17 end*/
 };
 
 enum {

@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 /*
@@ -23,7 +32,7 @@
 #define AF_DEBUG
 #ifdef AF_DEBUG
 #define LOG_INF(format, args...)                                               \
-	pr_info(AF_DRVNAME " [%s] " format, __func__, ##args)
+	pr_err(AF_DRVNAME " [%s] " format, __func__, ##args)
 #else
 #define LOG_INF(format, args...)
 #endif
@@ -137,7 +146,14 @@ static int initAF(void)
 		LOG_INF("GT Check HW version: %x\n", Temp); //should be 0xF2
 		ret = s4AF_WriteReg(0, 0xED, 0xAB); //advance mode
 		LOG_INF("Advance mode ret: %x\n", ret);
-
+/* L19 code for 171160 by zhengkan at 2021.12.28 start */
+		ret = s4AF_WriteReg(0, 0x06, 0x84);
+		LOG_INF("GT9772 REG06 ret: %x\n", ret);
+		ret = s4AF_WriteReg(0, 0x07, 0x01);
+		LOG_INF("GT9772 REG07 ret: %x\n", ret);
+		ret = s4AF_WriteReg(0, 0x08, 0x49);
+		LOG_INF("GT9772 REG08 ret: %x\n", ret);
+/* L19 code for 171160 by zhengkan at 2021.12.28 end */
 
 		spin_lock(g_pAF_SpinLock);
 		*g_pAF_Opened = 2;
@@ -225,9 +241,17 @@ long GT9772AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 int GT9772AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 {
 	int Ret = 0;
+/* L19 code for 171160 by zhengkan at 2021.12.28 start */
+	int Step = 250;
 
 	LOG_INF("Start\n");
 
+	for (;Step>=50;Step-=50)//Power down in five steps
+	{
+		setPosition(Step);
+		msleep(1);
+	}
+/* L19 code for 171160 by zhengkan at 2021.12.28 end */
 	if (*g_pAF_Opened) {
 		LOG_INF("Free\n");
 

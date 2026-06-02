@@ -3,6 +3,12 @@
  * Copyright (c) 2015 MediaTek Inc.
  */
 
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
+#include <uapi/linux/sched/types.h>
+#include <linux/sched/types.h>
+#endif
+
 #include <linux/completion.h>
 #include <linux/errno.h>
 #include <linux/of_address.h>
@@ -28,8 +34,9 @@
 #define CMDQ_EOC_CMD		((u64)((CMDQ_CODE_EOC << CMDQ_OP_CODE_SHIFT)) \
 				<< 32 | CMDQ_EOC_IRQ_EN)
 #define CMDQ_MBOX_BUF_LIMIT	16 /* default limit count */
-
-#define CMDQ_PREDUMP_TIMEOUT_MS		200
+/*L19 code for HQ-173473 by p-yangyunhui at 2022.01.11 start */
+#define CMDQ_PREDUMP_TIMEOUT_MS		50
+/*L19 code for HQ-173473 by p-yangyunhui at 2022.01.11 end */
 
 /* sleep for 312 tick, which around 12us */
 #define CMDQ_POLL_TICK			312
@@ -1890,6 +1897,11 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 
 int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
+        struct sched_param param = {.sched_priority = 48 };
+        sched_setscheduler(current, SCHED_RR, &param);
+#endif
+
 	struct cmdq_flush_item *item = pkt->flush_item;
 
 	if (!item) {

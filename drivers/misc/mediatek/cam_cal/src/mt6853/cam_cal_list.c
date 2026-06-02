@@ -11,34 +11,33 @@
 
 #define MAX_EEPROM_SIZE_16K 0x4000
 
+/*L19 code for HQ-161200 by TianGuchen at 2022/01/24 start*/
+extern unsigned int ov02b1b_read_otp_info(struct i2c_client *client,
+  	unsigned int addr,
+  	unsigned char *data,
+  	unsigned int size);
+extern unsigned int sc202cs_read_otp_info(struct i2c_client *client,
+  	unsigned int addr,
+  	unsigned char *data,
+  	unsigned int size);
 struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
 	/*Below is commom sensor */
-	{IMX586_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K,
-		BL24SA64_write_region},
-	{IMX576_SENSOR_ID, 0xA2, Common_read_region},
-	{IMX519_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX319_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{S5K3M5SX_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_16K,
-		BL24SA64_write_region},
-	{IMX686_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{HI846_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{S5KGD1SP_SENSOR_ID, 0xA8, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{OV16A10_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{S5K3P9SP_SENSOR_ID, 0xA8, Common_read_region},
-	{S5K2T7SP_SENSOR_ID, 0xA4, Common_read_region},
-	{IMX386_SENSOR_ID, 0xA0, Common_read_region},
-	{S5K2L7_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX398_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX350_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX386_MONO_SENSOR_ID, 0xA0, Common_read_region},
-	{S5KJD1_SENSOR_ID, 0xB0, Common_read_region, DEFAULT_MAX_EEPROM_SIZE_8K,
-		DW9763_write_region},
-	{IMX499_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX481_SENSOR_ID, 0xA4, Common_read_region, DEFAULT_MAX_EEPROM_SIZE_8K,
-		BL24SA64_write_region},
+	{OV50C40_SUNNY_MAIN_SENSOR_ID, 0xa2, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{OV50C40_AAC_MAIN_SENSOR_ID, 0xa2, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{HI1337_AAC_MAIN_SENSOR_ID, 0xa2, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{HI1337_OFILM_MAIN_SENSOR_ID, 0xa2, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{HI556_OFILM_FRONT_SENSOR_ID, 0xa2, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{GC5035_SUNNY_FRONT_SENSOR_ID, 0xa2, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{OV8856_AAC_FRONT_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{OV8856_OFILM_FRONT_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{OV02B1B_SUNNY_DEPTH_SENSOR_ID, 0x78, ov02b1b_read_otp_info},
+	{SC202CS_OFILM_DEPTH_SENSOR_ID, 0x6C, sc202cs_read_otp_info},
+	{SC201CS_OFILM_DEPTH_SENSOR_ID, 0xA6, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{S5KJN1_OFILM_MAIN_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_16K},
 	/*  ADD before this line */
 	{0, 0, 0}       /*end of list */
 };
+/*L19 code for HQ-161200 by TianGuchen at 2022/01/24 end*/
 
 unsigned int cam_cal_get_sensor_list(
 	struct stCAM_CAL_LIST_STRUCT **ppCamcalList)

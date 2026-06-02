@@ -5323,7 +5323,6 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &p->se;
 	int task_new = !(flags & ENQUEUE_WAKEUP);
-	int is_idle = idle_cpu(cpu_of(rq));
 
 	/*
 	 * The code below (indirectly) updates schedutil which looks at
@@ -5395,12 +5394,6 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 #endif
 		add_nr_running(rq, 1);
 
-		/* if first is idle, some governors may not
-		 * update frequency, we must update again,
-		 * because idle_cpu return false until now.
-		 */
-		if (is_idle)
-			cfs_rq_util_change(&rq->cfs, 0);
 
 		/*
 		 * Since new tasks are assigned an initial util_avg equal to
@@ -6614,6 +6607,9 @@ int find_best_idle_cpu(struct task_struct *p, bool prefer_idle)
 	struct perf_order_domain *domain;
 	struct list_head *pos;
 
+	if (!pod_is_ready())
+		return best_idle_cpu;
+
 	list_for_each(pos, &perf_order_domains) {
 		domain = list_entry(pos, struct perf_order_domain,
 					perf_order_domains);
@@ -6686,6 +6682,9 @@ int select_max_spare_capacity(struct task_struct *p, int target)
 	int cid = arch_cpu_cluster_id(target); /* cid of target CPU */
 	int cpu = task_cpu(p);
 	struct cpumask *tsk_cpus_allow = &p->cpus_allowed;
+
+	if (!pod_is_ready())
+		return target;
 
 	/* If the prevous cpu is cache affine and idle, choose it first. */
 	if (cpu != target &&
@@ -7779,11 +7778,11 @@ sd_loop:
 	if (unlikely(sd)) {
 		/* Slow path */
 		//new_cpu = find_idlest_cpu(sd, p, cpu, prev_cpu, sd_flag);
-		___select_idle_sibling(p, prev_cpu, new_cpu);
+		new_cpu = ___select_idle_sibling(p, prev_cpu, new_cpu);
 		select_reason = LB_IDLEST;
 	} else if (sd_flag & SD_BALANCE_WAKE) { /* XXX always ? */
 		/* Fast path */
-		___select_idle_sibling(p, prev_cpu, new_cpu);
+		new_cpu = ___select_idle_sibling(p, prev_cpu, new_cpu);
 		//new_cpu = select_idle_sibling(p, prev_cpu, new_cpu);
 		select_reason = LB_IDLE_SIBLING;
 

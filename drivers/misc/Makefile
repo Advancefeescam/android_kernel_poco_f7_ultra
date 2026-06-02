@@ -2,7 +2,11 @@
 #
 # Makefile for misc devices that really don't fit anywhere else.
 #
-
+#huaqin wangzhaoguo add for L19 2021/10/9 start
+obj-y		                += hqsysfs/
+#huaqin wangzhaoguo add for L19 2021/10/9 end
+obj-$(CONFIG_SERIAL_NUM)	+= serial_num.o
+obj-$(CONFIG_MI_MEMORY_SYSFS)	+= mi-memory/
 obj-$(CONFIG_IBM_ASM)		+= ibmasm/
 obj-$(CONFIG_IBMVMC)		+= ibmvmc.o
 obj-$(CONFIG_AD525X_DPOT)	+= ad525x_dpot.o
@@ -60,3 +64,8 @@ obj-$(CONFIG_OCXL)		+= ocxl/
 obj-$(CONFIG_MISC_RTSX)		+= cardreader/
 obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
 obj-y				+= mediatek/
+
+# L19 code for HQ-000000 by lizheng at 2021/10/25 start
+obj-$(CONFIG_DEBUG_POLICY) += debug_policy.o
+# L19 code for HQ-000000 by lizheng at 2021/10/25 end
+

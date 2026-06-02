@@ -329,21 +329,21 @@ static int mtk_linear_chr_topoff(struct charger_manager *info)
 static int mtk_linear_chr_err(struct charger_manager *info)
 {
 	struct linear_charging_alg_data *algo_data = info->algorithm_data;
-
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 start*/
 	if (info->enable_sw_jeita) {
 		if ((info->sw_jeita.sm == TEMP_BELOW_T0) ||
-			(info->sw_jeita.sm == TEMP_ABOVE_T4))
+			(info->sw_jeita.sm == TEMP_ABOVE_T5))
 			info->sw_jeita.error_recovery_flag = false;
 
 		if ((info->sw_jeita.error_recovery_flag == false) &&
 			(info->sw_jeita.sm != TEMP_BELOW_T0) &&
-			(info->sw_jeita.sm != TEMP_ABOVE_T4)) {
+			(info->sw_jeita.sm != TEMP_ABOVE_T5)) {
 			info->sw_jeita.error_recovery_flag = true;
 			algo_data->state = CHR_CC;
 			get_monotonic_boottime(&algo_data->charging_begin_time);
 		}
 	}
-
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 end*/
 	algo_data->total_charging_time = 0;
 	algo_data->cc_charging_time = 0;
 	algo_data->topoff_charging_time = 0;

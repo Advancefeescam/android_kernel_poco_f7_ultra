@@ -317,7 +317,7 @@ static int mt6360_ldo_enable(struct regulator_dev *rdev)
 		return ret;
 	}
 	/* when LDO5 enable, enable SDCARD_DET */
-	if (id == MT6360_LDO_LDO5 && pdata->sdcard_det_en) {
+	if (id == MT6360_LDO_LDO5/* && pdata->sdcard_det_en */) {
 		ret = mt6360_ldo_reg_update_bits(mli, MT6360_LDO_LDO5_CTRL0,
 						 0x40, 0xff);
 		if (ret < 0) {
@@ -344,7 +344,7 @@ static int mt6360_ldo_disable(struct regulator_dev *rdev)
 		return ret;
 	}
 	/* when LDO5 disable, disable SDCARD_DET */
-	if (id == MT6360_LDO_LDO5 && pdata->sdcard_det_en) {
+	if (id == MT6360_LDO_LDO5/* && pdata->sdcard_det_en */) {
 		ret = mt6360_ldo_reg_update_bits(mli, MT6360_LDO_LDO5_CTRL0,
 						 0x40, 0);
 		if (ret < 0) {

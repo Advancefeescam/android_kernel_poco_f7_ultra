@@ -48,12 +48,22 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/$(PDIR)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/gpufreq_v1/
 
+#L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 start
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/flashlight/
+#L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 end
+
 obj-y += mtk_thermal_monitor.o
 obj-y += mtk_cooler_shutdown.o
 ifeq ($(CONFIG_MTK_LEDS), y)
     # setMaxbrightness() defined in mediatek/kernel/drivers/leds/leds_drv.c only built when CONFIG_MTK_LEDS is set
-    obj-y += mtk_cooler_backlight.o
+#L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 start
+	#obj-$(CONFIG_THERMAL) += mtk_cooler_backlight.o
+	obj-$(CONFIG_THERMAL) += mtk_cooler_backlight_cus.o
+#L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 end
 endif
+#L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 start
+obj-$(CONFIG_THERMAL) += mtk_cooler_flashlight_cus.o
+#L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 end
 obj-y += mtk_cooler_kshutdown.o
 obj-y += mtk_cooler_cam.o
 

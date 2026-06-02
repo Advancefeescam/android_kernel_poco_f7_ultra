@@ -86,9 +86,13 @@ struct mtk_nanohub_device {
 
 	int32_t acc_config_data[6];
 	int32_t gyro_config_data[12];
-	int32_t mag_config_data[9];
-	int32_t light_config_data[1];
-	int32_t proximity_config_data[2];
+	/*Huaqin add for HQ-159299 by baoguangxiu at 2021/12/23 start */
+	int32_t mag_config_data[10];
+	/*Huaqin add for HQ-159299 by baoguangxiu at 2021/12/23 end */
+	/* Huaqin add for HQ-157914 by baoguangxiu at 2021/10/27 start */
+	int32_t light_config_data[4];
+	int32_t proximity_config_data[6];
+	/* Huaqin add for HQ-157914 by baoguangxiu at 2021/10/27 end */
 	int32_t pressure_config_data[2];
 	int32_t sar_config_data[4];
 	int32_t ois_config_data[2];
@@ -598,12 +602,12 @@ static void mtk_nanohub_init_sensor_info(void)
 	strlcpy(p->name, "glance", sizeof(p->name));
 	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	p = &sensor_state[SENSOR_TYPE_PICK_UP_GESTURE];
-	p->sensorType = SENSOR_TYPE_PICK_UP_GESTURE;
-	p->rate = SENSOR_RATE_ONESHOT;
-	p->gain = 1;
-	strlcpy(p->name, "pickup", sizeof(p->name));
-	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
+    	p = &sensor_state[SENSOR_TYPE_PICK_UP_GESTURE];
+    	p->sensorType = SENSOR_TYPE_PICK_UP_GESTURE;
+   	p->rate = SENSOR_RATE_ONCHANGE;
+   	p->gain = 1;
+    	strlcpy(p->name, "pickup", sizeof(p->name));
+    	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
 	p = &sensor_state[SENSOR_TYPE_WAKE_GESTURE];
 	p->sensorType = SENSOR_TYPE_WAKE_GESTURE;
@@ -669,7 +673,9 @@ static void mtk_nanohub_init_sensor_info(void)
 
 	p = &sensor_state[SENSOR_TYPE_SAR];
 	p->sensorType = SENSOR_TYPE_SAR;
-	p->rate = SENSOR_RATE_ONCHANGE;
+	/* Huaqin add for HQ-158821 by luhaiou at 2021/10/28 start */
+	//p->rate = SENSOR_RATE_ONCHANGE;
+	/* Huaqin add for HQ-158821 by luhaiou at 2021/10/28 end */
 	p->gain = 1;
 	strlcpy(p->name, "sar", sizeof(p->name));
 	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
@@ -2290,15 +2296,25 @@ static int mtk_nanohub_report_to_manager(struct data_unit_t *data)
 			event.timestamp = data->time_stamp;
 			event.sensor_type = id_to_type(data->sensor_type);
 			event.action = data->flush_action;
-			event.word[0] = data->sar_event.data[0];
-			event.word[1] = data->sar_event.data[1];
-			event.word[2] = data->sar_event.data[2];
+			/* Huaqin add for L19-78 by luhaiou at 2021/12/30 start */
+			event.word[0] = data->data[0];
+			event.word[1] = data->data[1];
+			event.word[2] = data->data[2];
+			event.word[3] = data->data[3];
+			event.word[4] = data->data[4];
+			event.word[5] = data->data[5];
+			/* Huaqin add for L19-78 by luhaiou at 2021/12/30 end */
 			break;
 		default:
 			event.timestamp = data->time_stamp;
 			event.sensor_type = id_to_type(data->sensor_type);
 			event.action = data->flush_action;
+			/* Huaqin add for HQ-157913 by baoguangxiu at 2021/10/25 start */
 			event.word[0] = data->data[0];
+			event.word[1] = data->data[1];
+			event.word[2] = data->data[2];
+			event.word[3] = data->data[3];
+			/* Huaqin add for HQ-157913 by baoguangxiu at 2021/10/25 end */
 			event.word[1] = data->data[1];
 			event.word[2] = data->data[2];
 			event.word[3] = data->data[3];
@@ -2378,8 +2394,14 @@ static int mtk_nanohub_report_to_manager(struct data_unit_t *data)
 			event.timestamp = data->time_stamp;
 			event.sensor_type = id_to_type(data->sensor_type);
 			event.action = data->flush_action;
+			/* Huaqin add for HQ-157914 by baoguangxiu at 2021/10/27 start */
 			event.word[0] = data->data[0];
 			event.word[1] = data->data[1];
+			event.word[2] = data->data[2];
+			event.word[3] = data->data[3];
+			event.word[4] = data->data[4];
+			event.word[5] = data->data[5];
+			/* Huaqin add for HQ-157914 by baoguangxiu at 2021/10/27 end */
 			break;
 		case ID_LIGHT:
 			event.timestamp = data->time_stamp;
@@ -2398,9 +2420,11 @@ static int mtk_nanohub_report_to_manager(struct data_unit_t *data)
 			event.timestamp = data->time_stamp;
 			event.sensor_type = id_to_type(data->sensor_type);
 			event.action = data->flush_action;
-			event.word[0] = data->sar_event.x_bias;
-			event.word[1] = data->sar_event.y_bias;
-			event.word[2] = data->sar_event.z_bias;
+			/* Huaqin add for HQ-159298 by luhaiou at 2021/11/05 start */
+			event.word[0] = data->data[0];
+			event.word[1] = data->data[1];
+			event.word[2] = data->data[2];
+			/* Huaqin add for HQ-159298 by luhaiou at 2021/11/05 end */
 			break;
 		case ID_OIS:
 			event.timestamp = data->time_stamp;

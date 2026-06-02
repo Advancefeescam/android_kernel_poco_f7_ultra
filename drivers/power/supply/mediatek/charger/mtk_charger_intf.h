@@ -111,25 +111,31 @@ enum {
 
 /*
  * Software JEITA
- * T0: -10 degree Celsius
- * T1: 0 degree Celsius
+ * T0: 0 degree Celsius
+ * T1: 5 degree Celsius
  * T2: 10 degree Celsius
- * T3: 45 degree Celsius
- * T4: 50 degree Celsius
+ * T3: 15 degree Celsius
+ * T4: 45 degree Celsius
+ * T4: 55 degree Celsius
  */
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 start*/
 enum sw_jeita_state_enum {
 	TEMP_BELOW_T0 = 0,
 	TEMP_T0_TO_T1,
 	TEMP_T1_TO_T2,
 	TEMP_T2_TO_T3,
 	TEMP_T3_TO_T4,
-	TEMP_ABOVE_T4
+	TEMP_T4_TO_T5,
+	TEMP_ABOVE_T5,
 };
-
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 end*/
 struct sw_jeita_data {
 	int sm;
 	int pre_sm;
 	int cv;
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 start*/
+	int cc;
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 end*/
 	bool charging;
 	bool error_recovery_flag;
 };
@@ -174,18 +180,27 @@ struct charger_custom_data {
 	int min_charger_voltage_1;
 	int min_charger_voltage_2;
 	int max_dmivr_charger_current;
-
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 start*/
 	/* sw jeita */
-	int jeita_temp_above_t4_cv;
+	int jeita_temp_above_t5_cv;
+	int jeita_temp_t4_to_t5_cv;
 	int jeita_temp_t3_to_t4_cv;
 	int jeita_temp_t2_to_t3_cv;
 	int jeita_temp_t1_to_t2_cv;
 	int jeita_temp_t0_to_t1_cv;
 	int jeita_temp_below_t0_cv;
+	int jeita_temp_t4_to_t5_cc;
+	int jeita_temp_t3_to_t4_cc;
+	int jeita_temp_t2_to_t3_cc;
+	int jeita_temp_t1_to_t2_cc;
+	int jeita_temp_t0_to_t1_cc;
+	int jeita_temp_below_t0_cc;
+	int temp_t5_thres;
+	int temp_t5_thres_minus_x_degree;
 	int temp_t4_thres;
-	int temp_t4_thres_minus_x_degree;
+	int temp_t4_thres_plus_x_degree;
 	int temp_t3_thres;
-	int temp_t3_thres_minus_x_degree;
+	int temp_t3_thres_plus_x_degree;
 	int temp_t2_thres;
 	int temp_t2_thres_plus_x_degree;
 	int temp_t1_thres;
@@ -193,7 +208,7 @@ struct charger_custom_data {
 	int temp_t0_thres;
 	int temp_t0_thres_plus_x_degree;
 	int temp_neg_10_thres;
-
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 end*/
 	/* battery temperature protection */
 	int mtk_temperature_recharge_support;
 	int max_charge_temp;
@@ -417,8 +432,26 @@ struct charger_manager {
 	bool enable_dynamic_mivr;
 
 	struct smartcharging sc;
-
-
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 start*/
+	bool is_input_suspend;
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 end*/
+/*L19 L19-13 add thermal limit current by miaozhichao at 2021/11/18 start*/
+	int system_temp_level;
+/*L19 L19-13 add thermal limit current by miaozhichao at 2021/11/18 end*/
+/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 start*/
+	bool enable_sw_ffc;
+	int ffc_cv_1;
+	int ffc_cv_2;
+	int ffc_cv_3;
+	int ffc_cv_4;
+	int chg_cycle_count_level1;
+	int chg_cycle_count_level2;
+	int chg_cycle_count_level3;
+	int chg_cycle_count_level4;
+/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 end*/
+/*L19 HQ-159124 add recharge ways by miaozhichao at 2021/11/30 start*/
+	int recharger_uisoc_limit;
+/*L19 HQ-159124 add recharge ways by miaozhichao at 2021/11/30 end*/
 	/*daemon related*/
 	struct sock *daemo_nl_sk;
 	u_int g_scd_pid;

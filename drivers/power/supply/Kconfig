@@ -7,7 +7,13 @@ menuconfig POWER_SUPPLY
 	  (if selected below).
 
 if POWER_SUPPLY
-
+#/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+config MTK_SOFT_HVDCP_2
+	bool "mtk_soft_hvdcp_2"
+	default n
+	help
+	  Select if you want to enable 18W charging.
+#/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 config POWER_SUPPLY_DEBUG
 	bool "Power supply debug"
 	help

@@ -1,0 +1,1 @@
+obj-y += gc5035_sunny_mipiraw_Sensor.o

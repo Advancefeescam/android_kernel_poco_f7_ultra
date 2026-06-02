@@ -390,18 +390,19 @@
 		dsi0  = &dsi0;
 		ccorr0 = &disp_ccorr0;
 	};
-
+/* Huaqin add for HQ-158035 by caogaojie at 2021/10/29 start */
 	disp_leds {
 		compatible = "mediatek,disp-leds";
 
 		backlight {
 			label = "lcd-backlight";
-			max-brightness = <255>;
-			led-bits = <8>;
+			max-brightness = <2047>;
+			led-bits = <11>;
+			trans-bits = <11>;
 			default-state = "on";
 		};
 	};
-
+/* Huaqin add for HQ-158035 by caogaojie at 2021/10/29 start */
 	pwmleds {
 		compatible = "mediatek,disp-pwm-leds";
 
@@ -1121,7 +1122,19 @@
 		/* Performance Mode */
 		mediatek,perf-crypto-vcore = <2>;
 	};
-
+/*L19 HQ-162992 USB eye modify by miaozhichao at 2021/10/28 start*/
+/*L19 HQ-168591 USB eye modify by miaozhichao at 2021/11/18 start*/
+	usb_phy_tuning {
+		compatible = "mediatek,phy_tuning";
+		u2_vrt_ref_host = <5>;
+		u2_term_ref_host = <5>;
+		u2_enhance_host = <3>;
+		u2_vrt_ref_dev = <7>;
+		u2_term_ref_dev = <6>;
+		u2_enhance_dev = <3>;
+	};
+/*L19 HQ-168591 USB eye modify by miaozhichao at 2021/11/18 end*/
+/*L19 HQ-162992 USB eye modify by miaozhichao at 2021/10/28 end*/
 	ufs_mphy@11fa0000 {
 		compatible = "mediatek,ufs_mphy";
 		reg = <0 0x11fa0000 0 0xc000>;
@@ -1876,8 +1889,16 @@
 	};
 
 	touch:touch {
-		compatible = "goodix,touch";
+		compatible = "novatek,NVT-ts-spi";
 	};
+
+	/*L19 code for HQ-159151 by sunfeiting at 20211109 start*/
+	xiaomi_touch{
+	compatible = "xiaomi-touch";
+	status = "ok";
+	touch,name = "xiaomi-touch";
+	};
+	/*L19 code for HQ-159151 by sunfeiting at 20211109 end*/
 
 	ap_ccif0@10209000 {
 		compatible = "mediatek,ap_ccif0";
@@ -1886,12 +1907,20 @@
 	};
 
 	goodix_fp: fingerprint {
-		compatible = "mediatek,goodix-fp";
+		compatible = "mediatek,fpc1022_irq","mediatek,goodix-fp";
+		status = "okay";
 	};
 
 	accdet: accdet {
 		compatible = "mediatek,pmic-accdet";
 	};
+
+/* Huaqin modify for HQ-157820 by yangjinhao at 2021/10/23 start */
+	swtp: swtp {
+		compatible = "mediatek, swtp-eint";
+		swtp-gpio = <&pio 45 0>;
+	};
+/* Huaqin modify for HQ-157820 by yangjinhao at 2021/10/23 end */
 
 	md_ccif0@1020a000 {
 		compatible = "mediatek,md_ccif0";
@@ -3325,9 +3354,7 @@
 		mtk_spk_i2s_out = <3>;
 		mtk_spk_i2s_in = <0>;
 		/* mtk_spk_i2s_mck = <3>; */
-		mediatek,speaker-codec {
-			sound-dai = <&speaker_amp>;
-		};
+		
 	};
 
 	audio_sram@11212000 {
@@ -4299,6 +4326,11 @@
 
 	dsi_te: dsi_te {
 		compatible = "mediatek, dsi_te-eint";
+		status = "disabled";
+	};
+
+	esd_flag: esd_flag {
+		compatible = "mediatek, esd_flag-eint";
 		status = "disabled";
 	};
 
@@ -5595,6 +5627,26 @@
 		/* reserved for overlay by odm */
 	};
 
+	/* huaqin wangzhaoguo add for L19 2021/10/9 start */
+	simtray: simtray {
+		compatible = "light,simtray-status";
+		status-gpio = <&pio 4 0>;
+	};
+
+	board_id: board_id {
+		compatible = "mediatek,board_id";
+	};
+	/* huaqin wangzhaoguo add for L19 2021/10/9 end */
+
+/*L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 start*/
+	blk_thermal: blk_thermal {
+		compatible = "mediatek,blk_thermal_ntc";
+		io-channels = <&auxadc 3>;
+		io-channel-names = "blk_thermal-channel";
+		status = "okay";
+	};
+/*L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 end*/
+
 	memory_ssmr_features: memory-ssmr-features {
 		compatible = "mediatek,memory-ssmr-features";
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
@@ -5676,7 +5728,7 @@
 
 	spi4: spi4@11018000 {
 		compatible = "mediatek,mt6765-spi";
-		mediatek,pad-select = <0>;
+		mediatek,pad-select = <0>,<1>;
 		reg = <0 0x11018000 0 0x100>;
 		interrupts = <GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&topckgen CLK_TOP_MAINPLL_D5_D4>,
@@ -5955,6 +6007,14 @@
 		mediatek,fifo_only;
 	};
 
+	/* Huaqin modify for HQ-161121 by yangjinhao at 2021/10/19 start */
+	irtx_pwm:irtx_pwm {
+		compatible = "mediatek,irtx-pwm";
+		pwm_ch = <1>;
+		pwm_data_invert = <0>;
+	};
+	/* Huaqin modify for HQ-161121 by yangjinhao at 2021/10/19 end */
+
 	/* ATF logger */
 	atf_logger {
 		compatible = "mediatek,atf_logger";
@@ -6013,28 +6073,39 @@
 		/* enable_pe_plus; */
 		enable_pd20_reset;
 		power_path_support;
-		max_charger_voltage = <6500000>;
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+		max_charger_voltage = <14500000>;
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
 		fast_charge_voltage = <3000000>;
 
 		/* charging current */
 		usb_charger_current = <500000>;
 		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
-		non_std_ac_charger_current = <500000>;
+/*L19 HQ-157291 USB and Charge bring up by miaozhichao at 2021/10/1 start*/
+		ac_charger_input_current = <2050000>;
+		non_std_ac_charger_current = <1000000>;
+/*L19 HQ-157291 USB and Charge bring up by miaozhichao at 2021/10/1 end*/
 		charging_host_charger_current = <1500000>;
 		ta_ac_charger_current = <3000000>;
 		pd_charger_current = <500000>;
 
 		/* battery temperature protection */
-		temp_t4_threshold = <50>;
-		temp_t3_threshold = <45>;
+/*L19 HQHW-1496 update lk jeita by miaozhichao at 2021/12/23 start*/
+		temp_t6_threshold = <55>;
+		temp_t5_threshold = <45>;
+		temp_t4_threshold = <15>;
+		temp_t3_threshold = <10>;
+		temp_t2_threshold = <5>;
 		temp_t1_threshold = <0>;
+/*L19 HQHW-1496 update lk jeita by miaozhichao at 2021/12/23 end*/
 	};
 
 	charger: charger {
 		compatible = "mediatek,charger";
 		algorithm_name = "SwitchCharging2";
-		/* enable_sw_jeita; */
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 start*/
+		enable_sw_jeita;
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 end*/
 		/* enable_pe_plus; */
 		/* enable_pe_2; */
 		/* enable_pe_3; */
@@ -6046,12 +6117,31 @@
 
 		/* common */
 		battery_cv = <4350000>;
-		max_charger_voltage = <6500000>;
-		min_charger_voltage = <4600000>;
-
+/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 start*/
+		enable_sw_ffc;
+		ffc_cv_1 = <4450000>;
+		ffc_cv_2 = <4440000>;
+		ffc_cv_3 = <4430000>;
+		ffc_cv_4 = <4420000>;
+		chg_cycle_count_level1 = <1>;
+		chg_cycle_count_level2 = <100>;
+		chg_cycle_count_level3 = <200>;
+		chg_cycle_count_level4 = <300>;
+/*L19 HQ-159006 add cycle count by miaozhichao at 2021/11/29 end*/
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+		max_charger_voltage = <14500000>;
+/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
+/*L19 HQHW-1500 lower mivr by miaozhichao at 2021/12/14 start*/
+		min_charger_voltage = <4400000>;
+/*L19 HQHW-1500 lower mivr by miaozhichao at 2021/12/14 end*/
+/*L19 HQ-159124 add recharge ways by miaozhichao at 2021/11/30 start*/
+		recharger_uisoc_limit = <99>;
+/*L19 HQ-159124 add recharge ways by miaozhichao at 2021/11/30 end*/
 		/* dynamic mivr */
-		min_charger_voltage_1 = <4400000>;
-		min_charger_voltage_2 = <4200000>;
+/*L19 HQHW-1500 lower mivr by miaozhichao at 2021/12/14 start*/
+		min_charger_voltage_1 = <4200000>;
+		min_charger_voltage_2 = <4000000>;
+/*L19 HQHW-1500 lower mivr by miaozhichao at 2021/12/14 end*/
 		max_dmivr_charger_current = <1400000>;
 
 		/* charging current */
@@ -6060,28 +6150,45 @@
 		usb_charger_current_configured = <500000>;
 		usb_charger_current = <500000>;
 		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
-		non_std_ac_charger_current = <500000>;
+/*L19 HQ-157291 USB and Charge bring up by miaozhichao at 2021/10/1 start*/
+		ac_charger_input_current = <2050000>;
+		non_std_ac_charger_current = <1000000>;
+/*L19 HQ-157291 USB and Charge bring up by miaozhichao at 2021/10/1 end*/
 		charging_host_charger_current = <1500000>;
 		apple_1_0a_charger_current = <650000>;
 		apple_2_1a_charger_current = <800000>;
 		ta_ac_charger_current = <3000000>;
-
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 start*/
 		/* sw jeita */
-		jeita_temp_above_t4_cv = <4240000>;
-		jeita_temp_t3_to_t4_cv = <4240000>;
-		jeita_temp_t2_to_t3_cv = <4340000>;
-		jeita_temp_t1_to_t2_cv = <4240000>;
-		jeita_temp_t0_to_t1_cv = <4040000>;
-		jeita_temp_below_t0_cv = <4040000>;
-		temp_t4_thres = <50>;
-		temp_t4_thres_minus_x_degree = <47>;
-		temp_t3_thres = <45>;
-		temp_t3_thres_minus_x_degree = <39>;
+		jeita_temp_above_t5_cv = <4100000>;
+		jeita_temp_t4_to_t5_cv = <4100000>;
+		jeita_temp_t3_to_t4_cv = <4450000>;
+		jeita_temp_t2_to_t3_cv = <4450000>;
+		jeita_temp_t1_to_t2_cv = <4450000>;
+		jeita_temp_t0_to_t1_cv = <4450000>;
+		jeita_temp_below_t0_cv = <4450000>;
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/12/7 start*/
+/*L19 HQHW-1505 update jeita by miaozhichao at 2021/12/15 start*/
+		jeita_temp_t4_to_t5_cc = <2550000>;
+/*L19 HQHW-1505 update jeita by miaozhichao at 2021/12/15 end*/
+		jeita_temp_t3_to_t4_cc = <3200000>;
+		jeita_temp_t2_to_t3_cc = <1570000>;
+/*L19 HQHW-1640 update jeita by miaozhichao at 2022/2/21 start*/
+		jeita_temp_t1_to_t2_cc = <570000>;
+		jeita_temp_t0_to_t1_cc = <570000>;
+		jeita_temp_below_t0_cc = <570000>;
+/*L19 HQHW-1640 update jeita by miaozhichao at 2022/2/21 end*/
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/12/7 end*/
+		temp_t5_thres = <55>;
+		temp_t5_thres_minus_x_degree = <55>;
+		temp_t4_thres = <45>;
+		temp_t4_thres_plus_x_degree = <45>;
+		temp_t3_thres = <15>;
+		temp_t3_thres_plus_x_degree = <15>;
 		temp_t2_thres = <10>;
-		temp_t2_thres_plus_x_degree = <16>;
-		temp_t1_thres = <0>;
-		temp_t1_thres_plus_x_degree = <6>;
+		temp_t2_thres_plus_x_degree = <10>;
+		temp_t1_thres = <5>;
+		temp_t1_thres_plus_x_degree = <5>;
 		temp_t0_thres = <0>;
 		temp_t0_thres_plus_x_degree = <0>;
 		temp_neg_10_thres = <0>;
@@ -6089,10 +6196,10 @@
 		/* battery temperature protection */
 		enable_min_charge_temp;
 		min_charge_temp = <0>;
-		min_charge_temp_plus_x_degree = <6>;
-		max_charge_temp = <50>;
+		min_charge_temp_plus_x_degree = <3>;
+		max_charge_temp = <55>;
 		max_charge_temp_minus_x_degree = <47>;
-
+/*L19 HQ-159470 add jeita by miaozhichao at 2021/11/26 end*/
 		/* PE */
 		ta_12v_support;
 		ta_9v_support;
@@ -6143,8 +6250,10 @@
 		bif_cv_under_threshold2 = <4450000>;
 
 		/* PD */
-		pd_vbus_low_bound = <5000000>;
-		pd_vbus_upper_bound = <5000000>;
+/*L19 HQ-178992 pd and cc charge bring up by miaozhichao at 2022/3/7 start*/
+		pd_vbus_low_bound = <8000000>;
+		pd_vbus_upper_bound = <10000000>;
+/*L19 HQ-178992 pd and cc charge bring up by miaozhichao at 2022/3/7 end*/
 		pd_ichg_level_threshold = <1000000>; /* uA */
 		pd_stop_battery_soc = <80>;
 
@@ -6253,20 +6362,22 @@
 	};
 };
 
+&i2c6 {
+		aw87xxx_pa@58 {
+				compatible = "awinic,aw87xxx_pa";
+				reg = <0x58>;
+				dev_index = < 0 >;
+				status = "okay";
+		};
+};
+
 &mt6360_pmic {
 	buck2 {
 		/delete-property/ regulator-always-on;
 	};
 };
 
-&i2c6 {
-	speaker_amp: speaker_amp@34 {
-		compatible = "mediatek,speaker_amp";
-		#sound-dai-cells = <0>;
-		reg = <0x34>;
-		status = "okay";
-	};
-};
+
 
 &pio {
 	aud_clk_mosi_off: aud_clk_mosi_off {

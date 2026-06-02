@@ -175,6 +175,27 @@ enum uic_link_state {
 #define ufshcd_is_ufs_dev_poweroff(h) \
 	((h)->curr_dev_pwr_mode == UFS_POWERDOWN_PWR_MODE)
 
+/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 start */
+enum {
+	/* errors which require the host controller reset for recovery */
+	UFS_ERR_HIBERN8_EXIT,
+	UFS_ERR_VOPS_SUSPEND,
+	UFS_ERR_EH,
+	UFS_ERR_CLEAR_PEND_XFER_TM,
+	UFS_ERR_INT_FATAL_ERRORS,
+	UFS_ERR_INT_UIC_ERROR,
+	UFS_ERR_CRYPTO_ENGINE,
+	/* other errors */
+	UFS_ERR_HIBERN8_ENTER,
+	UFS_ERR_RESUME,
+	UFS_ERR_SUSPEND,
+	UFS_ERR_LINKSTARTUP,
+	UFS_ERR_POWER_MODE_CHANGE,
+	UFS_ERR_TASK_ABORT,
+	UFS_ERR_MAX,
+};
+/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 end */
+
 /*
  * UFS Power management levels.
  * Each level is in increasing order of power savings.
@@ -287,6 +308,7 @@ struct ufs_desc_size {
 	int unit_desc;
 	int conf_desc;
 	int hlth_desc;
+	int health_desc;
 };
 
 /**
@@ -525,6 +547,34 @@ struct ufs_event_hist {
 	ktime_t tstamp[UFS_EVENT_HIST_LENGTH];
 };
 
+/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 start */
+/* tag stats statistics types */
+enum ts_types {
+	TS_NOT_SUPPORTED	= -1,
+	TS_TAG			= 0,
+	TS_READ			= 1,
+	TS_WRITE		= 2,
+	TS_URGENT_READ		= 3,
+	TS_URGENT_WRITE		= 4,
+	TS_FLUSH		= 5,
+	TS_NUM_STATS		= 6,
+};
+
+/**
+ * struct ufshcd_req_stat - statistics for request handling times (in usec)
+ * @min: shortest time measured
+ * @max: longest time measured
+ * @sum: sum of all the handling times measured (used for average calculation)
+ * @count: number of measurements taken
+ */
+struct ufshcd_req_stat {
+	u64 min;
+	u64 max;
+	u64 sum;
+	u64 count;
+};
+/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 end */
+
 /**
  * struct ufs_stats - keeps usage/err statistics
  * @hibern8_exit_cnt: Counter to keep track of number of exits,
@@ -549,6 +599,51 @@ struct ufs_stats {
 	u32 hibern8_exit_cnt;
 	ktime_t last_hibern8_exit_tstamp;
 	struct ufs_event_hist event[UFS_EVT_CNT];
+	/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 start */
+	bool enabled;
+	u64 **tag_stats;
+	int q_depth;
+	int err_stats[UFS_ERR_MAX];
+	struct ufshcd_req_stat req_stats[TS_NUM_STATS];
+	bool req_stats_enabled;
+	int query_stats_arr[UPIU_QUERY_OPCODE_MAX][MAX_QUERY_IDN];
+
+	u32 power_mode_change_cnt;
+	u32 pa_err_cnt_total;
+	u32 pa_err_cnt[UFS_EC_PA_MAX];
+	u32 dl_err_cnt_total;
+	u32 dl_err_cnt[UFS_EC_DL_MAX];
+	u32 dme_err_cnt;
+
+	/*mi ufs feature*/
+	bool err_state;
+	/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 end */
+};
+
+/* MTK PATCH UFS Host Controller debug print bitmask */
+#define UFSHCD_DBG_PRINT_CLK_FREQ_EN		UFS_BIT(0)
+#define UFSHCD_DBG_PRINT_UIC_ERR_HIST_EN	UFS_BIT(1)
+#define UFSHCD_DBG_PRINT_HOST_REGS_EN		UFS_BIT(2)
+#define UFSHCD_DBG_PRINT_TRS_EN			UFS_BIT(3)
+#define UFSHCD_DBG_PRINT_TMRS_EN		UFS_BIT(4)
+#define UFSHCD_DBG_PRINT_PWR_EN			UFS_BIT(5)
+#define UFSHCD_DBG_PRINT_HOST_STATE_EN		UFS_BIT(6)
+#define UFSHCD_DBG_PRINT_ABORT_CMD_EN		UFS_BIT(7)
+#define UFSHCD_DBG_PRINT_QCMD_EN		UFS_BIT(8)
+
+#define UFSHCD_DBG_PRINT_ALL						   \
+		(UFSHCD_DBG_PRINT_CLK_FREQ_EN		|		   \
+		 UFSHCD_DBG_PRINT_UIC_ERR_HIST_EN	|		   \
+		 UFSHCD_DBG_PRINT_HOST_REGS_EN | UFSHCD_DBG_PRINT_TRS_EN | \
+		 UFSHCD_DBG_PRINT_TMRS_EN | UFSHCD_DBG_PRINT_PWR_EN |	   \
+		 UFSHCD_DBG_PRINT_HOST_STATE_EN |	   \
+		 UFSHCD_DBG_PRINT_ABORT_CMD_EN)
+
+enum ufs_crypto_state {
+	UFS_CRYPTO_HW_FDE             = (1 << 0),
+	UFS_CRYPTO_HW_FDE_ENCRYPTED   = (1 << 1),
+	UFS_CRYPTO_HW_FBE             = (1 << 2),
+	UFS_CRYPTO_HW_FBE_ENCRYPTED   = (1 << 3),
 };
 
 /* UFSHCD states */
@@ -670,6 +765,9 @@ struct ufs_hba {
 	unsigned int irq;
 	bool is_irq_enabled;
 	enum ufs_ref_clk_freq dev_ref_clk_freq;
+	/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 start */
+	bool crash_on_err;
+	/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 end */
 
 	/* Interrupt aggregation support is broken */
 	#define UFSHCD_QUIRK_BROKEN_INTR_AGGR			0x1
@@ -797,6 +895,10 @@ struct ufs_hba {
 
 	/* Number of lanes available (1 or 2) for Rx/Tx */
 	u32 lanes_per_direction;
+	/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 start */
+	/* Bitmask for enabling debug prints */
+	u32 ufshcd_dbg_print;
+	/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 end */
 	struct ufs_pa_layer_attr pwr_info;
 	struct ufs_pwr_mode_info max_pwr_info;
 
@@ -1080,6 +1182,13 @@ static inline bool ufshcd_is_hs_mode(struct ufs_pa_layer_attr *pwr_info)
 		pwr_info->pwr_tx == FASTAUTO_MODE);
 }
 
+/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 start */
+static inline void ufshcd_init_req_stats(struct ufs_hba *hba)
+{
+	memset(hba->ufs_stats.req_stats, 0, sizeof(hba->ufs_stats.req_stats));
+}
+/* Huaqin modify for HQ-158026 by gaoshilin at 2021/10/18 end */
+
 static inline int ufshcd_disable_host_tx_lcc(struct ufs_hba *hba)
 {
 	return ufshcd_dme_set(hba, UIC_ARG_MIB(PA_LOCAL_TX_LCC_ENABLE), 0);
@@ -1107,8 +1216,9 @@ void ufshcd_auto_hibern8_update(struct ufs_hba *hba, u32 ahit);
 
 #define SD_ASCII_STD true
 #define SD_RAW false
+
 int ufshcd_read_string_desc(struct ufs_hba *hba, u8 desc_index,
-			    u8 **buf, bool ascii);
+                           u8 **buf, bool ascii);
 
 int ufshcd_hold(struct ufs_hba *hba, bool async);
 void ufshcd_release(struct ufs_hba *hba);

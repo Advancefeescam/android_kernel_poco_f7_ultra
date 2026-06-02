@@ -337,6 +337,11 @@
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
+/* Huaqin modify for HQ-176353 by yangjinhao at 2022/1/10 start */
+#define KEY_TABLE0		249
+#define KEY_TABLE1		250
+/* Huaqin modify for HQ-176353 by yangjinhao at 2021/1/10 end */
+
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100

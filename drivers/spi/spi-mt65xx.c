@@ -27,6 +27,7 @@
 #include <linux/spi/spi.h>
 #include <linux/dma-mapping.h>
 #include <linux/pm_qos.h>
+#include "../input/touchscreen/mediatek/FT8722/focaltech_core.h"
 
 
 #define SPI_CFG0_REG                      0x0000
@@ -865,6 +866,12 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	pm_qos_add_request(&mdata->spi_qos_request, PM_QOS_CPU_DMA_LATENCY,
 		PM_QOS_DEFAULT_VALUE);
 
+/*BSP.TOUCH - 2021.03.29 -  Modified for compatibility start*/
+#if FTS_TP_ADD
+		master->num_chipselect = mdata->pad_num; //add
+#endif
+/*BSP.TOUCH - 2021.03.29 -  Modified for compatibility end*/
+
 	platform_set_drvdata(pdev, master);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -965,12 +972,24 @@ static int mtk_spi_probe(struct platform_device *pdev)
 			goto err_disable_runtime_pm;
 		}
 
+/*BSP.TOUCH - 2021.03.29 -  Modified for compatibility start*/
+#if FTS_TP_ADD
+/*		if (!master->cs_gpios && master->num_chipselect > 1) {
+			dev_err(&pdev->dev,
+				"cs_gpios not specified and num_chipselect > 1\n");
+			ret = -EINVAL;
+			goto err_disable_runtime_pm;
+		}*/
+#else
+
 		if (!master->cs_gpios && master->num_chipselect > 1) {
 			dev_err(&pdev->dev,
 				"cs_gpios not specified and num_chipselect > 1\n");
 			ret = -EINVAL;
 			goto err_disable_runtime_pm;
 		}
+#endif
+/*BSP.TOUCH - 2021.03.29 -  Modified for compatibility end*/
 
 		if (master->cs_gpios) {
 			for (i = 0; i < master->num_chipselect; i++) {

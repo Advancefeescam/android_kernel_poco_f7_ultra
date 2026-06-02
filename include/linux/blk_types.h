@@ -349,6 +349,7 @@ enum req_flag_bits {
 	__REQ_PREFLUSH,		/* request for cache flush */
 	__REQ_RAHEAD,		/* read ahead, can fail anytime */
 	__REQ_BACKGROUND,	/* background IO */
+	__REQ_URGENT,		/* urgent request */
 	__REQ_NOWAIT,           /* Don't wait if request will block */
 
 	/* command specific flags for REQ_OP_WRITE_ZEROES: */
@@ -366,6 +367,7 @@ enum req_flag_bits {
 #define REQ_SYNC		(1ULL << __REQ_SYNC)
 #define REQ_META		(1ULL << __REQ_META)
 #define REQ_PRIO		(1ULL << __REQ_PRIO)
+#define REQ_URGENT		(1ULL << __REQ_URGENT)
 #define REQ_NOMERGE		(1ULL << __REQ_NOMERGE)
 #define REQ_IDLE		(1ULL << __REQ_IDLE)
 #define REQ_INTEGRITY		(1ULL << __REQ_INTEGRITY)

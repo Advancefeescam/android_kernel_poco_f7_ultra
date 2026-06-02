@@ -722,15 +722,39 @@ cur_state_store(struct device *dev, struct device_attribute *attr,
 	return result ? result : count;
 }
 
+/*L19 HQ-159006 thermal available node by gengyifei at 2021/11/15 start*/
+static ssize_t
+thermal_cooling_device_available_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	struct thermal_cooling_device *cdev = to_cooling_device(dev);
+	char available_state[THERMAL_AVAILABLE_STATE_LENGTH];
+	int ret = -1;
+	if (cdev->ops->get_available == NULL)
+		return ret;
+	ret = cdev->ops->get_available(cdev, available_state);
+	if (ret)
+		return ret;
+	return sprintf(buf, "%s\n", available_state);
+}
+/*L19 HQ-159006 thermal available node by gengyifei at 2021/11/15 end*/
+
 static struct device_attribute
 dev_attr_cdev_type = __ATTR(type, 0444, cdev_type_show, NULL);
 static DEVICE_ATTR_RO(max_state);
 static DEVICE_ATTR_RW(cur_state);
 
+/*L19 HQ-159006 thermal available node by gengyifei at 2021/11/15 start*/
+static DEVICE_ATTR(available, 0444,
+		   thermal_cooling_device_available_show, NULL);
+/*L19 HQ-159006 thermal available node by gengyifei at 2021/11/15 end*/
 static struct attribute *cooling_device_attrs[] = {
 	&dev_attr_cdev_type.attr,
 	&dev_attr_max_state.attr,
 	&dev_attr_cur_state.attr,
+/*L19 HQ-159006 thermal available node by gengyifei at 2021/11/15 start*/
+	&dev_attr_available.attr,
+/*L19 HQ-159006 thermal available node by gengyifei at 2021/11/15 end*/
 	NULL,
 };
 

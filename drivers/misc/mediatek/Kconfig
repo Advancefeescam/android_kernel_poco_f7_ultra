@@ -49,6 +49,14 @@ config MTK_BASE_POWER
 	  Select if you want to enable MediaTek power
 	  management feature.
 
+#/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 start*/
+config MTK_SOFT_HVDCP_2
+	bool "mtk_soft_hvdcp_2"
+	default n
+	help
+	Select if you want to enable 18W charging.
+#/*L19 HQ-157281 18W bring up by miaozhichao at 2021/10/11 end*/
+
 config NONLINEAR_FREQ_CTL
 	bool "Non-linear frequency control"
 	depends on MTK_CPU_FREQ
@@ -560,4 +568,8 @@ menu "Misc"
 source "drivers/misc/mediatek/ext_gic/Kconfig"
 source "drivers/misc/mediatek/cirq/Kconfig"
 source "drivers/misc/mediatek/timer/Kconfig"
+#huaqin wangzhaoguo modify for L19 2021/10/9 start
+source "drivers/misc/mediatek/simtray/Kconfig"
+#huaqin wangzhaoguo modify for L19 2021/10/9 end
+
 endmenu # Misc

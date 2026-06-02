@@ -66,6 +66,10 @@ struct timeval start, end;
 int aal_dbg_en;
 static int g_max_backlight = 1023;
 
+/*L19 code for AM-58399 by p-taocheng3 at 2023/10/18 start*/
+static int g_backlight_value = 0;
+/*L19 code for AM-58399 by p-taocheng3 at 2023/10/18 end*/
+
 static DECLARE_WAIT_QUEUE_HEAD(g_aal_hist_wq);
 static DEFINE_SPINLOCK(g_aal_clock_lock);
 static DEFINE_SPINLOCK(g_aal_hist_lock);
@@ -1512,6 +1516,17 @@ bool dump_reg(struct mtk_ddp_comp *comp, bool locked)
 	return dump_success;
 }
 
+/*L19 code for AM-58399 by p-taocheng3 at 2023/10/18 start*/
+struct delayed_work backlight_brightness_set_work;
+
+static void aal_backlight_brightness_set_work(struct work_struct *work)
+{
+	//printk("%s set backlight begin\n", __func__);
+	mt_leds_brightness_set("lcd-backlight", g_backlight_value);
+	//printk("%s set backlight end\n", __func__);
+}
+/*L19 code for AM-58399 by p-taocheng3 at 2023/10/18 end*/
+
 static bool debug_skip_set_param;
 int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv)
@@ -1552,7 +1567,15 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 		}
 	} else {
 		AALAPI_LOG("%d", backlight_value);
-		mt_leds_brightness_set("lcd-backlight", backlight_value);
+/*L19 code for AM-58399 by p-taocheng3 at 2023/10/18 start*/
+                g_backlight_value = backlight_value;
+		if (backlight_value == 0) {
+			schedule_delayed_work(&backlight_brightness_set_work, 0);
+		} else {
+			schedule_delayed_work(&backlight_brightness_set_work, msecs_to_jiffies(10));
+		}
+		//mt_leds_brightness_set("lcd-backlight", backlight_value);
+/*L19 code for AM-58399 by p-taocheng3 at 2023/10/18 end*/
 	}
 	AALFLOW_LOG("delay refresh: %d", g_aal_param.refreshLatency);
 	if (g_aal_param.refreshLatency == 33)
@@ -3197,3 +3220,14 @@ void disp_aal_set_bypass(struct drm_crtc *crtc, int bypass)
 		ret = mtk_crtc_user_cmd(crtc, aal1_default_comp, BYPASS_AAL, &bypass);
 	DDPFUNC("ret = %d", ret);
 }
+
+/*L19 code for AM-58399 by p-taocheng3 at 2023/10/18 start*/
+static int __init backlight_brightness_set_work_init(void)
+{
+	int ret = 0;
+	INIT_DELAYED_WORK(&backlight_brightness_set_work, aal_backlight_brightness_set_work);
+	return ret;
+}
+
+module_init(backlight_brightness_set_work_init);
+/*L19 code for AM-58399 by p-taocheng3 at 2023/10/18 end*/

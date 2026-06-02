@@ -94,8 +94,14 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			rpmd->sink_mv_old = rpmd->sink_mv_new;
 			rpmd->sink_ma_old = rpmd->sink_ma_new;
 #ifdef ADAPT_CHARGER_V1
-			charger_manager_enable_power_path(
-				rpmd->chg_consumer, MAIN_CHARGER, true);
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 start*/
+				if (charger_manager_is_input_suspend()) {
+					pr_info("%s input_suspend is true\n", __func__);
+					charger_manager_enable_power_path(
+					rpmd->chg_consumer, MAIN_CHARGER, false);
+					} else
+						charger_manager_enable_power_path(rpmd->chg_consumer, MAIN_CHARGER, true);
+/*L19 HQ-157291 charging_enable node bring up by miaozhichao at 2021/10/10 end*/
 #else
 			if (rpmd->sink_mv_new && rpmd->sink_ma_new) {
 				charger_dev_enable_powerpath(rpmd->chg_dev,

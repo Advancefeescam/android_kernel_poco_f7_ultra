@@ -309,6 +309,9 @@ obj-$(CONFIG_THERMAL) += mtk_tsAll.o
 obj-$(CONFIG_THERMAL) += mtk_ts_imgsensor.o
 endif
 
+#L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 start
+obj-$(CONFIG_THERMAL) += mtk_ts_blk_ntc.o
+#L19 HQ-159006 Config thermal framework by gengyifei at 2021/11/15 end
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6771"))
 #obj-$(CONFIG_THERMAL) += mtk_ts_abb.o

@@ -49,7 +49,7 @@
 #define MT6360_LEVEL_FLASH MT6360_LEVEL_NUM
 #define MT6360_WDT_TIMEOUT 1248 /* ms */
 #define MT6360_HW_TIMEOUT 400 /* ms */
-
+static char node_one_buf[20] = {"0"};
 /* define mutex, work queue and timer */
 static DEFINE_MUTEX(mt6360_mutex);
 static struct work_struct mt6360_work_ch1;
@@ -731,6 +731,37 @@ static ssize_t mt6360_strobe_store(struct flashlight_arg arg)
 	return 0;
 }
 
+static ssize_t att_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	pr_debug("echo mt6360_FLASH debug buf, %s ", buf);
+	sprintf(node_one_buf, "%s\n", buf);
+
+	if ((strcmp("0", buf) == 0) || (strcmp("0\x0a", buf) == 0)) {
+		pr_debug("mt6360_FLASH  0");
+		mt6360_disable(MT6360_CHANNEL_CH1);
+		mt6360_set_driver(0);
+	} else {
+		pr_debug("mt6360_FLASH  1");
+		mt6360_set_driver(1);
+		mt6360_set_level_ch1(0);
+		mt6360_timeout_ms[MT6360_CHANNEL_CH1] = 0;
+		mt6360_enable();
+	}
+
+	return count;
+}
+
+static ssize_t att_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	return sprintf(buf, "%s\n", node_one_buf);
+}
+
+static DEVICE_ATTR(mt6360_FLASH, 0664, att_show, att_store);
+
 static struct flashlight_operations mt6360_ops = {
 	mt6360_open,
 	mt6360_release,
@@ -872,7 +903,7 @@ static int mt6360_probe(struct platform_device *pdev)
 		if (flashlight_dev_register(MT6360_NAME, &mt6360_ops))
 			return -EFAULT;
 	}
-
+	sysfs_create_file(&pdev->dev.kobj, &dev_attr_mt6360_FLASH.attr);
 	pr_debug("Probe done.\n");
 
 	return 0;

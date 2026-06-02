@@ -336,6 +336,10 @@ struct mtk_ddp_comp {
 	u32 qos_bw;
 	u32 fbdc_bw;
 	u32 hrt_bw;
+
+	/*L19 code for HQ-159420 by chenzimo at 2021/12/20 start*/
+	struct mutex panel_lock;
+	/*L19 code for HQ-159420 by chenzimo at 2021/12/20 end*/
 };
 
 static inline void mtk_ddp_comp_config(struct mtk_ddp_comp *comp,

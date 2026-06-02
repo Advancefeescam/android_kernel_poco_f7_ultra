@@ -9,6 +9,10 @@
 #define THERMAL_GENL_VERSION                    0x01
 #define THERMAL_GENL_MCAST_GROUP_NAME           "thermal_mc_grp"
 
+/*L19 HQ-159006 thermal available node by gengyifei at 2021/11/15 start*/
+#define THERMAL_AVAILABLE_STATE_LENGTH	512
+/*L19 HQ-159006 thermal available node by gengyifei at 2021/11/15 end*/
+
 /* Events supported by Thermal Netlink */
 enum events {
 	THERMAL_AUX0,

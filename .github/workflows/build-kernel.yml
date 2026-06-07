@@ -3,10 +3,6 @@ name: Build Redmi 15 (creek) Kernel
 on:
   workflow_dispatch:
 
-env:
-  KERNEL_PATH: ${{ github.workspace }}/kernel-source
-  TOOLCHAIN_PATH: ${{ github.workspace }}/toolchain
-
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -15,42 +11,46 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y git make bc bison flex libssl-dev build-essential \
-          python3 python3-distutils device-tree-compiler lz4 cpio zip wget curl
+          python3 device-tree-compiler lz4 cpio zip wget curl
 
-    - name: Checkout kernel source (from your repo)
+    - name: Checkout kernel source
       uses: actions/checkout@v4
       with:
-        path: ${{ env.KERNEL_PATH }}
         fetch-depth: 1
 
-    - name: Setup toolchain
+    - name: Download Clang toolchain
       run: |
-        mkdir -p ${{ env.TOOLCHAIN_PATH }}
-        cd ${{ env.TOOLCHAIN_PATH }}
+        mkdir -p ${{ github.workspace }}/toolchain
+        cd ${{ github.workspace }}/toolchain
         wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/r522817/clang-r522817.tar.gz
         mkdir clang && tar -xf clang-r522817.tar.gz -C clang
-        git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc
+        echo "Clang downloaded"
 
-    - name: Configure kernel
+    - name: Download GCC toolchain
       run: |
-        cd ${{ env.KERNEL_PATH }}
-        export PATH=${{ env.TOOLCHAIN_PATH }}/clang/bin:${{ env.TOOLCHAIN_PATH }}/gcc/bin:$PATH
-        export CROSS_COMPILE=aarch64-linux-android-
-        export ARCH=arm64
-        make ARCH=arm64 creek_GKI-config
-        cp .config arch/arm64/configs/creek_full_defconfig
+        cd ${{ github.workspace }}/toolchain
+        git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc
+        echo "GCC downloaded"
 
     - name: Build kernel
       run: |
-        cd ${{ env.KERNEL_PATH }}
-        export PATH=${{ env.TOOLCHAIN_PATH }}/clang/bin:${{ env.TOOLCHAIN_PATH }}/gcc/bin:$PATH
+        cd ${{ github.workspace }}
+        export PATH=${{ github.workspace }}/toolchain/clang/bin:${{ github.workspace }}/toolchain/gcc/bin:$PATH
         export CROSS_COMPILE=aarch64-linux-android-
         export ARCH=arm64
+        export CC=clang
+        
+        # Configure kernel
+        make ARCH=arm64 creek_GKI-config
+        
+        # Build kernel
         make ARCH=arm64 LLVM=1 -j$(nproc)
+        
         echo "Build completed"
 
     - name: Upload kernel image
       uses: actions/upload-artifact@v4
       with:
-        name: kernel-Image.gz
-        path: ${{ env.KERNEL_PATH }}/arch/arm64/boot/Image.gz
+        name: kernel-Image
+        path: arch/arm64/boot/Image.gz
+        if-no-files-found: warn

@@ -1,23 +1,7 @@
-name: Build Redmi 15 (creek) Kernel with KernelSU-Next and SUSFS
+name: Build Redmi 15 (creek) Kernel
 
 on:
   workflow_dispatch:
-    inputs:
-      kernel_url:
-        description: 'Kernel source repository URL'
-        required: false
-        default: 'https://github.com/MiCode/Xiaomi_Kernel_OpenSource'
-        type: string
-      kernel_branch:
-        description: 'Kernel source branch'
-        required: false
-        default: 'creek-v-oss'
-        type: string
-      defconfig:
-        description: 'Defconfig name (fragment config name)'
-        required: false
-        default: 'creek_GKI-config'
-        type: string
 
 env:
   KERNEL_PATH: ${{ github.workspace }}/kernel-source
@@ -33,11 +17,9 @@ jobs:
         sudo apt install -y git make bc bison flex libssl-dev build-essential \
           python3 python3-distutils device-tree-compiler lz4 cpio zip wget curl
 
-    - name: Checkout kernel source
+    - name: Checkout kernel source (from your repo)
       uses: actions/checkout@v4
       with:
-        repository: ${{ inputs.kernel_url }}
-        ref: ${{ inputs.kernel_branch }}
         path: ${{ env.KERNEL_PATH }}
         fetch-depth: 1
 
@@ -55,8 +37,7 @@ jobs:
         export PATH=${{ env.TOOLCHAIN_PATH }}/clang/bin:${{ env.TOOLCHAIN_PATH }}/gcc/bin:$PATH
         export CROSS_COMPILE=aarch64-linux-android-
         export ARCH=arm64
-        make ARCH=arm64 ${{ inputs.defconfig }}
-        scripts/config --file .config -e KSU
+        make ARCH=arm64 creek_GKI-config
         cp .config arch/arm64/configs/creek_full_defconfig
 
     - name: Build kernel

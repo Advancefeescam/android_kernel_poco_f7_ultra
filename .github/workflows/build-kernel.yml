@@ -33,7 +33,7 @@ jobs:
 
     - name: Integrate KernelSU-Next (GKI)
       run: |
-        curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s stable
+        curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s legacy
 
     - name: Get SUSFS
       run: git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git

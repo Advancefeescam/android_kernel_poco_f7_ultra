@@ -1,92 +1,20 @@
-name: Build Creek Kernel with KSU-Next + SUSFS + AnyKernel3
+name: Check Defconfig
 on: workflow_dispatch
 
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-    - name: Checkout kernel source
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Install build tools
+    - name: List configs
       run: |
-        sudo apt update
-        sudo apt install -y git make bc bison flex libssl-dev build-essential \
-          python3 device-tree-compiler lz4 cpio zip wget curl
+        ls arch/arm64/configs/
+        echo "---"
+        ls arch/arm64/configs/ | grep -E "creek|bengal|khaje|scuba|gki|defconfig"
 
-    - name: Download Clang
+    - name: Try build with gki_defconfig
       run: |
-        mkdir -p toolchain && cd toolchain
-        wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
-        tar -xf clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
-        mv clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04 clang
-
-    - name: Download GCC
-      run: |
-        cd toolchain
-        git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc
-
-    - name: Download KernelSU-Next
-      run: |
-        git clone --depth=1 -b main https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU-Next
-        cd KernelSU-Next
-        if [ -f kernel/Makefile ]; then
-          cp -r kernel/* ${{ github.workspace }}/
-        fi
-        if [ -d kernel/ksu ]; then
-          cp -r kernel/ksu ${{ github.workspace }}/ksu
-        fi
-
-    - name: Download SUSFS patches
-      run: |
-        git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu
-        cd susfs4ksu
-        if [ -f kernel_patches/5.15/0001-susfs.patch ]; then
-          patch -p1 -d ${{ github.workspace }} < kernel_patches/5.15/0001-susfs.patch
-        fi
-
-    - name: Configure kernel
-      run: |
-        export PATH=${{ github.workspace }}/toolchain/clang/bin:${{ github.workspace }}/toolchain/gcc/bin:$PATH
-        export CROSS_COMPILE=aarch64-linux-android-
         export ARCH=arm64
-        export CC=clang
-        make ARCH=arm64 defconfig
-        scripts/config --file .config -e KSU
-        scripts/config --file .config -e KSU_SUSFS
-        make ARCH=arm64 savedefconfig
-
-    - name: Build kernel
-      run: |
-        export PATH=${{ github.workspace }}/toolchain/clang/bin:${{ github.workspace }}/toolchain/gcc/bin:$PATH
-        export CROSS_COMPILE=aarch64-linux-android-
-        export ARCH=arm64
-        export CC=clang
-        make -j$(nproc)
-
-    - name: Prepare AnyKernel3
-      run: |
-        git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
-        cp arch/arm64/boot/Image.gz AnyKernel3/
-        cd AnyKernel3
-        cat > anykernel.sh << 'EOF'
-kernel.string=Creek Kernel with KSU-Next + SUSFS
-do.devicecheck=0
-do.modules=0
-do.systemless=1
-do.cleanup=1
-device.name1=creek
-block=auto
-is_slot_device=auto
-. tools/ak3-core.sh
-dump_boot
-write_boot
-EOF
-        zip -r9 ../Creek-Kernel-KSU-SUSFS.zip ./*
-        cd ..
-
-    - name: Upload ZIP
-      uses: actions/upload-artifact@v4
-      with:
-        name: Creek-Kernel-KSU-SUSFS
-        path: Creek-Kernel-KSU-SUSFS.zip
+        make ARCH=arm64 gki_defconfig
+        make -j2

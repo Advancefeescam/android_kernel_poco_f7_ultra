@@ -1,4 +1,4 @@
-name: Build Creek Kernel - Merge Config
+name: Build Creek Kernel - Full (KSU + SUSFS + AK3)
 on: workflow_dispatch
 
 jobs:
@@ -7,46 +7,41 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Cache toolchain
+      id: cache-toolchain
+      uses: actions/cache@v3
+      with:
+        path: toolchain
+        key: toolchain-clang17-gcc
+
     - name: Install tools
       run: sudo apt update && sudo apt install -y git make bc bison flex libssl-dev build-essential wget zip
 
-    - name: Download Clang
+    - name: Download Clang & GCC
+      if: steps.cache-toolchain.outputs.cache-hit != 'true'
       run: |
         mkdir -p toolchain && cd toolchain
         wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
         tar -xf clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
         mv clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04 clang
-
-    - name: Download GCC
-      run: |
-        cd toolchain
         git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc
 
-    - name: Set PATH
+    - name: Set environment
       run: |
-        echo "${{ github.workspace }}/toolchain/clang/bin" >> $GITHUB_PATH
-        echo "${{ github.workspace }}/toolchain/gcc/bin" >> $GITHUB_PATH
-
-    - name: Merge configs
-      run: |
-        export CROSS_COMPILE=aarch64-linux-android-
-        export ARCH=arm64
-        export CC=clang
-        
-        # Copy base GKI config
-        cp arch/arm64/configs/gki_defconfig .config
-        
-        # Merge fragment vendor/creek_GKI.config
-        cat arch/arm64/configs/vendor/creek_GKI.config >> .config
-        
-        # Clean up duplicates and resolve dependencies
-        make ARCH=arm64 olddefconfig
-        
-        # Save as full defconfig
-        cp .config arch/arm64/configs/creek_full_defconfig
+        echo "PATH=${{ github.workspace }}/toolchain/clang/bin:${{ github.workspace }}/toolchain/gcc/bin:$PATH" >> $GITHUB_ENV
+        echo "CROSS_COMPILE=aarch64-linux-android-" >> $GITHUB_ENV
+        echo "ARCH=arm64" >> $GITHUB_ENV
+        echo "CC=clang" >> $GITHUB_ENV
 
     - name: Get KernelSU-Next
       run: git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git
+
+    - name: Copy KernelSU files
+      run: |
+        cd KernelSU-Next
+        if [ -f kernel/Makefile ]; then
+          cp -r kernel/* ${{ github.workspace }}/
+        fi
 
     - name: Get SUSFS
       run: git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git
@@ -58,28 +53,21 @@ jobs:
           patch -p1 -d ${{ github.workspace }} < kernel_patches/5.15/0001-susfs.patch
         fi
 
-    - name: Build kernel
+    - name: Configure kernel
       run: |
-        export CROSS_COMPILE=aarch64-linux-android-
-        export ARCH=arm64
-        export CC=clang
-        
-        # Gunakan full config yang sudah digabung
-        make ARCH=arm64 creek_full_defconfig
-        
-        # Enable KSU dan SUSFS
+        make gki_defconfig
         scripts/config --file .config -e KSU
         scripts/config --file .config -e KSU_SUSFS
-        
-        # Build
-        make -j$(nproc)
+
+    - name: Build kernel
+      run: make -j$(nproc)
 
     - name: Create AnyKernel3 zip
       run: |
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3
         cp arch/arm64/boot/Image.gz AnyKernel3/
         cd AnyKernel3
-        echo 'kernel.string=Creek Kernel - KSU-Next + SUSFS' > anykernel.sh
+        echo 'kernel.string=Creek Kernel for Redmi 15 - KSU-Next + SUSFS' > anykernel.sh
         echo 'do.devicecheck=0' >> anykernel.sh
         echo 'do.modules=0' >> anykernel.sh
         echo 'do.systemless=1' >> anykernel.sh
@@ -91,11 +79,11 @@ jobs:
         echo '. tools/ak3-core.sh' >> anykernel.sh
         echo 'dump_boot' >> anykernel.sh
         echo 'write_boot' >> anykernel.sh
-        zip -r9 ../Creek-Kernel.zip ./*
+        zip -r9 ../Creek-Kernel-Full.zip ./*
         cd ..
 
     - name: Upload ZIP
       uses: actions/upload-artifact@v4
       with:
-        name: Creek-Kernel
-        path: Creek-Kernel.zip
+        name: Creek-Kernel-Full
+        path: Creek-Kernel-Full.zip

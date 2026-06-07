@@ -1,4 +1,4 @@
-name: Build Kernel with KernelSU-Next (AnyKernel3 ZIP)
+name: Build Creek Kernel v2
 
 on:
   workflow_dispatch:

@@ -1,4 +1,4 @@
-name: Build Redmi 15 (creek) Kernel with KernelSU-Next & SUSFS
+name: Build Redmi 15 (creek) Kernel with KernelSU-Next & SUSFS!
 
 on:
   workflow_dispatch:

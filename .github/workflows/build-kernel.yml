@@ -1,4 +1,4 @@
-name: Build Redmi 15 (creek) Kernel
+name: Build Kernel with KernelSU-Next (AnyKernel3 ZIP)
 
 on:
   workflow_dispatch:
@@ -7,30 +7,40 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-    - name: Install build tools
-      run: |
-        sudo apt update
-        sudo apt install -y git make bc bison flex libssl-dev build-essential \
-          python3 device-tree-compiler lz4 cpio zip wget curl
-
     - name: Checkout kernel source
       uses: actions/checkout@v4
       with:
         fetch-depth: 1
 
-    - name: Download Clang toolchain
+    - name: Setup build environment
+      run: |
+        sudo apt update
+        sudo apt install -y git make bc bison flex libssl-dev build-essential \
+          python3 device-tree-compiler lz4 cpio zip wget curl
+
+    - name: Download toolchain
       run: |
         mkdir -p ${{ github.workspace }}/toolchain
         cd ${{ github.workspace }}/toolchain
-        wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/r522817/clang-r522817.tar.gz
-        mkdir clang && tar -xf clang-r522817.tar.gz -C clang
-        echo "Clang downloaded"
-
-    - name: Download GCC toolchain
-      run: |
-        cd ${{ github.workspace }}/toolchain
+        wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
+        tar -xf clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
+        mv clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04 clang
         git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc
-        echo "GCC downloaded"
+
+    - name: Integrate KernelSU-Next
+      run: |
+        cd ${{ github.workspace }}
+        git clone --depth=1 -b main https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU-Next
+        cp -r KernelSU-Next/kernel/* ./
+
+    - name: Configure kernel
+      run: |
+        cd ${{ github.workspace }}
+        export PATH=${{ github.workspace }}/toolchain/clang/bin:${{ github.workspace }}/toolchain/gcc/bin:$PATH
+        export CROSS_COMPILE=aarch64-linux-android-
+        export ARCH=arm64
+        export CC=clang
+        make ARCH=arm64 creek_GKI-config
 
     - name: Build kernel
       run: |
@@ -39,18 +49,30 @@ jobs:
         export CROSS_COMPILE=aarch64-linux-android-
         export ARCH=arm64
         export CC=clang
-        
-        # Configure kernel
-        make ARCH=arm64 creek_GKI-config
-        
-        # Build kernel
-        make ARCH=arm64 LLVM=1 -j$(nproc)
-        
-        echo "Build completed"
+        make ARCH=arm64 -j$(nproc)
 
-    - name: Upload kernel image
+    - name: Prepare AnyKernel3
+      run: |
+        git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
+        cp ${{ github.workspace }}/arch/arm64/boot/Image.gz AnyKernel3/
+        cd AnyKernel3
+        cat > anykernel.sh << 'EOF'
+kernel.string=Custom Kernel for Redmi 15 (creek) - KernelSU-Next
+do.devicecheck=0
+do.modules=0
+do.systemless=1
+do.cleanup=1
+device.name1=creek
+block=auto
+is_slot_device=auto
+. tools/ak3-core.sh
+dump_boot
+write_boot
+EOF
+        zip -r9 ../Creek-Kernel-KSU-Next.zip ./*
+
+    - name: Upload ZIP
       uses: actions/upload-artifact@v4
       with:
-        name: kernel-Image
-        path: arch/arm64/boot/Image.gz
-        if-no-files-found: warn
+        name: Creek-Kernel-KSU-Next
+        path: Creek-Kernel-KSU-Next.zip

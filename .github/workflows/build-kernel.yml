@@ -1,4 +1,4 @@
-name: Build Redmi 15 (creek) Kernel
+name: Build Kernel with KernelSU-Next (AnyKernel3)
 
 on:
   workflow_dispatch:
@@ -18,40 +18,54 @@ jobs:
       with:
         fetch-depth: 1
 
-    - name: Download toolchain (Clang + GCC)
+    - name: Download toolchain
       run: |
         mkdir -p ${{ github.workspace }}/toolchain
         cd ${{ github.workspace }}/toolchain
-        
-        # Download Clang (alternative URL)
         wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
         tar -xf clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
         mv clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04 clang
-        
-        # Download GCC
         git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc
-        
-        echo "Toolchain ready"
+
+    - name: Setup environment
+      run: |
+        echo "PATH=${{ github.workspace }}/toolchain/clang/bin:${{ github.workspace }}/toolchain/gcc/bin:$PATH" >> $GITHUB_ENV
+        echo "CROSS_COMPILE=aarch64-linux-android-" >> $GITHUB_ENV
+        echo "ARCH=arm64" >> $GITHUB_ENV
+        echo "CC=clang" >> $GITHUB_ENV
+
+    - name: Configure kernel
+      run: |
+        cd ${{ github.workspace }}
+        make ARCH=arm64 creek_GKI-config
 
     - name: Build kernel
       run: |
         cd ${{ github.workspace }}
-        export PATH=${{ github.workspace }}/toolchain/clang/bin:${{ github.workspace }}/toolchain/gcc/bin:$PATH
-        export CROSS_COMPILE=aarch64-linux-android-
-        export ARCH=arm64
-        export CC=clang
-        
-        # Configure
-        make ARCH=arm64 creek_GKI-config
-        
-        # Build
         make ARCH=arm64 -j$(nproc)
-        
-        echo "Build completed"
 
-    - name: Upload kernel image
+    - name: Prepare AnyKernel3
+      run: |
+        git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
+        cp ${{ github.workspace }}/arch/arm64/boot/Image.gz AnyKernel3/
+        cd AnyKernel3
+        cat > anykernel.sh << 'EOF'
+kernel.string=Custom Kernel for Redmi 15 (creek)
+do.devicecheck=0
+do.modules=0
+do.systemless=1
+do.cleanup=1
+device.name1=creek
+block=auto
+is_slot_device=auto
+. tools/ak3-core.sh
+dump_boot
+write_boot
+EOF
+        zip -r9 ../Creek-Kernel.zip ./*
+
+    - name: Upload ZIP
       uses: actions/upload-artifact@v4
       with:
-        name: kernel-Image
-        path: arch/arm64/boot/Image.gz
-        if-no-files-found: warn
+        name: Creek-Kernel
+        path: Creek-Kernel.zip

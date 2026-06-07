@@ -1,23 +1,87 @@
-name: Creek Kernel with KSU
+name: Build Creek Kernel with KernelSU-Next
 on: workflow_dispatch
+
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v4
-    - name: Install tools
-      run: sudo apt update && sudo apt install -y git make bc wget
-    - name: Get KernelSU
+    - name: Checkout kernel source
+      uses: actions/checkout@v4
+
+    - name: Install build tools
       run: |
-        git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git
-        cp -r KernelSU-Next/kernel/* .
-    - name: Build
+        sudo apt update
+        sudo apt install -y git make bc bison flex libssl-dev build-essential \
+          python3 device-tree-compiler lz4 cpio zip wget curl
+
+    - name: Download Clang toolchain
       run: |
+        mkdir -p ${{ github.workspace }}/toolchain
+        cd ${{ github.workspace }}/toolchain
+        wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
+        tar -xf clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
+        mv clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04 clang
+
+    - name: Download GCC toolchain
+      run: |
+        cd ${{ github.workspace }}/toolchain
+        git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc
+
+    - name: Setup KernelSU-Next (proper way)
+      run: |
+        cd ${{ github.workspace }}
+        git clone --depth=1 -b main https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU-Next
+        
+        # Gunakan script resmi dari KernelSU-Next (bukan cp manual)
+        cd KernelSU-Next
+        if [ -f ksu_setup.sh ]; then
+          bash ksu_setup.sh ..
+        else
+          # Fallback: copy hanya file yang diperlukan
+          cd kernel
+          find . -type f -exec cp --parents {} ${{ github.workspace }}/ \;
+        fi
+
+    - name: Configure kernel
+      run: |
+        cd ${{ github.workspace }}
+        export PATH=${{ github.workspace }}/toolchain/clang/bin:${{ github.workspace }}/toolchain/gcc/bin:$PATH
+        export CROSS_COMPILE=aarch64-linux-android-
         export ARCH=arm64
-        make creek_GKI-config
-        make -j2
-    - name: Upload
+        export CC=clang
+        make ARCH=arm64 creek_GKI-config
+
+    - name: Build kernel
+      run: |
+        cd ${{ github.workspace }}
+        export PATH=${{ github.workspace }}/toolchain/clang/bin:${{ github.workspace }}/toolchain/gcc/bin:$PATH
+        export CROSS_COMPILE=aarch64-linux-android-
+        export ARCH=arm64
+        export CC=clang
+        make ARCH=arm64 -j$(nproc)
+
+    - name: Prepare AnyKernel3
+      run: |
+        git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
+        cp ${{ github.workspace }}/arch/arm64/boot/Image.gz AnyKernel3/
+        cd AnyKernel3
+        cat > anykernel.sh << 'EOF'
+kernel.string=Creek Kernel with KernelSU-Next
+do.devicecheck=0
+do.modules=0
+do.systemless=1
+do.cleanup=1
+device.name1=creek
+block=auto
+is_slot_device=auto
+. tools/ak3-core.sh
+dump_boot
+write_boot
+EOF
+        zip -r9 ../Creek-Kernel-KSU.zip ./*
+
+    - name: Upload ZIP
       uses: actions/upload-artifact@v4
       with:
-        name: kernel-ksu
-        path: arch/arm64/boot/Image.gz
+        name: Creek-Kernel-KSU
+        path: Creek-Kernel-KSU.zip

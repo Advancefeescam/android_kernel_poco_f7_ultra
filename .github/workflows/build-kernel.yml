@@ -12,29 +12,91 @@ jobs:
       uses: actions/cache@v3
       with:
         path: toolchain
-        key: toolchain-clang17-gcc
+        key: toolchain-clang17
 
     - name: Install tools
       run: sudo apt update && sudo apt install -y git make bc bison flex libssl-dev build-essential wget zip
 
-    - name: Download Clang & GCC
+    - name: Download Clang
       if: steps.cache-toolchain.outputs.cache-hit != 'true'
       run: |
         mkdir -p toolchain && cd toolchain
         wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
         tar -xf clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
         mv clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04 clang
-        git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc
 
-    - name: Set environment
+    - name: Integrate KernelSU-Next
       run: |
-        echo "PATH=${{ github.workspace }}/toolchain/clang/bin:${{ github.workspace }}/toolchain/gcc/bin:$PATH" >> $GITHUB_ENV
-        echo "CROSS_COMPILE=aarch64-linux-android-" >> $GITHUB_ENV
-        echo "ARCH=arm64" >> $GITHUB_ENV
-        echo "CC=clang" >> $GITHUB_ENV
+        git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU-Next
+        cd KernelSU-Next
+        if [ -f ksu_setup.sh ]; then
+          bash ksu_setup.sh ${{ github.workspace }}
+        else
+          cp -r kernel/fs/* ${{ github.workspace }}/fs/ 2>/dev/null || true
+          cp -r kernel/security/* ${{ github.workspace }}/security/ 2>/dev/null || true
+          cp -r kernel/drivers/* ${{ github.workspace }}/drivers/ 2>/dev/null || true
+          cp -r kernel/ksu/* ${{ github.workspace }}/ksu/ 2>/dev/null || true
+        fi
 
-    - name: Integrate KernelSU-Next (safe method)
+    - name: Get SUSFS
+      run: git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git
+
+    - name: Apply SUSFS patch
       run: |
+        cd susfs4ksu
+        if [ -f kernel_patches/5.15/0001-susfs.patch ]; then
+          patch -p1 -d ${{ github.workspace }} < kernel_patches/5.15/0001-susfs.patch || true
+        fi
+
+    - name: Configure kernel
+      run: |
+        export PATH="${{ github.workspace }}/toolchain/clang/bin:$PATH"
+        make ARCH=arm64 \
+             CC=clang \
+             CLANG_TRIPLE=aarch64-linux-gnu- \
+             LLVM=1 \
+             LLVM_IAS=1 \
+             gki_defconfig
+        scripts/config --file .config -e KSU
+        scripts/config --file .config -e KSU_SUSFS
+
+    - name: Build kernel
+      run: |
+        export PATH="${{ github.workspace }}/toolchain/clang/bin:$PATH"
+        make -j$(nproc) \
+             ARCH=arm64 \
+             CC=clang \
+             CLANG_TRIPLE=aarch64-linux-gnu- \
+             LLVM=1 \
+             LLVM_IAS=1
+
+    - name: Create AnyKernel3 zip
+      run: |
+        git clone --depth=1 https://github.com/osm0sis/AnyKernel3
+        cp arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || \
+        cp arch/arm64/boot/Image AnyKernel3/ 2>/dev/null || true
+        cd AnyKernel3
+        cat > anykernel.sh << 'EOF'
+        kernel.string=Creek Kernel for Redmi 15 - KSU-Next + SUSFS
+        do.devicecheck=0
+        do.modules=0
+        do.systemless=1
+        do.cleanup=1
+        device.name1=creek
+        block=auto
+        is_slot_device=auto
+
+        . tools/ak3-core.sh
+        dump_boot
+        write_boot
+        EOF
+        zip -r9 ../Creek-Kernel-Full.zip ./*
+
+    - name: Upload ZIP
+      uses: actions/upload-artifact@v4
+      with:
+        name: Creek-Kernel-Full
+        path: Creek-Kernel-Full.zip      run: |
         git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU-Next
         cd KernelSU-Next
         # Gunakan script resmi jika ada

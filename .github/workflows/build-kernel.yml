@@ -1,4 +1,4 @@
-name: Build Creek Kernel with KSU-Next + SUSFS + AK3
+name: Build Creek Kernel with KSU-Next + SUSFS
 on: workflow_dispatch
 
 jobs:
@@ -12,17 +12,17 @@ jobs:
         sudo apt update
         sudo apt install -y git make bc bison flex libssl-dev build-essential wget zip
 
-    - name: Download Clang
+    - name: Download prebuilt Clang + GCC (AOSP)
       run: |
-        mkdir -p toolchain && cd toolchain
-        wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
-        tar -xf clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
-        mv clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04 clang
-
-    - name: Download GCC
-      run: |
+        mkdir -p toolchain
         cd toolchain
+        # Download Clang prebuilt dari AOSP
+        wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/r522817/clang-r522817.tar.gz
+        mkdir clang && tar -xf clang-r522817.tar.gz -C clang
+        # Download GCC aarch64
         git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc
+        # Set environment
+        echo "Toolchain ready"
 
     - name: Get KernelSU-Next
       run: git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git
@@ -37,15 +37,16 @@ jobs:
           patch -p1 -d ${{ github.workspace }} < kernel_patches/5.15/0001-susfs.patch
         fi
 
-    - name: Build kernel
+    - name: Build kernel with creek_GKI.config
       run: |
         export PATH=${{ github.workspace }}/toolchain/clang/bin:${{ github.workspace }}/toolchain/gcc/bin:$PATH
         export CROSS_COMPILE=aarch64-linux-android-
         export ARCH=arm64
         export CC=clang
+        export LD=ld.lld
         
-        # Pakai generic_bengal_defconfig (cocok untuk Redmi 15)
-        make ARCH=arm64 generic_bengal_defconfig
+        # Gunakan creek_GKI.config dari folder vendor
+        make ARCH=arm64 vendor/creek_GKI.config
         
         # Enable KSU dan SUSFS
         scripts/config --file .config -e KSU
@@ -59,7 +60,7 @@ jobs:
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3
         cp arch/arm64/boot/Image.gz AnyKernel3/
         cd AnyKernel3
-        echo 'kernel.string=Creek Kernel (Redmi 15) with KSU-Next + SUSFS' > anykernel.sh
+        echo 'kernel.string=Creek Kernel (Redmi 15) - KSU-Next + SUSFS' > anykernel.sh
         echo 'do.devicecheck=0' >> anykernel.sh
         echo 'do.modules=0' >> anykernel.sh
         echo 'do.systemless=1' >> anykernel.sh

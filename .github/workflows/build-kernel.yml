@@ -1,19 +1,19 @@
-name: KSU Build (vendor config)
+name: Build Creek Kernel
 on: workflow_dispatch
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
-    - name: Install
-      run: sudo apt update && sudo apt install -y git make bc wget
-    - name: Get KSU
+    - name: Install tools
+      run: sudo apt update && sudo apt install -y git make bc wget zip
+    - name: Get KernelSU-Next
       run: git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git
     - name: Build
       run: |
         export ARCH=arm64
-        # Panggil config dari folder vendor
-        make ARCH=arm64 vendor/creek_GKI-config
+        # Gunakan nama file yang BENAR: creek_GKI.config
+        make ARCH=arm64 creek_GKI.config
         make -j2
     - name: AnyKernel3
       run: |

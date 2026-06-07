@@ -63,7 +63,7 @@ jobs:
     - name: Build kernel
       run: |
         export PATH="${{ github.workspace }}/toolchain/clang/bin:$PATH"
-        make -j$(nproc) \
+        make -j1 \
              ARCH=arm64 \
              CC=clang \
              CLANG_TRIPLE=aarch64-linux-gnu- \

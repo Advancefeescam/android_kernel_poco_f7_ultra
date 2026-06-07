@@ -1,4 +1,4 @@
-name: Build Creek Kernel with KernelSU-Next and SUSFS
+name: Build Creek Kernel with KSU-Next + SUSFS + AK3
 on: workflow_dispatch
 
 jobs:
@@ -11,6 +11,18 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y git make bc bison flex libssl-dev build-essential wget zip
+
+    - name: Download Clang
+      run: |
+        mkdir -p toolchain && cd toolchain
+        wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
+        tar -xf clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
+        mv clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04 clang
+
+    - name: Download GCC
+      run: |
+        cd toolchain
+        git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc
 
     - name: Get KernelSU-Next
       run: git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git
@@ -27,18 +39,27 @@ jobs:
 
     - name: Build kernel
       run: |
+        export PATH=${{ github.workspace }}/toolchain/clang/bin:${{ github.workspace }}/toolchain/gcc/bin:$PATH
+        export CROSS_COMPILE=aarch64-linux-android-
         export ARCH=arm64
-        make ARCH=arm64 defconfig
+        export CC=clang
+        
+        # Pakai generic_bengal_defconfig (cocok untuk Redmi 15)
+        make ARCH=arm64 generic_bengal_defconfig
+        
+        # Enable KSU dan SUSFS
         scripts/config --file .config -e KSU
         scripts/config --file .config -e KSU_SUSFS
-        make -j2
+        
+        # Build kernel
+        make -j$(nproc)
 
     - name: Create AnyKernel3 zip
       run: |
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3
         cp arch/arm64/boot/Image.gz AnyKernel3/
         cd AnyKernel3
-        echo 'kernel.string=Creek Kernel with KSU-Next + SUSFS by kusonekoworld-max' > anykernel.sh
+        echo 'kernel.string=Creek Kernel (Redmi 15) with KSU-Next + SUSFS' > anykernel.sh
         echo 'do.devicecheck=0' >> anykernel.sh
         echo 'do.modules=0' >> anykernel.sh
         echo 'do.systemless=1' >> anykernel.sh
@@ -50,11 +71,11 @@ jobs:
         echo '. tools/ak3-core.sh' >> anykernel.sh
         echo 'dump_boot' >> anykernel.sh
         echo 'write_boot' >> anykernel.sh
-        zip -r9 ../kernel-ksu-susfs.zip ./*
+        zip -r9 ../Creek-Kernel-Final.zip ./*
         cd ..
 
-    - name: Upload kernel zip
+    - name: Upload ZIP
       uses: actions/upload-artifact@v4
       with:
-        name: Creek-Kernel-KSU-SUSFS
-        path: kernel-ksu-susfs.zip
+        name: Creek-Kernel-Final
+        path: Creek-Kernel-Final.zip

@@ -1,4 +1,4 @@
-name: KSU Build with AnyKernel3
+name: KSU Build (vendor config)
 on: workflow_dispatch
 jobs:
   build:
@@ -6,13 +6,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install
-      run: sudo apt update && sudo apt install -y git make bc wget zip
+      run: sudo apt update && sudo apt install -y git make bc wget
     - name: Get KSU
       run: git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git
     - name: Build
       run: |
         export ARCH=arm64
-        make creek_GKI-config
+        # Panggil config dari folder vendor
+        make ARCH=arm64 vendor/creek_GKI-config
         make -j2
     - name: AnyKernel3
       run: |
@@ -22,5 +23,5 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v4
       with:
-        name: kernel-ksu-ak3
+        name: kernel-ksu
         path: kernel-ksu.zip

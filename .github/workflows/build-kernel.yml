@@ -1,4 +1,4 @@
-name: Build Creek Kernel with KernelSU-Next
+name: Build Creek Kernel 
 on: workflow_dispatch
 
 jobs:

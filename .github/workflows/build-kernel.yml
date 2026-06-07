@@ -1,4 +1,4 @@
-name: Build Creek Kernel with KSU-Next + SUSFS
+name: Build Creek Kernel - Fixed Toolchain
 on: workflow_dispatch
 
 jobs:
@@ -8,21 +8,25 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Install tools
-      run: |
-        sudo apt update
-        sudo apt install -y git make bc bison flex libssl-dev build-essential wget zip
+      run: sudo apt update && sudo apt install -y git make bc bison flex libssl-dev build-essential wget zip
 
-    - name: Download prebuilt Clang + GCC (AOSP)
+    - name: Download Clang
       run: |
-        mkdir -p toolchain
-        cd toolchain
-        # Download Clang prebuilt dari AOSP
-        wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/r522817/clang-r522817.tar.gz
-        mkdir clang && tar -xf clang-r522817.tar.gz -C clang
-        # Download GCC aarch64
+        mkdir -p ${{ github.workspace }}/toolchain
+        cd ${{ github.workspace }}/toolchain
+        wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
+        tar -xf clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
+        mv clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04 clang
+
+    - name: Download GCC
+      run: |
+        cd ${{ github.workspace }}/toolchain
         git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc
-        # Set environment
-        echo "Toolchain ready"
+
+    - name: Set PATH (ini yang bener)
+      run: |
+        echo "${{ github.workspace }}/toolchain/clang/bin" >> $GITHUB_PATH
+        echo "${{ github.workspace }}/toolchain/gcc/bin" >> $GITHUB_PATH
 
     - name: Get KernelSU-Next
       run: git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git
@@ -37,22 +41,14 @@ jobs:
           patch -p1 -d ${{ github.workspace }} < kernel_patches/5.15/0001-susfs.patch
         fi
 
-    - name: Build kernel with creek_GKI.config
+    - name: Build kernel
       run: |
-        export PATH=${{ github.workspace }}/toolchain/clang/bin:${{ github.workspace }}/toolchain/gcc/bin:$PATH
         export CROSS_COMPILE=aarch64-linux-android-
         export ARCH=arm64
         export CC=clang
-        export LD=ld.lld
-        
-        # Gunakan creek_GKI.config dari folder vendor
         make ARCH=arm64 vendor/creek_GKI.config
-        
-        # Enable KSU dan SUSFS
         scripts/config --file .config -e KSU
         scripts/config --file .config -e KSU_SUSFS
-        
-        # Build kernel
         make -j$(nproc)
 
     - name: Create AnyKernel3 zip
@@ -60,7 +56,7 @@ jobs:
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3
         cp arch/arm64/boot/Image.gz AnyKernel3/
         cd AnyKernel3
-        echo 'kernel.string=Creek Kernel (Redmi 15) - KSU-Next + SUSFS' > anykernel.sh
+        echo 'kernel.string=Creek Kernel - KSU-Next + SUSFS' > anykernel.sh
         echo 'do.devicecheck=0' >> anykernel.sh
         echo 'do.modules=0' >> anykernel.sh
         echo 'do.systemless=1' >> anykernel.sh
@@ -72,11 +68,11 @@ jobs:
         echo '. tools/ak3-core.sh' >> anykernel.sh
         echo 'dump_boot' >> anykernel.sh
         echo 'write_boot' >> anykernel.sh
-        zip -r9 ../Creek-Kernel-Final.zip ./*
+        zip -r9 ../Creek-Kernel.zip ./*
         cd ..
 
     - name: Upload ZIP
       uses: actions/upload-artifact@v4
       with:
-        name: Creek-Kernel-Final
-        path: Creek-Kernel-Final.zip
+        name: Creek-Kernel
+        path: Creek-Kernel.zip

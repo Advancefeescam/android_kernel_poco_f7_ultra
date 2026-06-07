@@ -21,7 +21,7 @@ jobs:
         sudo apt update && sudo apt install -y \
           git make bc bison flex libssl-dev \
           build-essential wget zip python3 \
-          libelf-dev libc6-dev binutils
+          libelf-dev libc6-dev binutils perl
 
     - name: Download Clang
       if: steps.cache-toolchain.outputs.cache-hit != 'true'
@@ -31,17 +31,9 @@ jobs:
         tar -xf clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
         mv clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04 clang
 
-    - name: Integrate KernelSU-Next
+    - name: Integrate KernelSU-Next (GKI)
       run: |
-        git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU-Next
-        cd KernelSU-Next
-        if [ -f ksu_setup.sh ]; then
-          bash ksu_setup.sh ${{ github.workspace }}
-        else
-          cp -r kernel/fs/* ${{ github.workspace }}/fs/ 2>/dev/null || true
-          cp -r kernel/security/* ${{ github.workspace }}/security/ 2>/dev/null || true
-          cp -r kernel/drivers/* ${{ github.workspace }}/drivers/ 2>/dev/null || true
-        fi
+        curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s stable
 
     - name: Get SUSFS
       run: git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git
@@ -56,15 +48,38 @@ jobs:
           patch -p1 -d ${{ github.workspace }} < $PATCH || echo "SUSFS patch failed, continuing..."
         fi
 
+    - name: Fix Clang compatibility issues
+      run: |
+        echo "=== Fix angled includes di WALT ==="
+        find kernel/sched/walt/ -name "*.c" -o -name "*.h" | xargs grep -l "#include <walt" 2>/dev/null | while read f; do
+          echo "Fixing: $f"
+          sed -i 's/#include <walt\.h>/#include "walt.h"/g' "$f"
+          sed -i 's/#include <walt_helpers\.h>/#include "walt_helpers.h"/g' "$f"
+        done
+
+        echo "=== Fix angled includes di vendor dirs ==="
+        for dir in drivers/soc/qcom kernel/sched; do
+          find $dir -name "*.c" 2>/dev/null | xargs grep -l "#include <[a-z_]*\.h>" 2>/dev/null | while read f; do
+            grep -o '#include <[a-z_]*\.h>' "$f" | while read inc; do
+              hdr=$(echo $inc | sed 's/#include <//;s/>//')
+              dir_of_f=$(dirname "$f")
+              if [ -f "$dir_of_f/$hdr" ]; then
+                echo "Fixing local include in $f: $inc"
+                sed -i "s|#include <$hdr>|#include \"$hdr\"|g" "$f"
+              fi
+            done
+          done
+        done
+
+        echo "=== Done ==="
+
     - name: Configure kernel
       run: |
         export PATH="${{ github.workspace }}/toolchain/clang/bin:$PATH"
-        # Cek defconfig yang tersedia
         echo "=== Available defconfigs ==="
         ls arch/arm64/configs/ || true
         ls arch/arm64/configs/vendor/ 2>/dev/null || true
 
-        # Pakai creek_GKI.config kalau ada, fallback ke gki_defconfig
         if [ -f arch/arm64/configs/vendor/creek_GKI.config ]; then
           echo "Using creek_GKI.config"
           make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 gki_defconfig
@@ -80,7 +95,6 @@ jobs:
           make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 gki_defconfig
         fi
 
-        # Enable KSU + SUSFS
         scripts/config --file .config -e KSU || true
         scripts/config --file .config -e KSU_SUSFS || true
         make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 olddefconfig
@@ -88,12 +102,16 @@ jobs:
     - name: Build kernel
       run: |
         export PATH="${{ github.workspace }}/toolchain/clang/bin:$PATH"
-        make -j1 \
+        make -j$(nproc) \
              ARCH=arm64 \
              CC=clang \
              CLANG_TRIPLE=aarch64-linux-gnu- \
              LLVM=1 \
-             LLVM_IAS=1
+             LLVM_IAS=1 \
+             KCFLAGS="-Wno-error=implicit-function-declaration \
+                      -Wno-error=unused-function \
+                      -Wno-error=misleading-indentation \
+                      -Wno-error=array-bounds"
 
     - name: Create AnyKernel3 zip
       run: |

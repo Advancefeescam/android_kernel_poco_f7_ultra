@@ -163,7 +163,7 @@ jobs:
         scripts/config --file .config -d LTO_CLANG_THIN || true
         scripts/config --file .config -e LTO_NONE || true
 
-        # Disable BTF - conflict dengan upstream merge
+        # Disable BTF
         scripts/config --file .config -d DEBUG_INFO_BTF || true
         scripts/config --file .config -d DEBUG_INFO_BTF_MODULES || true
         scripts/config --file .config -d DEBUG_INFO || true
@@ -174,6 +174,9 @@ jobs:
         scripts/config --file .config -e ENERGY_MODEL || true
         scripts/config --file .config -e CPU_FREQ_GOV_SCHEDUTIL || true
         scripts/config --file .config -e SCHED_WALT || true
+        # Fix WALT undefined symbol - enable Qualcomm cpufreq HW driver
+        scripts/config --file .config -e QCOM_CPUFREQ_HW || true
+        scripts/config --file .config -e QCOM_CPUFREQ_NVMEM || true
 
         # === MEMORY OPTIMIZATION ===
         scripts/config --file .config -e ZRAM || true

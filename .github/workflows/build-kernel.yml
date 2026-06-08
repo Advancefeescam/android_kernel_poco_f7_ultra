@@ -144,16 +144,7 @@ jobs:
             echo "Symbol already present"
           fi
         else
-          cat > "$CPUFREQ_FILE" << 'EOF'
-#include <linux/module.h>
-#include <linux/types.h>
-
-u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
-{
-    return 0;
-}
-EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
-EOF
+          printf '#include <linux/module.h>\n#include <linux/types.h>\n\nu64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)\n{\n\treturn 0;\n}\nEXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);\n' > "$CPUFREQ_FILE"
           echo "Created new stub file"
         fi
 

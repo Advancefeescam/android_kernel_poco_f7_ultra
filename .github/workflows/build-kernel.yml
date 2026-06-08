@@ -133,41 +133,26 @@ jobs:
 
     - name: Fix WALT undefined symbols
       run: |
-        CPUFREQ_FILE="drivers/cpufreq/qcom-cpufreq-hw.c"
-
-        echo "=== Inject stub qcom_cpufreq_get_cpu_cycle_counter ==="
-        if [ -f "$CPUFREQ_FILE" ]; then
-          if ! grep -q "qcom_cpufreq_get_cpu_cycle_counter" "$CPUFREQ_FILE"; then
-            printf '\n#include <linux/types.h>\nu64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)\n{\n\treturn 0;\n}\nEXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);\n' >> "$CPUFREQ_FILE"
-            echo "Stub injected to existing file"
-          else
-            echo "Symbol already present"
-          fi
-        else
-          printf '#include <linux/module.h>\n#include <linux/types.h>\n\nu64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)\n{\n\treturn 0;\n}\nEXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);\n' > "$CPUFREQ_FILE"
-          echo "Created new stub file"
-        fi
-
-        echo "=== Force obj-y so file always compiled ==="
-        CPUFREQ_MK="drivers/cpufreq/Makefile"
-        if ! grep -q "qcom-cpufreq-hw" "$CPUFREQ_MK"; then
-          echo 'obj-y += qcom-cpufreq-hw.o' >> "$CPUFREQ_MK"
-          echo "Added obj-y to Makefile"
-        else
-          sed -i 's/obj-\$(CONFIG_QCOM_CPUFREQ_HW).*qcom-cpufreq-hw/obj-y += qcom-cpufreq-hw/' "$CPUFREQ_MK"
-          echo "Changed to obj-y in Makefile"
-        fi
-
-        echo "=== Add extern declaration to walt.h ==="
+        WALT_FILE="kernel/sched/walt/walt.c"
         WALT_HEADER="kernel/sched/walt/walt.h"
-        if [ -f "$WALT_HEADER" ]; then
-          if ! grep -q "qcom_cpufreq_get_cpu_cycle_counter" "$WALT_HEADER"; then
-            echo 'extern u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu);' >> "$WALT_HEADER"
-            echo "Extern added to walt.h"
+
+        echo "=== Inject weak stub langsung ke walt.c ==="
+        if [ -f "$WALT_FILE" ]; then
+          if ! grep -q "qcom_cpufreq_get_cpu_cycle_counter" "$WALT_FILE"; then
+            sed -i '1s/^/#include <linux\/types.h>\n__weak u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu) { return 0; }\n\n/' "$WALT_FILE"
+            echo "Weak stub berhasil diinjek ke walt.c"
+          else
+            echo "Simbol sudah ada di walt.c"
           fi
         fi
 
-        echo "=== Done ==="
+        echo "=== Hapus extern declaration di walt.h biar gak konflik ==="
+        if [ -f "$WALT_HEADER" ]; then
+          sed -i '/qcom_cpufreq_get_cpu_cycle_counter/d' "$WALT_HEADER"
+          echo "walt.h dibersihkan"
+        fi
+
+        echo "=== Selesai ==="
 
     - name: Configure kernel
       run: |

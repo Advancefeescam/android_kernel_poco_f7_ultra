@@ -21,7 +21,8 @@ jobs:
         sudo apt update && sudo apt install -y \
           git make bc bison flex libssl-dev \
           build-essential wget zip python3 \
-          libelf-dev libc6-dev binutils perl
+          libelf-dev libc6-dev binutils perl \
+          dwarves
 
     - name: Download Clang
       if: steps.cache-toolchain.outputs.cache-hit != 'true'

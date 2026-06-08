@@ -131,39 +131,48 @@ jobs:
 
         echo "=== Done ==="
 
-    - name: Fix WALT undefined symbols - Dual stub (YANG INI YANG BERHASIL)
+    - name: Fix WALT undefined symbols - SINGLE EXPORT ONLY
       run: |
-        echo "=== Buat stub di kernel/sched/walt ==="
-        cat > kernel/sched/walt/walt_stub.c << 'EOF'
-        #include <linux/types.h>
-        #include <linux/export.h>
-        #include <linux/ktime.h>
+        echo "=== Hapus SEMUA stub yang ada ==="
+        rm -f kernel/sched/walt/walt_stub.c
+        rm -f drivers/cpufreq/qcom-cpufreq-hw-stub.c
         
-        u64 __weak qcom_cpufreq_get_cpu_cycle_counter(int cpu)
-        {
-            return ktime_get_ns();
-        }
-        EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
-        EOF
+        echo "=== Bersihkan Makefiles ==="
+        sed -i '/walt_stub/d' kernel/sched/walt/Makefile 2>/dev/null || true
+        sed -i '/qcom-cpufreq-hw-stub/d' drivers/cpufreq/Makefile 2>/dev/null || true
         
-        echo "obj-y += walt_stub.o" >> kernel/sched/walt/Makefile
+        echo "=== Bersihkan semua export dari file yang ada ==="
+        find kernel/sched/walt/ -name "*.c" -exec sed -i '/EXPORT_SYMBOL.*qcom_cpufreq_get_cpu_cycle_counter/d' {} \;
+        find kernel/sched/walt/ -name "*.h" -exec sed -i '/qcom_cpufreq_get_cpu_cycle_counter/d' {} \;
+        find drivers/cpufreq/ -name "*.c" -exec sed -i '/EXPORT_SYMBOL.*qcom_cpufreq_get_cpu_cycle_counter/d' {} \;
         
-        echo "=== Buat stub di drivers/cpufreq ==="
+        echo "=== Buat ONLY ONE stub di drivers/cpufreq ==="
+        mkdir -p drivers/cpufreq
         cat > drivers/cpufreq/qcom-cpufreq-hw-stub.c << 'EOF'
         #include <linux/types.h>
         #include <linux/export.h>
         #include <linux/ktime.h>
         
-        u64 __weak qcom_cpufreq_get_cpu_cycle_counter(int cpu)
+        /* Single implementation - no duplicate export */
+        u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
         {
             return ktime_get_ns();
         }
         EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
         EOF
         
-        echo "obj-y += qcom-cpufreq-hw-stub.o" >> drivers/cpufreq/Makefile
+        echo "=== Tambah ke Makefile (hanya satu) ==="
+        if ! grep -q "qcom-cpufreq-hw-stub" drivers/cpufreq/Makefile; then
+          echo "obj-y += qcom-cpufreq-hw-stub.o" >> drivers/cpufreq/Makefile
+        fi
         
-        echo "=== WALT fix applied (dual stub) ==="
+        echo "=== Pastikan walt.c tidak ada export ==="
+        WALT_C="kernel/sched/walt/walt.c"
+        if [ -f "$WALT_C" ]; then
+          sed -i '/qcom_cpufreq_get_cpu_cycle_counter/d' "$WALT_C"
+        fi
+        
+        echo "=== Selesai - Hanya satu export di drivers/cpufreq ==="
 
     - name: Configure kernel
       run: |
@@ -283,8 +292,7 @@ jobs:
                       -Wno-error=deprecated-declarations \
                       -Wno-error=int-conversion \
                       -Wno-error=incompatible-pointer-types \
-                      -Wno-error=return-type \
-                      -Wno-error=duplicate-decl-specifier"
+                      -Wno-error=return-type"
 
     - name: Create AnyKernel3 zip
       run: |

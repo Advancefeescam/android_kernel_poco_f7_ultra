@@ -308,25 +308,25 @@ STUBEOF
         fi
 
         cat > AnyKernel3/anykernel.sh << 'EOF'
-        kernel.string=Creek Kernel Neko - KSU-Next + SUSFS | Optimized
-        do.devicecheck=1
-        do.modules=0
-        do.systemless=1
-        do.cleanup=1
-        do.cleanuponabort=1
-        device.name1=creek
-        device.name2=RE54B
-        device.name3=RE54BL
-        supported.versions=12-14
-        block=/dev/block/bootdevice/by-name/boot
-        is_slot_device=1
-        ramdisk_compression=auto
+kernel.string=Creek Kernel Neko - KSU-Next + SUSFS | Optimized
+do.devicecheck=1
+do.modules=0
+do.systemless=1
+do.cleanup=1
+do.cleanuponabort=1
+device.name1=creek
+device.name2=RE54B
+device.name3=RE54BL
+supported.versions=12-14
+block=/dev/block/bootdevice/by-name/boot
+is_slot_device=1
+ramdisk_compression=auto
 
-        . tools/ak3-core.sh
+. tools/ak3-core.sh
 
-        dump_boot
-        write_boot
-        EOF
+dump_boot
+write_boot
+EOF
 
         BUILD_DATE=$(date +%Y%m%d-%H%M)
         echo "BUILD_DATE=${BUILD_DATE}" >> "$GITHUB_ENV"

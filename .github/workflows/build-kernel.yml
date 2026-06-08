@@ -133,31 +133,46 @@ jobs:
 
     - name: Fix WALT undefined symbols
       run: |
-        echo "=== Fix qcom_cpufreq_get_cpu_cycle_counter ==="
+        CPUFREQ_FILE="drivers/cpufreq/qcom-cpufreq-hw.c"
 
-        if [ -f drivers/cpufreq/qcom-cpufreq-hw.c ]; then
-          if ! grep -q "qcom_cpufreq_get_cpu_cycle_counter" drivers/cpufreq/qcom-cpufreq-hw.c; then
-            printf '\nu64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)\n{\n\treturn 0;\n}\nEXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);\n' >> drivers/cpufreq/qcom-cpufreq-hw.c
-            echo "Added stub to qcom-cpufreq-hw.c"
+        echo "=== Inject stub qcom_cpufreq_get_cpu_cycle_counter ==="
+        if [ -f "$CPUFREQ_FILE" ]; then
+          if ! grep -q "qcom_cpufreq_get_cpu_cycle_counter" "$CPUFREQ_FILE"; then
+            printf '\n#include <linux/types.h>\nu64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)\n{\n\treturn 0;\n}\nEXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);\n' >> "$CPUFREQ_FILE"
+            echo "Stub injected to existing file"
           else
-            echo "Symbol already exists in qcom-cpufreq-hw.c"
+            echo "Symbol already present"
           fi
         else
-          echo "=== qcom-cpufreq-hw.c not found, create stub file ==="
-          printf '#include <linux/module.h>\n#include <linux/types.h>\n\nu64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)\n{\n\treturn 0;\n}\nEXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);\n' > drivers/cpufreq/qcom-cpufreq-stub.c
-          # Tambahkan ke Makefile cpufreq
-          if ! grep -q "qcom-cpufreq-stub" drivers/cpufreq/Makefile; then
-            echo "obj-y += qcom-cpufreq-stub.o" >> drivers/cpufreq/Makefile
-            echo "Added stub to Makefile"
-          fi
+          cat > "$CPUFREQ_FILE" << 'EOF'
+#include <linux/module.h>
+#include <linux/types.h>
+
+u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
+{
+    return 0;
+}
+EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
+EOF
+          echo "Created new stub file"
+        fi
+
+        echo "=== Force obj-y so file always compiled ==="
+        CPUFREQ_MK="drivers/cpufreq/Makefile"
+        if ! grep -q "qcom-cpufreq-hw" "$CPUFREQ_MK"; then
+          echo 'obj-y += qcom-cpufreq-hw.o' >> "$CPUFREQ_MK"
+          echo "Added obj-y to Makefile"
+        else
+          sed -i 's/obj-\$(CONFIG_QCOM_CPUFREQ_HW).*qcom-cpufreq-hw/obj-y += qcom-cpufreq-hw/' "$CPUFREQ_MK"
+          echo "Changed to obj-y in Makefile"
         fi
 
         echo "=== Add extern declaration to walt.h ==="
         WALT_HEADER="kernel/sched/walt/walt.h"
         if [ -f "$WALT_HEADER" ]; then
           if ! grep -q "qcom_cpufreq_get_cpu_cycle_counter" "$WALT_HEADER"; then
-            printf '\n#ifdef CONFIG_QCOM_CPUFREQ_HW\nextern u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu);\n#else\nstatic inline u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu) { return 0; }\n#endif\n' >> "$WALT_HEADER"
-            echo "Added extern declaration to walt.h"
+            echo 'extern u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu);' >> "$WALT_HEADER"
+            echo "Extern added to walt.h"
           fi
         fi
 

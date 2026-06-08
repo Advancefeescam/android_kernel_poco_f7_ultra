@@ -71,19 +71,11 @@ jobs:
           done
         done
 
-        echo "=== Fix 3: TRACE_INCLUDE_PATH qcom clk ==="
-        find drivers/clk/qcom/ -name "trace.h" 2>/dev/null | while read f; do
-          echo "Fixing TRACE_INCLUDE_PATH in $f"
-          sed -i 's|#define TRACE_INCLUDE_PATH \.\.|#define TRACE_INCLUDE_PATH drivers/clk/qcom|g' "$f"
-          sed -i 's|#define TRACE_INCLUDE_PATH \.|#define TRACE_INCLUDE_PATH drivers/clk/qcom|g' "$f"
-        done
-
-        echo "=== Fix 4: TRACE_INCLUDE_PATH semua driver qcom ==="
-        find drivers/soc/qcom/ drivers/clk/qcom/ drivers/mmc/ -name "trace.h" 2>/dev/null | while read f; do
-          dir=$(dirname "$f" | sed 's|^\./||')
-          echo "Fixing TRACE_INCLUDE_PATH in $f -> $dir"
-          sed -i "s|#define TRACE_INCLUDE_PATH \.\.|#define TRACE_INCLUDE_PATH $dir|g" "$f"
-          sed -i "s|#define TRACE_INCLUDE_PATH \.|#define TRACE_INCLUDE_PATH $dir|g" "$f"
+        echo "=== Fix 3: Restore TRACE_INCLUDE_PATH ke dot ==="
+        find drivers/ -name "trace.h" 2>/dev/null | while read f; do
+          # Kembalikan ke dot kalau sudah diubah sebelumnya
+          sed -i 's|#define TRACE_INCLUDE_PATH drivers/.*|#define TRACE_INCLUDE_PATH .|g' "$f"
+          grep "TRACE_INCLUDE_PATH" "$f" && echo "  -> $f ok" || true
         done
 
         echo "=== Done ==="
@@ -127,8 +119,7 @@ jobs:
                       -Wno-error=unused-function \
                       -Wno-error=misleading-indentation \
                       -Wno-error=array-bounds" \
-             KBUILD_EXTRA_CFLAGS="-I$(pwd)/drivers/clk/qcom \
-                                   -I$(pwd)/drivers/soc/qcom"
+             KBUILD_CPPFLAGS="-I$(pwd)"
 
     - name: Create AnyKernel3 zip
       run: |

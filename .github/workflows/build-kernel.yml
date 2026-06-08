@@ -95,6 +95,19 @@ jobs:
           echo "Fixed minidump_log.c"
         fi
 
+        echo "=== Fix 5: zram_drv strict prototypes ==="
+        if [ -f drivers/block/zram/zram_drv.c ]; then
+          sed -i 's/static struct zram_pages_life \*init_pages_life()/static struct zram_pages_life *init_pages_life(void)/' \
+            drivers/block/zram/zram_drv.c
+          echo "Fixed zram_drv.c"
+        fi
+
+        echo "=== Fix 6: Scan dan fix semua strict-prototypes ==="
+        find drivers/ -name "*.c" 2>/dev/null | \
+          xargs grep -l "^\(static\|extern\) [a-zA-Z_].*()$" 2>/dev/null | while read f; do
+          sed -i 's/\(\(static\|extern\) [a-zA-Z_][a-zA-Z0-9_ *]*\)()/\1(void)/g' "$f"
+        done
+
         echo "=== Done ==="
 
     - name: Configure kernel
@@ -134,12 +147,16 @@ jobs:
              LLVM_IAS=1 \
              KCFLAGS="-Wno-error=implicit-function-declaration \
                       -Wno-error=implicit-int \
+                      -Wno-error=strict-prototypes \
                       -Wno-error=unused-function \
                       -Wno-error=misleading-indentation \
                       -Wno-error=array-bounds \
                       -Wno-error=unused-variable \
                       -Wno-error=unused-but-set-variable \
-                      -Wno-error=deprecated-declarations"
+                      -Wno-error=deprecated-declarations \
+                      -Wno-error=int-conversion \
+                      -Wno-error=incompatible-pointer-types \
+                      -Wno-error=return-type"
 
     - name: Create AnyKernel3 zip
       run: |

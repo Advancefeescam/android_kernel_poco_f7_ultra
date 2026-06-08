@@ -32,6 +32,19 @@ jobs:
         tar -xf clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
         mv clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04 clang
 
+    - name: Sync upstream stable 5.15.194
+      run: |
+        git config user.email "ci@github.com"
+        git config user.name "GitHub Actions"
+        git remote add stable https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
+        git fetch stable linux-5.15.y --depth=500
+        git merge stable/linux-5.15.y \
+          --no-edit \
+          -X ours \
+          --allow-unrelated-histories || true
+        echo "=== Kernel version after merge ==="
+        head -5 Makefile
+
     - name: Integrate KernelSU-Next (GKI stable)
       run: |
         curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s stable
@@ -140,12 +153,92 @@ jobs:
           make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 gki_defconfig
         fi
 
+        # KSU + SUSFS
         scripts/config --file .config -e KSU || true
         scripts/config --file .config -e KSU_SUSFS || true
+
+        # Disable LTO (OOM di GitHub Actions)
         scripts/config --file .config -d LTO_CLANG || true
         scripts/config --file .config -d LTO_CLANG_FULL || true
         scripts/config --file .config -d LTO_CLANG_THIN || true
         scripts/config --file .config -e LTO_NONE || true
+
+        # === SCHEDULER OPTIMIZATION ===
+        # Energy Aware Scheduling
+        scripts/config --file .config -e ENERGY_MODEL || true
+        scripts/config --file .config -e CPU_FREQ_GOV_SCHEDUTIL || true
+        # WALT tuning sudah built-in Qualcomm source
+        scripts/config --file .config -e SCHED_WALT || true
+
+        # ===  MEMORY OPTIMIZATION ===
+        # ZRAM
+        scripts/config --file .config -e ZRAM || true
+        scripts/config --file .config -e ZRAM_DEF_COMP_ZSTD || true
+        scripts/config --file .config -e ZSMALLOC || true
+        # MGLRU (Multi-Gen LRU) - better memory reclaim
+        scripts/config --file .config -e LRU_GEN || true
+        scripts/config --file .config -e LRU_GEN_ENABLED || true
+        # Memory compaction
+        scripts/config --file .config -e COMPACTION || true
+        scripts/config --file .config -e MIGRATION || true
+        # KSM - Kernel Samepage Merging
+        scripts/config --file .config -e KSM || true
+        # Transparent Hugepage
+        scripts/config --file .config -e TRANSPARENT_HUGEPAGE || true
+
+        # === I/O OPTIMIZATION ===
+        # BFQ I/O Scheduler (better for mobile)
+        scripts/config --file .config -e BFQ_GROUP_IOSCHED || true
+        scripts/config --file .config -e IOSCHED_BFQ || true
+        scripts/config --file .config -e MQ_IOSCHED_DEADLINE || true
+        # F2FS optimizations
+        scripts/config --file .config -e F2FS_FS || true
+        scripts/config --file .config -e F2FS_FS_COMPRESSION || true
+        scripts/config --file .config -e F2FS_FS_ZSTD || true
+
+        # === NETWORK OPTIMIZATION ===
+        # TCP BBR congestion control
+        scripts/config --file .config -e TCP_CONG_BBR || true
+        scripts/config --file .config -e NET_SCH_FQ || true
+        # TCP Fast Open
+        scripts/config --file .config -e TCP_FASTOPEN || true
+
+        # === BATTERY OPTIMIZATION ===
+        # Power efficient workqueues
+        scripts/config --file .config -e WQ_POWER_EFFICIENT_DEFAULT || true
+        # CPU idle
+        scripts/config --file .config -e CPU_IDLE || true
+        scripts/config --file .config -e CPU_IDLE_GOV_MENU || true
+        scripts/config --file .config -e CPU_IDLE_GOV_TEO || true
+        # Suspend optimizations
+        scripts/config --file .config -e SUSPEND || true
+        scripts/config --file .config -e PM_WAKELOCKS || true
+        scripts/config --file .config -e PM_WAKELOCKS_LIMIT || true
+
+        # === GAMING OPTIMIZATION ===
+        # CPU boost
+        scripts/config --file .config -e CPU_BOOST || true
+        scripts/config --file .config -e SCHED_BOOST || true
+        # GPU
+        scripts/config --file .config -e QCOM_KGSL || true
+        # Preemption - Full for smooth UI
+        scripts/config --file .config -e PREEMPT || true
+        scripts/config --file .config -d PREEMPT_NONE || true
+        scripts/config --file .config -d PREEMPT_VOLUNTARY || true
+        # High res timers
+        scripts/config --file .config -e HZ_300 || true
+        scripts/config --file .config -e HIGH_RES_TIMERS || true
+
+        # === MISC OPTIMIZATIONS ===
+        # Zstd compression
+        scripts/config --file .config -e ZSTD_COMPRESS || true
+        scripts/config --file .config -e ZSTD_DECOMPRESS || true
+        # CRC32 hardware acceleration
+        scripts/config --file .config -e CRC32_ARMV8_CRC32 || true
+        # Crypto hardware
+        scripts/config --file .config -e CRYPTO_SHA2_ARM64_CE || true
+        scripts/config --file .config -e CRYPTO_AES_ARM64_CE_BLK || true
+
         make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 olddefconfig
 
     - name: Build kernel
@@ -178,7 +271,7 @@ jobs:
         echo "WARNING: No kernel image found!"
         cd AnyKernel3
         cat > anykernel.sh << 'EOF'
-        kernel.string=Creek Kernel Neko - KSU-Next + SUSFS
+        kernel.string=Creek Kernel Neko - KSU-Next + SUSFS | Optimized
         do.devicecheck=0
         do.modules=0
         do.systemless=1

@@ -1,4 +1,4 @@
-Name: Build Creek Kernel - Full (KSU + SUSFS + AK3)
+name: Build Creek Kernel - Full (KSU + SUSFS + AK3)
 on: workflow_dispatch
 
 jobs:

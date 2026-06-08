@@ -109,13 +109,6 @@ jobs:
         done
 
         echo "=== Fix 7: angled include dengan path relatif ==="
-        if [ -f drivers/staging/binder_prio/binder_prio.c ]; then
-          sed -i 's|#include <../../android/binder_internal.h>|#include "../../android/binder_internal.h"|g' \
-            drivers/staging/binder_prio/binder_prio.c
-          echo "Fixed binder_prio.c"
-        fi
-
-        echo "=== Fix 7b: Scan semua angled include dengan path relatif ==="
         find drivers/ -name "*.c" -o -name "*.h" 2>/dev/null | \
           xargs grep -l '#include <\.\.' 2>/dev/null | while read f; do
           echo "Fixing relative angled include in $f"
@@ -148,12 +141,16 @@ jobs:
 
         scripts/config --file .config -e KSU || true
         scripts/config --file .config -e KSU_SUSFS || true
+        scripts/config --file .config -d LTO_CLANG || true
+        scripts/config --file .config -d LTO_CLANG_FULL || true
+        scripts/config --file .config -d LTO_CLANG_THIN || true
+        scripts/config --file .config -e LTO_NONE || true
         make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 olddefconfig
 
     - name: Build kernel
       run: |
         export PATH="${{ github.workspace }}/toolchain/clang/bin:$PATH"
-        make -j1 \
+        make -j$(nproc) \
              ARCH=arm64 \
              CC=clang \
              CLANG_TRIPLE=aarch64-linux-gnu- \

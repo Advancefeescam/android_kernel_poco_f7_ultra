@@ -73,37 +73,22 @@ jobs:
           done
         done
 
-        echo "=== Fix 3: TRACE_INCLUDE_PATH via ccflags ==="
-        find drivers/ -name "trace.h" 2>/dev/null | while read traceh; do
+        echo "=== Fix 3: TRACE_INCLUDE_PATH universal (semua driver + arch) ==="
+        find drivers/ arch/ -name "*.h" 2>/dev/null | \
+          xargs grep -l "TRACE_INCLUDE_PATH" 2>/dev/null | while read traceh; do
           dir=$(dirname "$traceh")
           makefile="$dir/Makefile"
-          if [ -f "$makefile" ] && grep -q "TRACE_INCLUDE_PATH" "$traceh"; then
-            if ! grep -q "ccflags.*srctree.*$dir" "$makefile"; then
-              echo "Adding ccflags to $makefile"
+          if [ -f "$makefile" ]; then
+            if ! grep -q "ccflags-y.*srctree.*$dir" "$makefile"; then
+              echo "Adding ccflags to $makefile for $dir"
               echo "" >> "$makefile"
               echo "# Fix TRACE_INCLUDE_PATH for clang" >> "$makefile"
               echo "ccflags-y += -I\$(srctree)/$dir" >> "$makefile"
             fi
+          else
+            echo "WARNING: No Makefile found for $dir, skipping"
           fi
         done
-
-        echo "=== Fix 4: drivers/clk/qcom trace fix ==="
-        if [ -f drivers/clk/qcom/Makefile ]; then
-          if ! grep -q "ccflags.*clk/qcom" drivers/clk/qcom/Makefile; then
-            echo "" >> drivers/clk/qcom/Makefile
-            echo "ccflags-y += -I\$(srctree)/drivers/clk/qcom" >> drivers/clk/qcom/Makefile
-            echo "Fixed drivers/clk/qcom/Makefile"
-          fi
-        fi
-
-        echo "=== Fix 5: drivers/soc/qcom trace fix ==="
-        if [ -f drivers/soc/qcom/Makefile ]; then
-          if ! grep -q "ccflags.*soc/qcom" drivers/soc/qcom/Makefile; then
-            echo "" >> drivers/soc/qcom/Makefile
-            echo "ccflags-y += -I\$(srctree)/drivers/soc/qcom" >> drivers/soc/qcom/Makefile
-            echo "Fixed drivers/soc/qcom/Makefile"
-          fi
-        fi
 
         echo "=== Done ==="
 

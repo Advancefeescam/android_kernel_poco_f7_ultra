@@ -73,7 +73,7 @@ jobs:
           done
         done
 
-        echo "=== Fix 3: TRACE_INCLUDE_PATH universal (semua driver + arch) ==="
+        echo "=== Fix 3: TRACE_INCLUDE_PATH universal ==="
         find drivers/ arch/ -name "*.h" 2>/dev/null | \
           xargs grep -l "TRACE_INCLUDE_PATH" 2>/dev/null | while read traceh; do
           dir=$(dirname "$traceh")
@@ -85,10 +85,15 @@ jobs:
               echo "# Fix TRACE_INCLUDE_PATH for clang" >> "$makefile"
               echo "ccflags-y += -I\$(srctree)/$dir" >> "$makefile"
             fi
-          else
-            echo "WARNING: No Makefile found for $dir, skipping"
           fi
         done
+
+        echo "=== Fix 4: minidump_log implicit int ==="
+        if [ -f drivers/soc/qcom/minidump_log.c ]; then
+          sed -i 's/^static md_align_offset;/static int md_align_offset;/' \
+            drivers/soc/qcom/minidump_log.c
+          echo "Fixed minidump_log.c"
+        fi
 
         echo "=== Done ==="
 
@@ -128,6 +133,7 @@ jobs:
              LLVM=1 \
              LLVM_IAS=1 \
              KCFLAGS="-Wno-error=implicit-function-declaration \
+                      -Wno-error=implicit-int \
                       -Wno-error=unused-function \
                       -Wno-error=misleading-indentation \
                       -Wno-error=array-bounds \

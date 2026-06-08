@@ -131,66 +131,46 @@ jobs:
 
         echo "=== Done ==="
 
-    - name: Fix WALT undefined symbols - Complete implementation
+    - name: Fix WALT undefined symbols - Direct fix (NO DUPLICATE)
       run: |
-        echo "=== Method 1: Create proper weak stub ==="
+        echo "=== Hapus semua stub yang sudah ada ==="
+        rm -f kernel/sched/walt/walt_stub.c
+        rm -f drivers/cpufreq/qcom-cpufreq-hw-stub.c
         
-        # Create stub file
-        cat > kernel/sched/walt/walt_stub.c << 'EOF'
-        #include <linux/types.h>
-        #include <linux/export.h>
-        #include <linux/ktime.h>
-        #include <linux/cpufreq.h>
+        echo "=== Bersihkan Makefiles ==="
+        sed -i '/walt_stub/d' kernel/sched/walt/Makefile 2>/dev/null || true
+        sed -i '/qcom-cpufreq-hw-stub/d' drivers/cpufreq/Makefile 2>/dev/null || true
         
-        /* Weak stub for missing function - used by WALT scheduler */
-        u64 __weak qcom_cpufreq_get_cpu_cycle_counter(int cpu)
-        {
-            /* Fallback to ktime get nanoseconds */
-            return ktime_get_ns();
-        }
-        EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
-        EOF
+        echo "=== Tambahkan implementasi langsung ke walt.c ==="
+        WALT_C="kernel/sched/walt/walt.c"
         
-        # Add stub to Makefile
-        if [ -f kernel/sched/walt/Makefile ]; then
-          if ! grep -q "walt_stub.o" kernel/sched/walt/Makefile; then
-            echo "obj-y += walt_stub.o" >> kernel/sched/walt/Makefile
-            echo "Added walt_stub.o to Makefile"
-          fi
-        fi
-        
-        echo "=== Method 2: Clean headers ==="
-        find kernel/sched/walt/ -name "*.h" -exec sed -i '/qcom_cpufreq_get_cpu_cycle_counter/d' {} \;
-        
-        echo "=== Method 3: Ensure stub is used ==="
-        cat >> kernel/sched/walt/walt.h << 'EOF'
-        
-        /* Declaration with weak attribute */
-        u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu) __weak;
-        EOF
-        
-        echo "=== Method 4: Create driver stub if missing ==="
-        mkdir -p drivers/cpufreq
-        cat > drivers/cpufreq/qcom-cpufreq-hw-stub.c << 'EOF'
-        #include <linux/types.h>
-        #include <linux/export.h>
+        if [ -f "$WALT_C" ]; then
+          # Hapus jika sudah ada deklarasi lama
+          sed -i '/qcom_cpufreq_get_cpu_cycle_counter/d' "$WALT_C"
+          
+          # Tambahkan implementasi di awal file
+          cat > /tmp/walt_fix.txt << 'EOF'
         #include <linux/ktime.h>
         
+        /* Stub for qcom cycle counter - required by WALT scheduler */
         u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
         {
             return ktime_get_ns();
         }
         EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
-        EOF
         
-        if [ -f drivers/cpufreq/Makefile ]; then
-          if ! grep -q "qcom-cpufreq-hw-stub" drivers/cpufreq/Makefile; then
-            echo "obj-y += qcom-cpufreq-hw-stub.o" >> drivers/cpufreq/Makefile
-            echo "Added stub to cpufreq Makefile"
-          fi
+        EOF
+          cat /tmp/walt_fix.txt "$WALT_C" > /tmp/walt_new.c
+          mv /tmp/walt_new.c "$WALT_C"
+          echo "✅ Fungsi berhasil ditambahkan ke walt.c"
+        else
+          echo "⚠️ File walt.c tidak ditemukan!"
         fi
         
-        echo "=== WALT undefined symbols fixed ==="
+        echo "=== Bersihkan header dari extern declaration ==="
+        find kernel/sched/walt/ -name "*.h" -exec sed -i '/extern.*qcom_cpufreq_get_cpu_cycle_counter/d' {} \;
+        
+        echo "=== Selesai - WALT fix applied ==="
 
     - name: Configure kernel
       run: |

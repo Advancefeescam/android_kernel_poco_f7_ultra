@@ -170,7 +170,7 @@ jobs:
 
 u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
 {
-    return ktime_get_ns();
+	return ktime_get_ns();
 }
 EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
 STUBEOF
@@ -344,4 +344,3 @@ EOF
       with:
         name: Creek-Kernel-Neko-${{ env.BUILD_DATE }}
         path: Creek-Kernel-Neko-*.zip
-        

@@ -131,39 +131,58 @@ jobs:
 
         echo "=== Done ==="
 
-    - name: Fix WALT undefined symbols - FIXED (Single stub, no duplicate export)
+    - name: Fix qcom_cpufreq_get_cpu_cycle_counter - Auto detect & resolve double export
       run: |
-        echo "=== Hapus SEMUA stub yang mungkin sudah ada ==="
-        rm -f kernel/sched/walt/walt_stub.c
+        SYM="qcom_cpufreq_get_cpu_cycle_counter"
+
+        echo "=== Bersihkan stub lama kalau ada ==="
         rm -f drivers/cpufreq/qcom-cpufreq-hw-stub.c
-        
-        echo "=== Bersihkan Makefiles ==="
-        sed -i '/walt_stub/d' kernel/sched/walt/Makefile 2>/dev/null || true
         sed -i '/qcom-cpufreq-hw-stub/d' drivers/cpufreq/Makefile 2>/dev/null || true
-        
-        echo "=== Buat ONLY ONE stub di drivers/cpufreq (dengan __weak) ==="
-        mkdir -p drivers/cpufreq
-        cat > drivers/cpufreq/qcom-cpufreq-hw-stub.c << 'EOF'
+        rm -f kernel/sched/walt/walt_stub.c
+        sed -i '/walt_stub/d' kernel/sched/walt/Makefile 2>/dev/null || true
+
+        echo "=== Cari semua file yang export symbol ini ==="
+        EXPORT_FILES=$(grep -rl "EXPORT_SYMBOL.*${SYM}" drivers/ kernel/ 2>/dev/null || true)
+        echo "Export ditemukan di:"
+        echo "${EXPORT_FILES}"
+
+        EXPORT_COUNT=$(echo "${EXPORT_FILES}" | grep -c "\S" || true)
+        echo "Jumlah export: ${EXPORT_COUNT}"
+
+        if [ "${EXPORT_COUNT}" -gt 1 ]; then
+          echo "=== Double export terdeteksi! Hapus export dari WALT, biarkan driver asli ==="
+          find kernel/sched/walt/ -name "*.c" -exec \
+            sed -i "/EXPORT_SYMBOL.*${SYM}/d" {} \; 2>/dev/null || true
+          find kernel/sched/walt/ -name "*.c" | while read f; do
+            if grep -q "${SYM}" "$f"; then
+              echo "Hapus definisi dari WALT: $f"
+              sed -i "/${SYM}/d" "$f"
+            fi
+          done
+          echo "=== Selesai: export diserahkan ke driver asli ==="
+
+        elif [ "${EXPORT_COUNT}" -eq 1 ]; then
+          echo "=== Hanya 1 export, tidak perlu apa-apa ==="
+
+        else
+          echo "=== Symbol tidak ditemukan, buat stub ==="
+          cat > drivers/cpufreq/qcom-cpufreq-hw-stub.c << 'STUBEOF'
         #include <linux/types.h>
         #include <linux/export.h>
         #include <linux/ktime.h>
-        
-        /* Single implementation - __weak allows override by real driver if exists */
+
         u64 __weak qcom_cpufreq_get_cpu_cycle_counter(int cpu)
         {
             return ktime_get_ns();
         }
         EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
-        EOF
-        
-        echo "=== Tambah ke Makefile ==="
-        echo "obj-y += qcom-cpufreq-hw-stub.o" >> drivers/cpufreq/Makefile
-        
-        echo "=== Pastikan tidak ada export lain dari walt ==="
-        find kernel/sched/walt/ -name "*.c" -exec sed -i '/EXPORT_SYMBOL.*qcom_cpufreq_get_cpu_cycle_counter/d' {} \;
-        find kernel/sched/walt/ -name "*.h" -exec sed -i '/qcom_cpufreq_get_cpu_cycle_counter/d' {} \;
-        
-        echo "=== Selesai - Hanya SATU stub dan SATU export ==="
+        STUBEOF
+          echo "obj-y += qcom-cpufreq-hw-stub.o" >> drivers/cpufreq/Makefile
+          echo "=== Stub dibuat ==="
+        fi
+
+        echo "=== Verifikasi akhir ==="
+        grep -rn "EXPORT_SYMBOL.*${SYM}" drivers/ kernel/ 2>/dev/null || echo "Tidak ada export tersisa"
 
     - name: Configure kernel
       run: |
@@ -187,31 +206,26 @@ jobs:
           make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 gki_defconfig
         fi
 
-        # KSU + SUSFS
         scripts/config --file .config -e KSU || true
         scripts/config --file .config -e KSU_SUSFS || true
 
-        # Disable LTO
         scripts/config --file .config -d LTO_CLANG || true
         scripts/config --file .config -d LTO_CLANG_FULL || true
         scripts/config --file .config -d LTO_CLANG_THIN || true
         scripts/config --file .config -e LTO_NONE || true
 
-        # Disable BTF
         scripts/config --file .config -d DEBUG_INFO_BTF || true
         scripts/config --file .config -d DEBUG_INFO_BTF_MODULES || true
         scripts/config --file .config -d DEBUG_INFO || true
         scripts/config --file .config -e DEBUG_INFO_NONE || true
         scripts/config --file .config -d SCHED_WALT_DEBUG || true
 
-        # === SCHEDULER OPTIMIZATION ===
         scripts/config --file .config -e ENERGY_MODEL || true
         scripts/config --file .config -e CPU_FREQ_GOV_SCHEDUTIL || true
         scripts/config --file .config -e SCHED_WALT || true
         scripts/config --file .config -e QCOM_CPUFREQ_HW || true
         scripts/config --file .config -e QCOM_CPUFREQ_NVMEM || true
 
-        # === MEMORY OPTIMIZATION ===
         scripts/config --file .config -e ZRAM || true
         scripts/config --file .config -e ZRAM_DEF_COMP_ZSTD || true
         scripts/config --file .config -e ZSMALLOC || true
@@ -222,7 +236,6 @@ jobs:
         scripts/config --file .config -e KSM || true
         scripts/config --file .config -e TRANSPARENT_HUGEPAGE || true
 
-        # === I/O OPTIMIZATION ===
         scripts/config --file .config -e BFQ_GROUP_IOSCHED || true
         scripts/config --file .config -e IOSCHED_BFQ || true
         scripts/config --file .config -e MQ_IOSCHED_DEADLINE || true
@@ -230,12 +243,10 @@ jobs:
         scripts/config --file .config -e F2FS_FS_COMPRESSION || true
         scripts/config --file .config -e F2FS_FS_ZSTD || true
 
-        # === NETWORK OPTIMIZATION ===
         scripts/config --file .config -e TCP_CONG_BBR || true
         scripts/config --file .config -e NET_SCH_FQ || true
         scripts/config --file .config -e TCP_FASTOPEN || true
 
-        # === BATTERY OPTIMIZATION ===
         scripts/config --file .config -e WQ_POWER_EFFICIENT_DEFAULT || true
         scripts/config --file .config -e CPU_IDLE || true
         scripts/config --file .config -e CPU_IDLE_GOV_MENU || true
@@ -244,7 +255,6 @@ jobs:
         scripts/config --file .config -e PM_WAKELOCKS || true
         scripts/config --file .config -e PM_WAKELOCKS_LIMIT || true
 
-        # === GAMING OPTIMIZATION ===
         scripts/config --file .config -e CPU_BOOST || true
         scripts/config --file .config -e SCHED_BOOST || true
         scripts/config --file .config -e QCOM_KGSL || true
@@ -254,7 +264,6 @@ jobs:
         scripts/config --file .config -e HZ_300 || true
         scripts/config --file .config -e HIGH_RES_TIMERS || true
 
-        # === MISC OPTIMIZATIONS ===
         scripts/config --file .config -e ZSTD_COMPRESS || true
         scripts/config --file .config -e ZSTD_DECOMPRESS || true
         scripts/config --file .config -e CRC32_ARMV8_CRC32 || true
@@ -289,30 +298,24 @@ jobs:
       run: |
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3
 
-        # Kernel image
         cp arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || \
         cp arch/arm64/boot/Image AnyKernel3/ 2>/dev/null || \
         echo "WARNING: No kernel image found!"
 
-        # DTB
         if [ -f arch/arm64/boot/dts/qcom/sm7325-creek.dtb ]; then
           cp arch/arm64/boot/dts/qcom/sm7325-creek.dtb AnyKernel3/dtb
-          echo "DTB copied"
         else
           find arch/arm64/boot/dts/qcom/ -name "*.dtb" 2>/dev/null | \
             head -1 | xargs -I{} cp {} AnyKernel3/dtb || \
             echo "WARNING: No DTB found!"
         fi
 
-        # DTBO
         if [ -f arch/arm64/boot/dtbo.img ]; then
           cp arch/arm64/boot/dtbo.img AnyKernel3/
-          echo "DTBO copied"
         else
           echo "WARNING: No DTBO found, skipping"
         fi
 
-        # anykernel.sh
         cat > AnyKernel3/anykernel.sh << 'EOF'
         kernel.string=Creek Kernel Neko - KSU-Next + SUSFS | Optimized
         do.devicecheck=1
@@ -334,7 +337,6 @@ jobs:
         write_boot
         EOF
 
-        # ZIP dengan timestamp
         BUILD_DATE=$(date +%Y%m%d-%H%M)
         echo "BUILD_DATE=${BUILD_DATE}" >> "$GITHUB_ENV"
         cd AnyKernel3

@@ -138,42 +138,18 @@ jobs:
 
         if [ -f drivers/cpufreq/qcom-cpufreq-hw.c ]; then
           if ! grep -q "qcom_cpufreq_get_cpu_cycle_counter" drivers/cpufreq/qcom-cpufreq-hw.c; then
-            cat >> drivers/cpufreq/qcom-cpufreq-hw.c << 'EOF'
-
-/* Stub for WALT compatibility after upstream merge */
-u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
-{
-	return 0;
-}
-EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
-EOF
+            printf '\nu64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)\n{\n\treturn 0;\n}\nEXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);\n' >> drivers/cpufreq/qcom-cpufreq-hw.c
             echo "Added stub to qcom-cpufreq-hw.c"
           else
             echo "Symbol already exists, skipping"
           fi
         else
-          echo "WARNING: qcom-cpufreq-hw.c not found"
-          # Buat file baru kalau tidak ada
-          mkdir -p drivers/cpufreq
-          cat >> drivers/cpufreq/qcom-cpufreq-hw.c << 'EOF'
-#include <linux/module.h>
-#include <linux/types.h>
-
-/* Stub for WALT compatibility after upstream merge */
-u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
-{
-	return 0;
-}
-EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
-EOF
+          printf '#include <linux/module.h>\n#include <linux/types.h>\n\nu64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)\n{\n\treturn 0;\n}\nEXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);\n' > drivers/cpufreq/qcom-cpufreq-hw.c
           echo "Created qcom-cpufreq-hw.c with stub"
         fi
 
-        echo "=== Scan semua undefined WALT symbols ==="
-        # Fix semua symbol yang mungkin hilang setelah upstream merge
         WALT_HEADER="kernel/sched/walt/walt.h"
         if [ -f "$WALT_HEADER" ]; then
-          # Pastikan deklarasi ada di header
           if ! grep -q "qcom_cpufreq_get_cpu_cycle_counter" "$WALT_HEADER"; then
             echo "extern u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu);" >> "$WALT_HEADER"
             echo "Added extern declaration to walt.h"
@@ -309,20 +285,7 @@ EOF
         cp arch/arm64/boot/Image AnyKernel3/ 2>/dev/null || \
         echo "WARNING: No kernel image found!"
         cd AnyKernel3
-        cat > anykernel.sh << 'EOF'
-        kernel.string=Creek Kernel Neko - KSU-Next + SUSFS | Optimized
-        do.devicecheck=0
-        do.modules=0
-        do.systemless=1
-        do.cleanup=1
-        device.name1=creek
-        block=auto
-        is_slot_device=auto
-
-        . tools/ak3-core.sh
-        dump_boot
-        write_boot
-        EOF
+        printf 'kernel.string=Creek Kernel Neko - KSU-Next + SUSFS | Optimized\ndo.devicecheck=0\ndo.modules=0\ndo.systemless=1\ndo.cleanup=1\ndevice.name1=creek\nblock=auto\nis_slot_device=auto\n\n. tools/ak3-core.sh\ndump_boot\nwrite_boot\n' > anykernel.sh
         zip -r9 ../Creek-Kernel-Neko.zip ./*
 
     - name: Upload ZIP

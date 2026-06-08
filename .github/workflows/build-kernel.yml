@@ -277,15 +277,60 @@ jobs:
     - name: Create AnyKernel3 zip
       run: |
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3
+
+        # Kernel image
         cp arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || \
         cp arch/arm64/boot/Image AnyKernel3/ 2>/dev/null || \
         echo "WARNING: No kernel image found!"
+
+        # DTB
+        if [ -f arch/arm64/boot/dts/qcom/sm7325-creek.dtb ]; then
+          cp arch/arm64/boot/dts/qcom/sm7325-creek.dtb AnyKernel3/dtb
+          echo "DTB copied"
+        else
+          find arch/arm64/boot/dts/qcom/ -name "*.dtb" 2>/dev/null | \
+            head -1 | xargs -I{} cp {} AnyKernel3/dtb || \
+            echo "WARNING: No DTB found!"
+        fi
+
+        # DTBO
+        if [ -f arch/arm64/boot/dtbo.img ]; then
+          cp arch/arm64/boot/dtbo.img AnyKernel3/
+          echo "DTBO copied"
+        else
+          echo "WARNING: No DTBO found, skipping"
+        fi
+
+        # anykernel.sh
+        cat > AnyKernel3/anykernel.sh << 'EOF'
+        kernel.string=Creek Kernel Neko - KSU-Next + SUSFS | Optimized
+        do.devicecheck=1
+        do.modules=0
+        do.systemless=1
+        do.cleanup=1
+        do.cleanuponabort=1
+        device.name1=creek
+        device.name2=RE54B
+        device.name3=RE54BL
+        supported.versions=12-14
+        block=/dev/block/bootdevice/by-name/boot
+        is_slot_device=1
+        ramdisk_compression=auto
+
+        . tools/ak3-core.sh
+
+        dump_boot
+        write_boot
+        EOF
+
+        # ZIP dengan timestamp
+        BUILD_DATE=$(date +%Y%m%d-%H%M)
+        echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_ENV
         cd AnyKernel3
-        printf 'kernel.string=Creek Kernel Neko - KSU-Next + SUSFS | Optimized\ndo.devicecheck=0\ndo.modules=0\ndo.systemless=1\ndo.cleanup=1\ndevice.name1=creek\nblock=auto\nis_slot_device=auto\n\n. tools/ak3-core.sh\ndump_boot\nwrite_boot\n' > anykernel.sh
-        zip -r9 ../Creek-Kernel-Neko.zip ./*
+        zip -r9 ../Creek-Kernel-Neko-${BUILD_DATE}.zip ./*
 
     - name: Upload ZIP
       uses: actions/upload-artifact@v4
       with:
-        name: Creek-Kernel-Neko
-        path: Creek-Kernel-Neko.zip
+        name: Creek-Kernel-Neko-${{ env.BUILD_DATE }}
+        path: Creek-Kernel-Neko-*.zip

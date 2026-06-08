@@ -31,9 +31,9 @@ jobs:
         tar -xf clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
         mv clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04 clang
 
-    - name: Integrate KernelSU-Next
+    - name: Integrate KernelSU-Next (GKI stable)
       run: |
-        curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s legacy
+        curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s stable
 
     - name: Get SUSFS
       run: git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git
@@ -51,7 +51,8 @@ jobs:
     - name: Fix Clang compatibility issues
       run: |
         echo "=== Fix 1: WALT angled includes ==="
-        find kernel/sched/walt/ -name "*.c" -o -name "*.h" | xargs grep -l "#include <walt" 2>/dev/null | while read f; do
+        find kernel/sched/walt/ -name "*.c" -o -name "*.h" 2>/dev/null | \
+          xargs grep -l "#include <walt" 2>/dev/null | while read f; do
           echo "Fixing: $f"
           sed -i 's/#include <walt\.h>/#include "walt.h"/g' "$f"
           sed -i 's/#include <walt_helpers\.h>/#include "walt_helpers.h"/g' "$f"
@@ -59,7 +60,8 @@ jobs:
 
         echo "=== Fix 2: angled includes di vendor dirs ==="
         for dir in drivers/soc/qcom kernel/sched; do
-          find $dir -name "*.c" 2>/dev/null | xargs grep -l "#include <[a-z_]*\.h>" 2>/dev/null | while read f; do
+          find $dir -name "*.c" 2>/dev/null | \
+            xargs grep -l "#include <[a-z_]*\.h>" 2>/dev/null | while read f; do
             grep -o '#include <[a-z_]*\.h>' "$f" | while read inc; do
               hdr=$(echo $inc | sed 's/#include <//;s/>//')
               dir_of_f=$(dirname "$f")
@@ -71,12 +73,37 @@ jobs:
           done
         done
 
-        echo "=== Fix 3: Restore TRACE_INCLUDE_PATH ke dot ==="
-        find drivers/ -name "trace.h" 2>/dev/null | while read f; do
-          # Kembalikan ke dot kalau sudah diubah sebelumnya
-          sed -i 's|#define TRACE_INCLUDE_PATH drivers/.*|#define TRACE_INCLUDE_PATH .|g' "$f"
-          grep "TRACE_INCLUDE_PATH" "$f" && echo "  -> $f ok" || true
+        echo "=== Fix 3: TRACE_INCLUDE_PATH via ccflags ==="
+        find drivers/ -name "trace.h" 2>/dev/null | while read traceh; do
+          dir=$(dirname "$traceh")
+          makefile="$dir/Makefile"
+          if [ -f "$makefile" ] && grep -q "TRACE_INCLUDE_PATH" "$traceh"; then
+            if ! grep -q "ccflags.*srctree.*$dir" "$makefile"; then
+              echo "Adding ccflags to $makefile"
+              echo "" >> "$makefile"
+              echo "# Fix TRACE_INCLUDE_PATH for clang" >> "$makefile"
+              echo "ccflags-y += -I\$(srctree)/$dir" >> "$makefile"
+            fi
+          fi
         done
+
+        echo "=== Fix 4: drivers/clk/qcom trace fix ==="
+        if [ -f drivers/clk/qcom/Makefile ]; then
+          if ! grep -q "ccflags.*clk/qcom" drivers/clk/qcom/Makefile; then
+            echo "" >> drivers/clk/qcom/Makefile
+            echo "ccflags-y += -I\$(srctree)/drivers/clk/qcom" >> drivers/clk/qcom/Makefile
+            echo "Fixed drivers/clk/qcom/Makefile"
+          fi
+        fi
+
+        echo "=== Fix 5: drivers/soc/qcom trace fix ==="
+        if [ -f drivers/soc/qcom/Makefile ]; then
+          if ! grep -q "ccflags.*soc/qcom" drivers/soc/qcom/Makefile; then
+            echo "" >> drivers/soc/qcom/Makefile
+            echo "ccflags-y += -I\$(srctree)/drivers/soc/qcom" >> drivers/soc/qcom/Makefile
+            echo "Fixed drivers/soc/qcom/Makefile"
+          fi
+        fi
 
         echo "=== Done ==="
 
@@ -88,12 +115,12 @@ jobs:
         ls arch/arm64/configs/vendor/ 2>/dev/null || true
 
         if [ -f arch/arm64/configs/vendor/creek_GKI.config ]; then
-          echo "Using creek_GKI.config"
+          echo "Using vendor/creek_GKI.config"
           make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 gki_defconfig
           cat arch/arm64/configs/vendor/creek_GKI.config >> .config
           make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 olddefconfig
         elif [ -f arch/arm64/configs/creek_GKI.config ]; then
-          echo "Using creek_GKI.config (root)"
+          echo "Using creek_GKI.config"
           make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 gki_defconfig
           cat arch/arm64/configs/creek_GKI.config >> .config
           make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 olddefconfig
@@ -118,8 +145,10 @@ jobs:
              KCFLAGS="-Wno-error=implicit-function-declaration \
                       -Wno-error=unused-function \
                       -Wno-error=misleading-indentation \
-                      -Wno-error=array-bounds" \
-             KBUILD_CPPFLAGS="-I$(pwd)"
+                      -Wno-error=array-bounds \
+                      -Wno-error=unused-variable \
+                      -Wno-error=unused-but-set-variable \
+                      -Wno-error=deprecated-declarations"
 
     - name: Create AnyKernel3 zip
       run: |

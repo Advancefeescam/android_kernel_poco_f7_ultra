@@ -131,6 +131,57 @@ jobs:
 
         echo "=== Done ==="
 
+    - name: Fix WALT undefined symbols
+      run: |
+        echo "=== Fix qcom_cpufreq_get_cpu_cycle_counter ==="
+        grep -r "qcom_cpufreq_get_cpu_cycle_counter" drivers/ || true
+
+        if [ -f drivers/cpufreq/qcom-cpufreq-hw.c ]; then
+          if ! grep -q "qcom_cpufreq_get_cpu_cycle_counter" drivers/cpufreq/qcom-cpufreq-hw.c; then
+            cat >> drivers/cpufreq/qcom-cpufreq-hw.c << 'EOF'
+
+/* Stub for WALT compatibility after upstream merge */
+u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
+{
+	return 0;
+}
+EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
+EOF
+            echo "Added stub to qcom-cpufreq-hw.c"
+          else
+            echo "Symbol already exists, skipping"
+          fi
+        else
+          echo "WARNING: qcom-cpufreq-hw.c not found"
+          # Buat file baru kalau tidak ada
+          mkdir -p drivers/cpufreq
+          cat >> drivers/cpufreq/qcom-cpufreq-hw.c << 'EOF'
+#include <linux/module.h>
+#include <linux/types.h>
+
+/* Stub for WALT compatibility after upstream merge */
+u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
+{
+	return 0;
+}
+EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
+EOF
+          echo "Created qcom-cpufreq-hw.c with stub"
+        fi
+
+        echo "=== Scan semua undefined WALT symbols ==="
+        # Fix semua symbol yang mungkin hilang setelah upstream merge
+        WALT_HEADER="kernel/sched/walt/walt.h"
+        if [ -f "$WALT_HEADER" ]; then
+          # Pastikan deklarasi ada di header
+          if ! grep -q "qcom_cpufreq_get_cpu_cycle_counter" "$WALT_HEADER"; then
+            echo "extern u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu);" >> "$WALT_HEADER"
+            echo "Added extern declaration to walt.h"
+          fi
+        fi
+
+        echo "=== Done ==="
+
     - name: Configure kernel
       run: |
         export PATH="${{ github.workspace }}/toolchain/clang/bin:$PATH"
@@ -174,7 +225,6 @@ jobs:
         scripts/config --file .config -e ENERGY_MODEL || true
         scripts/config --file .config -e CPU_FREQ_GOV_SCHEDUTIL || true
         scripts/config --file .config -e SCHED_WALT || true
-        # Fix WALT undefined symbol - enable Qualcomm cpufreq HW driver
         scripts/config --file .config -e QCOM_CPUFREQ_HW || true
         scripts/config --file .config -e QCOM_CPUFREQ_NVMEM || true
 

@@ -135,7 +135,7 @@ jobs:
       run: |
         SYM="qcom_cpufreq_get_cpu_cycle_counter"
 
-        echo "=== Bersihkan stub lama ==="
+        echo "=== Bersihkan stub lama kalau ada ==="
         rm -f drivers/cpufreq/qcom-cpufreq-hw-stub.c
         sed -i '/qcom-cpufreq-hw-stub/d' drivers/cpufreq/Makefile 2>/dev/null || true
         rm -f kernel/sched/walt/walt_stub.c
@@ -143,37 +143,46 @@ jobs:
 
         echo "=== Cari semua file yang export symbol ini ==="
         EXPORT_FILES=$(grep -rl "EXPORT_SYMBOL.*${SYM}" drivers/ kernel/ 2>/dev/null || true)
-        EXPORT_COUNT=$(echo "${EXPORT_FILES}" | grep -c "\S" 2>/dev/null || echo 0)
-        echo "Export ditemukan di: ${EXPORT_FILES}"
-        echo "Jumlah: ${EXPORT_COUNT}"
+        echo "Export ditemukan di:"
+        echo "${EXPORT_FILES}"
+
+        EXPORT_COUNT=$(echo "${EXPORT_FILES}" | grep -c "\S" || true)
+        echo "Jumlah export: ${EXPORT_COUNT}"
 
         if [ "${EXPORT_COUNT}" -gt 1 ]; then
-          echo "=== Double export: hapus dari WALT ==="
+          echo "=== Double export terdeteksi! Hapus export dari WALT, biarkan driver asli ==="
           find kernel/sched/walt/ -name "*.c" -exec \
             sed -i "/EXPORT_SYMBOL.*${SYM}/d" {} \; 2>/dev/null || true
+          find kernel/sched/walt/ -name "*.c" | while read f; do
+            if grep -q "${SYM}" "$f"; then
+              echo "Hapus definisi dari WALT: $f"
+              sed -i "/${SYM}/d" "$f"
+            fi
+          done
+          echo "=== Selesai: export diserahkan ke driver asli ==="
 
         elif [ "${EXPORT_COUNT}" -eq 1 ]; then
-          echo "=== 1 export, tidak perlu apa-apa ==="
+          echo "=== Hanya 1 export, tidak perlu apa-apa ==="
 
         else
-          echo "=== 0 export: buat stub di dalam kernel/sched/walt/ supaya built-in ==="
-          cat > kernel/sched/walt/walt_cpufreq_stub.c << 'EOF'
-#include <linux/types.h>
-#include <linux/export.h>
-#include <linux/ktime.h>
+          echo "=== Symbol tidak ditemukan, buat stub ==="
+          cat > drivers/cpufreq/qcom-cpufreq-hw-stub.c << 'STUBEOF'
+        #include <linux/types.h>
+        #include <linux/export.h>
+        #include <linux/ktime.h>
 
-u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
-{
-    return ktime_get_ns();
-}
-EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
-EOF
-          echo "obj-y += walt_cpufreq_stub.o" >> kernel/sched/walt/Makefile
-          echo "=== Stub built-in dibuat di kernel/sched/walt/ ==="
+        u64 __weak qcom_cpufreq_get_cpu_cycle_counter(int cpu)
+        {
+            return ktime_get_ns();
+        }
+        EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
+        STUBEOF
+          echo "obj-y += qcom-cpufreq-hw-stub.o" >> drivers/cpufreq/Makefile
+          echo "=== Stub dibuat ==="
         fi
 
         echo "=== Verifikasi akhir ==="
-        grep -rn "EXPORT_SYMBOL.*${SYM}" drivers/ kernel/ 2>/dev/null || echo "Tidak ada export"
+        grep -rn "EXPORT_SYMBOL.*${SYM}" drivers/ kernel/ 2>/dev/null || echo "Tidak ada export tersisa"
 
     - name: Configure kernel
       run: |
@@ -308,25 +317,25 @@ EOF
         fi
 
         cat > AnyKernel3/anykernel.sh << 'EOF'
-kernel.string=Creek Kernel Neko - KSU-Next + SUSFS | Optimized
-do.devicecheck=1
-do.modules=0
-do.systemless=1
-do.cleanup=1
-do.cleanuponabort=1
-device.name1=creek
-device.name2=RE54B
-device.name3=RE54BL
-supported.versions=12-14
-block=/dev/block/bootdevice/by-name/boot
-is_slot_device=1
-ramdisk_compression=auto
+        kernel.string=Creek Kernel Neko - KSU-Next + SUSFS | Optimized
+        do.devicecheck=1
+        do.modules=0
+        do.systemless=1
+        do.cleanup=1
+        do.cleanuponabort=1
+        device.name1=creek
+        device.name2=RE54B
+        device.name3=RE54BL
+        supported.versions=12-14
+        block=/dev/block/bootdevice/by-name/boot
+        is_slot_device=1
+        ramdisk_compression=auto
 
-. tools/ak3-core.sh
+        . tools/ak3-core.sh
 
-dump_boot
-write_boot
-EOF
+        dump_boot
+        write_boot
+        EOF
 
         BUILD_DATE=$(date +%Y%m%d-%H%M)
         echo "BUILD_DATE=${BUILD_DATE}" >> "$GITHUB_ENV"

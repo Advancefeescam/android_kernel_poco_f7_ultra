@@ -135,55 +135,48 @@ jobs:
       run: |
         SYM="qcom_cpufreq_get_cpu_cycle_counter"
 
-        echo "=== Bersihkan stub lama kalau ada ==="
+        echo "=== Clean up old stubs ==="
         rm -f drivers/cpufreq/qcom-cpufreq-hw-stub.c
         sed -i '/qcom-cpufreq-hw-stub/d' drivers/cpufreq/Makefile 2>/dev/null || true
         rm -f kernel/sched/walt/walt_stub.c
         sed -i '/walt_stub/d' kernel/sched/walt/Makefile 2>/dev/null || true
 
-        echo "=== Cari semua file yang export symbol ini ==="
+        echo "=== Find all files exporting this symbol ==="
         EXPORT_FILES=$(grep -rl "EXPORT_SYMBOL.*${SYM}" drivers/ kernel/ 2>/dev/null || true)
-        echo "Export ditemukan di:"
-        echo "${EXPORT_FILES}"
+        EXPORT_COUNT=$(echo "$EXPORT_FILES" | grep -c "[^[:space:]]" 2>/dev/null || echo "0")
+        echo "Export found in: ${EXPORT_FILES}"
+        echo "Count: ${EXPORT_COUNT}"
 
-        EXPORT_COUNT=$(echo "${EXPORT_FILES}" | grep -c "\S" || true)
-        echo "Jumlah export: ${EXPORT_COUNT}"
-
-        if [ "${EXPORT_COUNT}" -gt 1 ]; then
-          echo "=== Double export terdeteksi! Hapus export dari WALT, biarkan driver asli ==="
+        if [ "$EXPORT_COUNT" -gt 1 ]; then
+          echo "=== Double export: remove from WALT ==="
           find kernel/sched/walt/ -name "*.c" -exec \
             sed -i "/EXPORT_SYMBOL.*${SYM}/d" {} \; 2>/dev/null || true
-          find kernel/sched/walt/ -name "*.c" | while read f; do
-            if grep -q "${SYM}" "$f"; then
-              echo "Hapus definisi dari WALT: $f"
-              sed -i "/${SYM}/d" "$f"
-            fi
-          done
-          echo "=== Selesai: export diserahkan ke driver asli ==="
 
-        elif [ "${EXPORT_COUNT}" -eq 1 ]; then
-          echo "=== Hanya 1 export, tidak perlu apa-apa ==="
+        elif [ "$EXPORT_COUNT" -eq 1 ]; then
+          echo "=== Single export, no action needed ==="
 
         else
-          echo "=== Symbol tidak ditemukan, buat stub ==="
-          cat > drivers/cpufreq/qcom-cpufreq-hw-stub.c << 'STUBEOF'
-        #include <linux/types.h>
-        #include <linux/export.h>
-        #include <linux/ktime.h>
+          echo "=== 0 exports: create stub in kernel/sched/walt/ as built-in ==="
+          mkdir -p kernel/sched/walt
+          cat > kernel/sched/walt/walt_cpufreq_stub.c << 'STUBEOF'
+#include <linux/types.h>
+#include <linux/export.h>
+#include <linux/ktime.h>
 
-        u64 __weak qcom_cpufreq_get_cpu_cycle_counter(int cpu)
-        {
-            return ktime_get_ns();
-        }
-        EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
-        STUBEOF
-          echo "obj-y += qcom-cpufreq-hw-stub.o" >> drivers/cpufreq/Makefile
-          echo "=== Stub dibuat ==="
+u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
+{
+    return ktime_get_ns();
+}
+EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
+STUBEOF
+          if ! grep -q "walt_cpufreq_stub.o" kernel/sched/walt/Makefile 2>/dev/null; then
+            echo "obj-y += walt_cpufreq_stub.o" >> kernel/sched/walt/Makefile
+          fi
+          echo "=== Stub built-in created in kernel/sched/walt/ ==="
         fi
 
-        echo "=== Verifikasi akhir ==="
-        grep -rn "EXPORT_SYMBOL.*${SYM}" drivers/ kernel/ 2>/dev/null || echo "Tidak ada export tersisa"
-
+        echo "=== Final verification ==="
+        grep -rn "EXPORT_SYMBOL.*${SYM}" drivers/ kernel/ 2>/dev/null || echo "No exports found (this is OK if stub was created)"
     - name: Configure kernel
       run: |
         export PATH="${{ github.workspace }}/toolchain/clang/bin:$PATH"

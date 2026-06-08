@@ -157,7 +157,7 @@ jobs:
 
         else
           echo "=== 0 export: buat stub di dalam kernel/sched/walt/ supaya built-in ==="
-          cat > kernel/sched/walt/walt_cpufreq_stub.c << 'STUBEOF'
+          cat > kernel/sched/walt/walt_cpufreq_stub.c << 'EOF'
 #include <linux/types.h>
 #include <linux/export.h>
 #include <linux/ktime.h>
@@ -167,7 +167,7 @@ u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
     return ktime_get_ns();
 }
 EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
-STUBEOF
+EOF
           echo "obj-y += walt_cpufreq_stub.o" >> kernel/sched/walt/Makefile
           echo "=== Stub built-in dibuat di kernel/sched/walt/ ==="
         fi

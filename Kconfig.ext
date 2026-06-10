@@ -1,3 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0
 # This file is intentionally empty. It's used as a placeholder for when
 # KCONFIG_EXT_PREFIX isn't defined.
+
+config FACTORY_BUILD
+	bool "distiguish factory version from dev version"
+	default n
+	help
+	  This macro will be defined when build factory version. It is used to
+	  distinguish factory and dev codes in kernel.

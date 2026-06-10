@@ -201,6 +201,7 @@ filegroup(
         "gki/aarch64/symbols/pixel",
         "gki/aarch64/symbols/pixel_watch",
         "gki/aarch64/symbols/qcom",
+        "gki/aarch64/symbols/rockchip",
         "gki/aarch64/symbols/rtkstb",
         "gki/aarch64/symbols/rtktv",
         "gki/aarch64/symbols/tcl",
@@ -1800,6 +1801,7 @@ ddk_headers(
         "drivers/usb/host/xhci-caps.h",
         "drivers/usb/host/xhci-ext-caps.h",
         "drivers/usb/host/xhci-port.h",
+        "mm/swap.h",
         "//build/kernel/kleaf:user_ddk_unsafe_headers",
     ],
     # The list of include directories where source files can #include headers

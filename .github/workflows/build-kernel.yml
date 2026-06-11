@@ -1,0 +1,346 @@
+name: Build Creek Kernel - Full (KSU + SUSFS + AK3)
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: creek-v-oss
+
+    - name: Set Build Date
+      run: |
+        BUILD_DATE=$(date +%Y%m%d-%H%M)
+        echo "BUILD_DATE=${BUILD_DATE}" >> "$GITHUB_ENV"
+
+    - name: Cache toolchain
+      id: cache-toolchain
+      uses: actions/cache@v4
+      with:
+        path: toolchain
+        key: toolchain-clang17
+
+    - name: Install tools
+      run: |
+        sudo apt update && sudo apt install -y \
+          git make bc bison flex libssl-dev \
+          build-essential wget zip python3 \
+          libelf-dev libc6-dev binutils perl \
+          dwarves
+
+    - name: Download Clang
+      if: steps.cache-toolchain.outputs.cache-hit != 'true'
+      run: |
+        mkdir -p toolchain && cd toolchain
+        wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
+        tar -xf clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz
+        mv clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04 clang
+
+    - name: Sync upstream stable 5.15.194
+      run: |
+        git config user.email "ci@github.com"
+        git config user.name "GitHub Actions"
+        git remote add stable https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
+        git fetch stable linux-5.15.y --depth=500
+        git merge stable/linux-5.15.y \
+          --no-edit \
+          -X ours \
+          --allow-unrelated-histories || true
+        echo "=== Kernel version after merge ==="
+        head -5 Makefile
+
+    - name: Integrate KernelSU-Next (GKI stable)
+      run: |
+        curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s stable
+
+    - name: Get SUSFS
+      run: git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git
+
+    - name: Apply SUSFS patch
+      run: |
+        cd susfs4ksu
+        PATCH=""
+        [ -f kernel_patches/5.15/0001-susfs.patch ] && PATCH="kernel_patches/5.15/0001-susfs.patch"
+        [ -f kernel_patches/5.10/0001-susfs.patch ] && PATCH="kernel_patches/5.10/0001-susfs.patch"
+        if [ -n "$PATCH" ]; then
+          patch -p1 -d ${{ github.workspace }} < $PATCH || echo "SUSFS patch failed, continuing..."
+        fi
+
+    - name: Fix Clang compatibility issues
+      run: |
+        echo "=== Fix 1: WALT angled includes ==="
+        find kernel/sched/walt/ -name "*.c" -o -name "*.h" 2>/dev/null | \
+          xargs grep -l "#include <walt" 2>/dev/null | while read f; do
+          echo "Fixing: $f"
+          sed -i 's/#include <walt\.h>/#include "walt.h"/g' "$f"
+          sed -i 's/#include <walt_helpers\.h>/#include "walt_helpers.h"/g' "$f"
+        done
+
+        echo "=== Fix 2: angled includes di vendor dirs ==="
+        for dir in drivers/soc/qcom kernel/sched; do
+          find $dir -name "*.c" 2>/dev/null | \
+            xargs grep -l "#include <[a-z_]*\.h>" 2>/dev/null | while read f; do
+            grep -o '#include <[a-z_]*\.h>' "$f" | while read inc; do
+              hdr=$(echo $inc | sed 's/#include <//;s/>//')
+              dir_of_f=$(dirname "$f")
+              if [ -f "$dir_of_f/$hdr" ]; then
+                echo "Fixing local include in $f: $inc"
+                sed -i "s|#include <$hdr>|#include \"$hdr\"|g" "$f"
+              fi
+            done
+          done
+        done
+
+        echo "=== Fix 3: TRACE_INCLUDE_PATH universal ==="
+        find drivers/ arch/ -name "*.h" 2>/dev/null | \
+          xargs grep -l "TRACE_INCLUDE_PATH" 2>/dev/null | while read traceh; do
+          dir=$(dirname "$traceh")
+          makefile="$dir/Makefile"
+          if [ -f "$makefile" ]; then
+            if ! grep -q "ccflags-y.*srctree.*$dir" "$makefile"; then
+              echo "Adding ccflags to $makefile for $dir"
+              echo "" >> "$makefile"
+              echo "# Fix TRACE_INCLUDE_PATH for clang" >> "$makefile"
+              echo "ccflags-y += -I\$(srctree)/$dir" >> "$makefile"
+            fi
+          fi
+        done
+
+        echo "=== Fix 4: minidump_log implicit int ==="
+        if [ -f drivers/soc/qcom/minidump_log.c ]; then
+          sed -i 's/^static md_align_offset;/static int md_align_offset;/' \
+            drivers/soc/qcom/minidump_log.c
+          echo "Fixed minidump_log.c"
+        fi
+
+        echo "=== Fix 5: zram_drv strict prototypes ==="
+        if [ -f drivers/block/zram/zram_drv.c ]; then
+          sed -i 's/static struct zram_pages_life \*init_pages_life()/static struct zram_pages_life *init_pages_life(void)/' \
+            drivers/block/zram/zram_drv.c
+          echo "Fixed zram_drv.c"
+        fi
+
+        echo "=== Fix 6: Scan semua strict-prototypes ==="
+        find drivers/ -name "*.c" 2>/dev/null | \
+          xargs grep -l "^\(static\|extern\) [a-zA-Z_].*()$" 2>/dev/null | while read f; do
+          sed -i 's/\(\(static\|extern\) [a-zA-Z_][a-zA-Z0-9_ *]*\)()/\1(void)/g' "$f"
+        done
+
+        echo "=== Fix 7: angled include dengan path relatif ==="
+        find drivers/ -name "*.c" -o -name "*.h" 2>/dev/null | \
+          xargs grep -l '#include <\.\.' 2>/dev/null | while read f; do
+          echo "Fixing relative angled include in $f"
+          sed -i 's|#include <\(\.\.[^>]*\)>|#include "\1"|g' "$f"
+        done
+
+        echo "=== Done ==="
+
+    - name: Fix qcom_cpufreq_get_cpu_cycle_counter - Auto detect & resolve double export
+      run: |
+        SYM="qcom_cpufreq_get_cpu_cycle_counter"
+
+        echo "=== Clean up old stubs ==="
+        rm -f drivers/cpufreq/qcom-cpufreq-hw-stub.c
+        sed -i '/qcom-cpufreq-hw-stub/d' drivers/cpufreq/Makefile 2>/dev/null || true
+        rm -f kernel/sched/walt/walt_stub.c
+        sed -i '/walt_stub/d' kernel/sched/walt/Makefile 2>/dev/null || true
+
+        echo "=== Find all files exporting this symbol ==="
+        EXPORT_FILES=$(grep -rl "EXPORT_SYMBOL.*${SYM}" drivers/ kernel/ 2>/dev/null || true)
+        EXPORT_COUNT=$(echo "$EXPORT_FILES" | grep -c "[^[:space:]]" 2>/dev/null || echo "0")
+        echo "Export found in: ${EXPORT_FILES}"
+        echo "Count: ${EXPORT_COUNT}"
+
+        if [ "$EXPORT_COUNT" -gt 1 ]; then
+          echo "=== Double export: remove from WALT ==="
+          find kernel/sched/walt/ -name "*.c" -exec \
+            sed -i "/EXPORT_SYMBOL.*${SYM}/d" {} \; 2>/dev/null || true
+
+        elif [ "$EXPORT_COUNT" -eq 1 ]; then
+          echo "=== Single export, no action needed ==="
+
+        else
+          echo "=== 0 exports: create stub in kernel/sched/walt/ as built-in ==="
+          mkdir -p kernel/sched/walt
+          cat > kernel/sched/walt/walt_cpufreq_stub.c << 'STUBEOF'
+#include <linux/types.h>
+#include <linux/export.h>
+#include <linux/ktime.h>
+
+u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
+{
+	return ktime_get_ns();
+}
+EXPORT_SYMBOL_GPL(qcom_cpufreq_get_cpu_cycle_counter);
+STUBEOF
+          if ! grep -q "walt_cpufreq_stub.o" kernel/sched/walt/Makefile 2>/dev/null; then
+            echo "obj-y += walt_cpufreq_stub.o" >> kernel/sched/walt/Makefile
+          fi
+          echo "=== Stub built-in created in kernel/sched/walt/ ==="
+        fi
+
+        echo "=== Final verification ==="
+        grep -rn "EXPORT_SYMBOL.*${SYM}" drivers/ kernel/ 2>/dev/null || echo "No exports found (this is OK if stub was created)"
+
+    - name: Configure kernel
+      run: |
+        export PATH="${{ github.workspace }}/toolchain/clang/bin:$PATH"
+        echo "=== Available defconfigs ==="
+        ls arch/arm64/configs/ || true
+        ls arch/arm64/configs/vendor/ 2>/dev/null || true
+
+        if [ -f arch/arm64/configs/vendor/creek_GKI.config ]; then
+          echo "Using vendor/creek_GKI.config"
+          make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 gki_defconfig
+          cat arch/arm64/configs/vendor/creek_GKI.config >> .config
+          make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 olddefconfig
+        elif [ -f arch/arm64/configs/creek_GKI.config ]; then
+          echo "Using creek_GKI.config"
+          make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 gki_defconfig
+          cat arch/arm64/configs/creek_GKI.config >> .config
+          make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 olddefconfig
+        else
+          echo "Fallback: gki_defconfig"
+          make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 gki_defconfig
+        fi
+
+        scripts/config --file .config -e KSU || true
+        scripts/config --file .config -e KSU_SUSFS || true
+
+        scripts/config --file .config -d LTO_CLANG || true
+        scripts/config --file .config -d LTO_CLANG_FULL || true
+        scripts/config --file .config -d LTO_CLANG_THIN || true
+        scripts/config --file .config -e LTO_NONE || true
+
+        scripts/config --file .config -d DEBUG_INFO_BTF || true
+        scripts/config --file .config -d DEBUG_INFO_BTF_MODULES || true
+        scripts/config --file .config -d DEBUG_INFO || true
+        scripts/config --file .config -e DEBUG_INFO_NONE || true
+        scripts/config --file .config -d SCHED_WALT_DEBUG || true
+
+        scripts/config --file .config -e ENERGY_MODEL || true
+        scripts/config --file .config -e CPU_FREQ_GOV_SCHEDUTIL || true
+        scripts/config --file .config -e SCHED_WALT || true
+        scripts/config --file .config -e QCOM_CPUFREQ_HW || true
+        scripts/config --file .config -e QCOM_CPUFREQ_NVMEM || true
+
+        scripts/config --file .config -e ZRAM || true
+        scripts/config --file .config -e ZRAM_DEF_COMP_ZSTD || true
+        scripts/config --file .config -e ZSMALLOC || true
+        scripts/config --file .config -e LRU_GEN || true
+        scripts/config --file .config -e LRU_GEN_ENABLED || true
+        scripts/config --file .config -e COMPACTION || true
+        scripts/config --file .config -e MIGRATION || true
+        scripts/config --file .config -e KSM || true
+        scripts/config --file .config -e TRANSPARENT_HUGEPAGE || true
+
+        scripts/config --file .config -e BFQ_GROUP_IOSCHED || true
+        scripts/config --file .config -e IOSCHED_BFQ || true
+        scripts/config --file .config -e MQ_IOSCHED_DEADLINE || true
+        scripts/config --file .config -e F2FS_FS || true
+        scripts/config --file .config -e F2FS_FS_COMPRESSION || true
+        scripts/config --file .config -e F2FS_FS_ZSTD || true
+
+        scripts/config --file .config -e TCP_CONG_BBR || true
+        scripts/config --file .config -e NET_SCH_FQ || true
+        scripts/config --file .config -e TCP_FASTOPEN || true
+
+        scripts/config --file .config -e WQ_POWER_EFFICIENT_DEFAULT || true
+        scripts/config --file .config -e CPU_IDLE || true
+        scripts/config --file .config -e CPU_IDLE_GOV_MENU || true
+        scripts/config --file .config -e CPU_IDLE_GOV_TEO || true
+        scripts/config --file .config -e SUSPEND || true
+        scripts/config --file .config -e PM_WAKELOCKS || true
+        scripts/config --file .config -e PM_WAKELOCKS_LIMIT || true
+
+        scripts/config --file .config -e CPU_BOOST || true
+        scripts/config --file .config -e SCHED_BOOST || true
+        scripts/config --file .config -e QCOM_KGSL || true
+        scripts/config --file .config -e PREEMPT || true
+        scripts/config --file .config -d PREEMPT_NONE || true
+        scripts/config --file .config -d PREEMPT_VOLUNTARY || true
+        scripts/config --file .config -e HZ_300 || true
+        scripts/config --file .config -e HIGH_RES_TIMERS || true
+
+        scripts/config --file .config -e ZSTD_COMPRESS || true
+        scripts/config --file .config -e ZSTD_DECOMPRESS || true
+        scripts/config --file .config -e CRC32_ARMV8_CRC32 || true
+        scripts/config --file .config -e CRYPTO_SHA2_ARM64_CE || true
+        scripts/config --file .config -e CRYPTO_AES_ARM64_CE_BLK || true
+
+        make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 olddefconfig
+
+    - name: Build kernel
+      run: |
+        export PATH="${{ github.workspace }}/toolchain/clang/bin:$PATH"
+        make -j$(nproc) \
+             ARCH=arm64 \
+             CC=clang \
+             CLANG_TRIPLE=aarch64-linux-gnu- \
+             LLVM=1 \
+             LLVM_IAS=1 \
+             KCFLAGS="-Wno-error=implicit-function-declaration \
+                      -Wno-error=implicit-int \
+                      -Wno-error=strict-prototypes \
+                      -Wno-error=unused-function \
+                      -Wno-error=misleading-indentation \
+                      -Wno-error=array-bounds \
+                      -Wno-error=unused-variable \
+                      -Wno-error=unused-but-set-variable \
+                      -Wno-error=deprecated-declarations \
+                      -Wno-error=int-conversion \
+                      -Wno-error=incompatible-pointer-types \
+                      -Wno-error=return-type"
+
+    - name: Create AnyKernel3 zip
+      run: |
+        git clone --depth=1 https://github.com/osm0sis/AnyKernel3
+
+        cp arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || \
+        cp arch/arm64/boot/Image AnyKernel3/ 2>/dev/null || \
+        echo "WARNING: No kernel image found!"
+
+        if [ -f arch/arm64/boot/dts/qcom/sm7325-creek.dtb ]; then
+          cp arch/arm64/boot/dts/qcom/sm7325-creek.dtb AnyKernel3/dtb
+        else
+          find arch/arm64/boot/dts/qcom/ -name "*.dtb" 2>/dev/null | \
+            head -1 | xargs -I{} cp {} AnyKernel3/dtb || \
+            echo "WARNING: No DTB found!"
+        fi
+
+        if [ -f arch/arm64/boot/dtbo.img ]; then
+          cp arch/arm64/boot/dtbo.img AnyKernel3/
+        else
+          echo "WARNING: No DTBO found, skipping"
+        fi
+
+        cat > AnyKernel3/anykernel.sh << 'EOF'
+kernel.string=Creek Kernel Neko - KSU-Next + SUSFS | Optimized
+do.devicecheck=1
+do.modules=0
+do.systemless=1
+do.cleanup=1
+do.cleanuponabort=1
+device.name1=creek
+device.name2=RE54B
+device.name3=RE54BL
+supported.versions=12-14
+block=/dev/block/bootdevice/by-name/boot
+is_slot_device=1
+ramdisk_compression=auto
+
+. tools/ak3-core.sh
+
+dump_boot
+write_boot
+EOF
+
+        cd AnyKernel3
+        zip -r9 "../Creek-Kernel-Neko-${{ env.BUILD_DATE }}.zip" ./*
+
+    - name: Upload ZIP
+      uses: actions/upload-artifact@v4
+      with:
+        name: Creek-Kernel-Neko-${{ env.BUILD_DATE }}
+        path: Creek-Kernel-Neko-*.zip

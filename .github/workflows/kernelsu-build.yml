@@ -1,0 +1,20 @@
+name: Check Defconfig
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: List configs
+      run: |
+        ls arch/arm64/configs/
+        echo "---"
+        ls arch/arm64/configs/ | grep -E "creek|bengal|khaje|scuba|gki|defconfig"
+
+    - name: Try build with gki_defconfig
+      run: |
+        export ARCH=arm64
+        make ARCH=arm64 gki_defconfig
+        make -j2

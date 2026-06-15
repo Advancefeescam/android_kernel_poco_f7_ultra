@@ -34,7 +34,11 @@
 
 #define pr_fmt(fmt) "CUSE: " fmt
 
+#if defined(CONFIG_PASSTHROUGH_SYSTEM)
+#include "fuse.h"
+#else
 #include <linux/fuse.h>
+#endif
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/file.h>
@@ -270,7 +274,7 @@ static int cuse_parse_one(char **pp, char *end, char **keyp, char **valp)
 static int cuse_parse_devinfo(char *p, size_t len, struct cuse_devinfo *devinfo)
 {
 	char *end = p + len;
-	char *uninitialized_var(key), *uninitialized_var(val);
+	char *key, *val;
 	int rc;
 
 	while (true) {

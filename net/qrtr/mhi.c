@@ -176,7 +176,9 @@ static int qcom_mhi_qrtr_probe(struct mhi_device *mhi_dev,
 
 	dev_set_drvdata(&mhi_dev->dev, qdev);
 
-	rc = qrtr_endpoint_register(&qdev->ep, net_id, rt);
+	/*M17T code for HQ-267803 by huitianpu at 2022/12/9 start*/
+	rc = qrtr_endpoint_register(&qdev->ep, net_id, rt, NULL);
+	/*M17T code for HQ-267803 by huitianpu at 2022/12/9 end*/
 	if (rc)
 		return rc;
 

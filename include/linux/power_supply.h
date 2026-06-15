@@ -194,6 +194,9 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_HVDCP_3,		/* Efficient High Voltage DCP */
 	POWER_SUPPLY_TYPE_USB_HVDCP_3P5,	/* Efficient High Voltage DCP */
 	POWER_SUPPLY_TYPE_USB_FLOAT,		/* Floating charger */
+	#ifdef CONFIG_BUILD_QGKI
+	POWER_SUPPLY_TYPE_BATT_VERIFY,
+	#endif
 };
 
 enum power_supply_usb_type {
@@ -437,8 +440,9 @@ power_supply_temp2resist_simple(struct power_supply_resistance_temp_table *table
 				int table_len, int temp);
 extern void power_supply_changed(struct power_supply *psy);
 extern int power_supply_am_i_supplied(struct power_supply *psy);
-extern int power_supply_set_input_current_limit_from_supplier(
-					 struct power_supply *psy);
+int power_supply_get_property_from_supplier(struct power_supply *psy,
+					    enum power_supply_property psp,
+					    union power_supply_propval *val);
 extern int power_supply_set_battery_charged(struct power_supply *psy);
 
 #ifdef CONFIG_POWER_SUPPLY

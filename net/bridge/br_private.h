@@ -18,6 +18,9 @@
 #include <linux/if_vlan.h>
 #include <linux/rhashtable.h>
 #include <linux/refcount.h>
+#ifdef CONFIG_HYFI_BRIDGE_HOOKS
+#include <linux/export.h>
+#endif
 
 #define BR_HASH_BITS 8
 #define BR_HASH_SIZE (1 << BR_HASH_BITS)
@@ -172,6 +175,15 @@ struct net_bridge_vlan_group {
 	u16				pvid;
 };
 
+/* bridge fdb flags */
+enum {
+	BR_FDB_LOCAL,
+	BR_FDB_STATIC,
+	BR_FDB_STICKY,
+	BR_FDB_ADDED_BY_USER,
+	BR_FDB_ADDED_BY_EXT_LEARN,
+};
+
 struct net_bridge_fdb_key {
 	mac_addr addr;
 	u16 vlan_id;
@@ -183,12 +195,8 @@ struct net_bridge_fdb_entry {
 
 	struct net_bridge_fdb_key	key;
 	struct hlist_node		fdb_node;
-	unsigned char			is_local:1,
-					is_static:1,
-					is_sticky:1,
-					added_by_user:1,
-					added_by_external_learn:1,
-					offloaded:1;
+	unsigned long			flags;
+	unsigned char			offloaded:1;
 
 	/* write-heavy members should not affect lookups */
 	unsigned long			updated ____cacheline_aligned_in_smp;
@@ -625,6 +633,9 @@ void br_manage_promisc(struct net_bridge *br);
 int nbp_backup_change(struct net_bridge_port *p, struct net_device *backup_dev);
 
 /* br_input.c */
+#ifdef CONFIG_HYFI_BRIDGE_HOOKS
+int br_pass_frame_up(struct sk_buff *skb);
+#endif
 int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb);
 rx_handler_result_t br_handle_frame(struct sk_buff **pskb);
 
@@ -1266,4 +1277,17 @@ void br_do_proxy_suppress_arp(struct sk_buff *skb, struct net_bridge *br,
 void br_do_suppress_nd(struct sk_buff *skb, struct net_bridge *br,
 		       u16 vid, struct net_bridge_port *p, struct nd_msg *msg);
 struct nd_msg *br_is_nd_neigh_msg(struct sk_buff *skb, struct nd_msg *m);
+#ifdef CONFIG_HYFI_BRIDGE_HOOKS
+#define __br_get(__hook, __default, __args ...) \
+		({ typeof(__hook) HOOK_ = (__hook);     \
+		(HOOK_ ? (HOOK_(__args)) : (__default)); })
+
+static inline void __br_notify(int group, int type, const void *data)
+{
+	br_notify_hook_t *notify_hook = rcu_dereference(br_notify_hook);
+
+	if (notify_hook)
+		notify_hook(group, type, data);
+}
+#endif
 #endif

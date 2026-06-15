@@ -19,6 +19,10 @@ config RAID6_PQ_BENCHMARK
 	  Benchmark all available RAID6 PQ functions on init and choose the
 	  fastest one.
 
+config PASSTHROUGH_SYSTEM
+        bool "passthrough config"
+        default n
+
 config PACKING
 	bool "Generic bitfield packing and unpacking"
 	default n
@@ -42,7 +46,6 @@ config BITREVERSE
 config HAVE_ARCH_BITREVERSE
 	bool
 	default n
-	depends on BITREVERSE
 	help
 	  This option enables the use of hardware bit-reversal instructions on
 	  architectures which support such operations.
@@ -95,6 +98,8 @@ config INDIRECT_PIO
 	  sure your devices really need this configure item enabled.
 
 	  When in doubt, say N.
+
+source "lib/crypto/Kconfig"
 
 config CRC_CCITT
 	tristate "CRC-CCITT functions"

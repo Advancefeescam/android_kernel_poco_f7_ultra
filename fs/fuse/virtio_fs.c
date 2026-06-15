@@ -237,6 +237,16 @@ static int virtio_fs_read_tag(struct virtio_device *vdev, struct virtio_fs *fs)
 		return -ENOMEM;
 	memcpy(fs->tag, tag_buf, len);
 	fs->tag[len] = '\0';
+
+	/* While the VIRTIO specification allows any character, newlines are
+	 * awkward on mount(8) command-lines and cause problems in the sysfs
+	 * "tag" attr and uevent TAG= properties. Forbid them.
+	 */
+	if (strchr(fs->tag, '\n')) {
+		dev_dbg(&vdev->dev, "refusing virtiofs tag with newline character\n");
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -742,7 +752,7 @@ static struct virtio_driver virtio_fs_driver = {
 #endif
 };
 
-static void virtio_fs_wake_forget_and_unlock(struct fuse_iqueue *fiq)
+static void virtio_fs_wake_forget_and_unlock(struct fuse_iqueue *fiq, bool sync)
 __releases(fiq->lock)
 {
 	struct fuse_forget_link *link;
@@ -819,7 +829,7 @@ out:
 	kfree(link);
 }
 
-static void virtio_fs_wake_interrupt_and_unlock(struct fuse_iqueue *fiq)
+static void virtio_fs_wake_interrupt_and_unlock(struct fuse_iqueue *fiq, bool sync)
 __releases(fiq->lock)
 {
 	/*
@@ -1012,7 +1022,7 @@ out:
 	return ret;
 }
 
-static void virtio_fs_wake_pending_and_unlock(struct fuse_iqueue *fiq)
+static void virtio_fs_wake_pending_and_unlock(struct fuse_iqueue *fiq, bool sync)
 __releases(fiq->lock)
 {
 	unsigned int queue_id = VQ_REQUEST; /* TODO multiqueue */

@@ -236,17 +236,11 @@ static void disable_unprepare_rcg_srcs(struct clk *curr, struct clk *new)
 static unsigned long
 calc_rate(unsigned long rate, u32 m, u32 n, u32 mode, u32 hid_div)
 {
-	if (hid_div) {
-		rate *= 2;
-		rate /= hid_div + 1;
-	}
+	if (hid_div)
+		rate = mult_frac(rate, 2, hid_div + 1);
 
-	if (mode) {
-		u64 tmp = rate;
-		tmp *= m;
-		do_div(tmp, n);
-		rate = tmp;
-	}
+	if (mode)
+		rate = mult_frac(rate, m, n);
 
 	return rate;
 }
@@ -431,7 +425,7 @@ static bool clk_rcg2_current_config(struct clk_rcg2 *rcg,
 
 static int __clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 {
-	u32 cfg, mask, d_val, not2d_val;
+	u32 cfg, mask, d_val, not2d_val, n_minus_m;
 	struct clk_hw *hw = &rcg->clkr.hw;
 	int ret, index = qcom_find_src_index(hw, rcg->parent_map, f->src);
 
@@ -453,11 +447,10 @@ static int __clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 		/* Calculate 2d value */
 		d_val = f->n;
 
-		if (d_val > ((f->n - f->m) * 2))
-			d_val = (f->n - f->m) * 2;
-		else if (d_val < f->m)
-			d_val = f->m;
+		n_minus_m = f->n - f->m;
+		n_minus_m *= 2;
 
+		d_val = clamp_t(u32, d_val, f->m, n_minus_m);
 		not2d_val = ~d_val & mask;
 
 		ret = regmap_update_bits(rcg->clkr.regmap,

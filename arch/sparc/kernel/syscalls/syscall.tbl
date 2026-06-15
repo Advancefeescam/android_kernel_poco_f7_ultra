@@ -117,7 +117,7 @@
 90	common	dup2			sys_dup2
 91	32	setfsuid32		sys_setfsuid
 92	common	fcntl			sys_fcntl			compat_sys_fcntl
-93	common	select			sys_select
+93	common	select			sys_select			compat_sys_select
 94	32	setfsgid32		sys_setfsgid
 95	common	fsync			sys_fsync
 96	common	setpriority		sys_setpriority
@@ -481,4 +481,8 @@
 433	common	fspick				sys_fspick
 434	common	pidfd_open			sys_pidfd_open
 # 435 reserved for clone3
-436	common	process_madvise			sys_process_madvise
+# 436 reserved for close_range
+# 437 reserved for openat2
+# 438 reserved for pidfd_getfd
+# 439 reserved for faccessat2
+440	common	process_madvise			sys_process_madvise

@@ -162,7 +162,7 @@ struct drm_bridge_funcs {
 	 * or &drm_encoder_helper_funcs.dpms hook.
 	 *
 	 * The bridge must assume that the display pipe (i.e. clocks and timing
-	 * singals) feeding it is no longer running when this callback is
+	 * signals) feeding it is no longer running when this callback is
 	 * called.
 	 *
 	 * The post_disable callback is optional.
@@ -237,6 +237,14 @@ struct drm_bridge_funcs {
 	 * The enable callback is optional.
 	 */
 	void (*enable)(struct drm_bridge *bridge);
+
+	/*M17-LCM-20220603-add /sys/class/drm/card0-DSI-1/panel_info*/
+#ifdef CONFIG_BUILD_QGKI
+	int (*disp_get_panel_info)(struct drm_bridge *bridge, char *name);
+	void (*disp_param_set)(struct drm_bridge *bridge, int cmd);
+	int (*disp_param_get)(struct drm_bridge *bridge, char *buf);
+#endif
+	/*M17-LCM-END-20220603*/
 
 	/**
 	 * @atomic_pre_enable:
@@ -398,6 +406,9 @@ struct drm_bridge {
 	const struct drm_bridge_funcs *funcs;
 	/** @driver_private: pointer to the bridge driver's internal context */
 	void *driver_private;
+#ifdef CONFIG_BUILD_QGKI
+	struct mutex lock;
+#endif
 };
 
 void drm_bridge_add(struct drm_bridge *bridge);

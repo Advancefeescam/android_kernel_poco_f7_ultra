@@ -130,6 +130,7 @@ TRACE_DEFINE_ENUM(CP_RESIZE);
 		{ CP_TRIMMED,	"Trimmed" },				\
 		{ CP_RESIZE,	"Resize" })
 
+#ifdef CONFIG_F2FS_CP_OPT
 #define show_fsync_cpreason(type)					\
 	__print_symbolic(type,						\
 		{ CP_NO_NEEDED,		"no needed" },			\
@@ -142,7 +143,24 @@ TRACE_DEFINE_ENUM(CP_RESIZE);
 		{ CP_NODE_NEED_CP,	"node needs cp" },		\
 		{ CP_FASTBOOT_MODE,	"fastboot mode" },		\
 		{ CP_SPEC_LOG_NUM,	"log type is 2" },		\
-		{ CP_RECOVER_DIR,	"dir needs recovery" })
+		{ CP_RECOVER_DIR,	"dir needs recovery" },	\
+		{ CP_PARENT_XATTR_SET,	"parent xattr is set" })
+#else
+#define show_fsync_cpreason(type)					\
+	__print_symbolic(type,						\
+		{ CP_NO_NEEDED,		"no needed" },			\
+		{ CP_NON_REGULAR,	"non regular" },		\
+		{ CP_COMPRESSED,	"compressed" },			\
+		{ CP_HARDLINK,		"hardlink" },			\
+		{ CP_SB_NEED_CP,	"sb needs cp" },		\
+		{ CP_WRONG_PINO,	"wrong pino" },			\
+		{ CP_NO_SPC_ROLL,	"no space roll forward" },	\
+		{ CP_NODE_NEED_CP,	"node needs cp" },		\
+		{ CP_FASTBOOT_MODE,	"fastboot mode" },		\
+		{ CP_SPEC_LOG_NUM,	"log type is 2" },		\
+		{ CP_RECOVER_DIR,	"dir needs recovery" },		\
+		{ CP_XATTR_DIR,		"dir's xattr updated" })
+#endif
 
 #define show_shutdown_mode(type)					\
 	__print_symbolic(type,						\
@@ -510,7 +528,7 @@ TRACE_EVENT(f2fs_truncate_partial_nodes,
 	TP_STRUCT__entry(
 		__field(dev_t,	dev)
 		__field(ino_t,	ino)
-		__field(nid_t,	nid[3])
+		__array(nid_t,	nid, 3)
 		__field(int,	depth)
 		__field(int,	err)
 	),

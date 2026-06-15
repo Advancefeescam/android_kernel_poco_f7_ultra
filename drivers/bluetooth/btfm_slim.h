@@ -28,6 +28,12 @@
 #define PGD	1
 #define IFD	0
 
+// MIUI ADD: BT_DFSCode
+#ifdef CONFIG_MIEV
+#define EVENT_ID_SLIMBUS_ERROR 917043204
+#define KEY_SLIMBUS_ERROR "btSlimbusError"
+#endif
+// END BT_DFSCode
 
 /* Codec driver defines */
 enum {

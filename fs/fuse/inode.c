@@ -162,6 +162,12 @@ void fuse_change_attributes_common(struct inode *inode, struct fuse_attr *attr,
 	inode->i_uid     = make_kuid(fc->user_ns, attr->uid);
 	inode->i_gid     = make_kgid(fc->user_ns, attr->gid);
 	inode->i_blocks  = attr->blocks;
+
+	/* Sanitize nsecs */
+	attr->atimensec = min_t(u32, attr->atimensec, NSEC_PER_SEC - 1);
+	attr->mtimensec = min_t(u32, attr->mtimensec, NSEC_PER_SEC - 1);
+	attr->ctimensec = min_t(u32, attr->ctimensec, NSEC_PER_SEC - 1);
+
 	inode->i_atime.tv_sec   = attr->atime;
 	inode->i_atime.tv_nsec  = attr->atimensec;
 	/* mtime from server may be stale due to local buffered write */
@@ -307,8 +313,11 @@ struct inode *fuse_iget(struct super_block *sb, u64 nodeid,
 	} else if ((inode->i_mode ^ attr->mode) & S_IFMT) {
 		/* Inode has changed type, any I/O on the old should fail */
 		fuse_make_bad(inode);
-		iput(inode);
-		goto retry;
+		if (inode != d_inode(sb->s_root)) {
+			remove_inode_hash(inode);
+			iput(inode);
+			goto retry;
+		}
 	}
 
 	fi = get_fuse_inode(inode);
@@ -622,6 +631,9 @@ void fuse_conn_init(struct fuse_conn *fc, struct user_namespace *user_ns,
 	memset(fc, 0, sizeof(*fc));
 	spin_lock_init(&fc->lock);
 	spin_lock_init(&fc->bg_lock);
+	#if defined(CONFIG_PASSTHROUGH_SYSTEM)
+	spin_lock_init(&fc->passthrough_req_lock);
+	#endif
 	init_rwsem(&fc->killsb);
 	refcount_set(&fc->count, 1);
 	atomic_set(&fc->dev_count, 1);
@@ -630,6 +642,9 @@ void fuse_conn_init(struct fuse_conn *fc, struct user_namespace *user_ns,
 	INIT_LIST_HEAD(&fc->bg_queue);
 	INIT_LIST_HEAD(&fc->entry);
 	INIT_LIST_HEAD(&fc->devices);
+	#if defined(CONFIG_PASSTHROUGH_SYSTEM)
+	idr_init(&fc->passthrough_req);
+	#endif
 	atomic_set(&fc->num_waiting, 0);
 	fc->max_background = FUSE_DEFAULT_MAX_BACKGROUND;
 	fc->congestion_threshold = FUSE_DEFAULT_CONGESTION_THRESHOLD;
@@ -966,6 +981,14 @@ static void process_init_reply(struct fuse_conn *fc, struct fuse_args *args,
 					min_t(unsigned int, FUSE_MAX_MAX_PAGES,
 					max_t(unsigned int, arg->max_pages, 1));
 			}
+			#if defined(CONFIG_PASSTHROUGH_SYSTEM)
+			if (arg->flags & FUSE_PASSTHROUGH) {
+                               fc->passthrough = 1;
+                               /* Prevent further stacking */
+                               fc->sb->s_stack_depth =
+                                       FILESYSTEM_MAX_STACK_DEPTH;
+			}
+			#endif
 		} else {
 			ra_pages = fc->max_read / PAGE_SIZE;
 			fc->no_lock = 1;
@@ -1004,6 +1027,9 @@ void fuse_send_init(struct fuse_conn *fc)
 		FUSE_PARALLEL_DIROPS | FUSE_HANDLE_KILLPRIV | FUSE_POSIX_ACL |
 		FUSE_ABORT_ERROR | FUSE_MAX_PAGES | FUSE_CACHE_SYMLINKS |
 		FUSE_NO_OPENDIR_SUPPORT | FUSE_EXPLICIT_INVAL_DATA;
+	#if defined(CONFIG_PASSTHROUGH_SYSTEM)
+	ia->in.flags |=FUSE_PASSTHROUGH;
+	#endif
 	ia->args.opcode = FUSE_INIT;
 	ia->args.in_numargs = 1;
 	ia->args.in_args[0].size = sizeof(ia->in);
@@ -1024,9 +1050,24 @@ void fuse_send_init(struct fuse_conn *fc)
 }
 EXPORT_SYMBOL_GPL(fuse_send_init);
 
+#if defined(CONFIG_PASSTHROUGH_SYSTEM)
+static int free_fuse_passthrough(int id, void *p, void *data)
+{
+       struct fuse_passthrough *passthrough = (struct fuse_passthrough *)p;
+       fuse_passthrough_release(passthrough);
+       kfree(p);
+
+       return 0;
+}
+#endif
+
 void fuse_free_conn(struct fuse_conn *fc)
 {
 	WARN_ON(!list_empty(&fc->devices));
+	#if defined(CONFIG_PASSTHROUGH_SYSTEM)
+        idr_for_each(&fc->passthrough_req, free_fuse_passthrough, NULL);
+        idr_destroy(&fc->passthrough_req);
+	#endif
 	kfree_rcu(fc, rcu);
 }
 EXPORT_SYMBOL_GPL(fuse_free_conn);

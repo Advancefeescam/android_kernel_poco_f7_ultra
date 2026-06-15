@@ -11,7 +11,9 @@ struct sk_buff;
 #define QRTR_EP_NET_ID_AUTO (1)
 
 #define QRTR_DEL_PROC_MAGIC	0xe111
-
+/*M17T code for HQ-267803 by huitianpu at 2022/12/9 start*/
+#define MAX_NON_WAKE_SVC_LEN    5
+/*M17T code for HQ-267803 by huitianpu at 2022/12/9 end*/
 /**
  * struct qrtr_endpoint - endpoint handle
  * @xmit: Callback for outgoing packets
@@ -25,9 +27,10 @@ struct qrtr_endpoint {
 	/* private: not for endpoint use */
 	struct qrtr_node *node;
 };
-
+/*M17T code for HQ-267803 by huitianpu at 2022/12/9 start*/
 int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id,
-			   bool rt);
+			   bool rt, u32 *svc_arr);
+/*M17T code for HQ-267803 by huitianpu at 2022/12/9 end*/
 
 void qrtr_endpoint_unregister(struct qrtr_endpoint *ep);
 

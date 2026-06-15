@@ -40,7 +40,8 @@ struct etr_perf_buffer {
 };
 
 /* Convert the perf index to an offset within the ETR buffer */
-#define PERF_IDX2OFF(idx, buf)	((idx) % ((buf)->nr_pages << PAGE_SHIFT))
+#define PERF_IDX2OFF(idx, buf)		\
+		((idx) % ((unsigned long)(buf)->nr_pages << PAGE_SHIFT))
 
 /* Lower limit for ETR hardware buffer */
 #define TMC_ETR_PERF_MIN_BUF_SIZE	SZ_1M
@@ -271,6 +272,7 @@ void tmc_free_sg_table(struct tmc_sg_table *sg_table)
 {
 	tmc_free_table_pages(sg_table);
 	tmc_free_data_pages(sg_table);
+	kfree(sg_table);
 }
 
 long tmc_sg_get_rwp_offset(struct tmc_drvdata *drvdata)
@@ -365,7 +367,6 @@ struct tmc_sg_table *tmc_alloc_sg_table(struct device *dev,
 		rc = tmc_alloc_table_pages(sg_table);
 	if (rc) {
 		tmc_free_sg_table(sg_table);
-		kfree(sg_table);
 		return ERR_PTR(rc);
 	}
 
@@ -951,7 +952,7 @@ tmc_etr_buf_insert_barrier_packet(struct etr_buf *etr_buf, u64 offset)
 
 	len = tmc_etr_buf_get_data(etr_buf, offset,
 				   CORESIGHT_BARRIER_PKT_SIZE, &bufp);
-	if (WARN_ON(len < CORESIGHT_BARRIER_PKT_SIZE))
+	if (WARN_ON(len < 0 || len < CORESIGHT_BARRIER_PKT_SIZE))
 		return -EINVAL;
 	coresight_insert_barrier_packet(bufp);
 	return offset + CORESIGHT_BARRIER_PKT_SIZE;
@@ -1129,9 +1130,11 @@ tmc_etr_setup_sysfs_buf(struct tmc_drvdata *drvdata)
 			&& drvdata->byte_cntr->sw_usb)
 			new_buf = tmc_alloc_etr_buf(drvdata, TMC_ETR_SW_USB_BUF_SIZE,
 					 0, cpu_to_node(0), NULL);
-		else if (drvdata->out_mode == TMC_ETR_OUT_MODE_PCIE)
+		else if (drvdata->out_mode == TMC_ETR_OUT_MODE_PCIE) {
 			new_buf = tmc_alloc_etr_buf(drvdata, TMC_ETR_PCIE_MEM_SIZE,
 					 0, cpu_to_node(0), NULL);
+			drvdata->size = TMC_ETR_PCIE_MEM_SIZE;
+		}
 		else
 			new_buf = tmc_alloc_etr_buf(drvdata, drvdata->size,
 					 0, cpu_to_node(0), NULL);
@@ -1169,7 +1172,8 @@ static void __tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
 {
 	CS_UNLOCK(drvdata->base);
 
-	tmc_flush_and_stop(drvdata);
+	if (drvdata->out_mode != TMC_ETR_OUT_MODE_PCIE)
+		tmc_flush_and_stop(drvdata);
 	/*
 	 * When operating in sysFS mode the content of the buffer needs to be
 	 * read before the TMC is disabled.
@@ -1772,7 +1776,7 @@ alloc_etr_buf(struct tmc_drvdata *drvdata, struct perf_event *event,
 	 * than the size requested via sysfs.
 	 */
 	if ((nr_pages << PAGE_SHIFT) > drvdata->size) {
-		etr_buf = tmc_alloc_etr_buf(drvdata, (nr_pages << PAGE_SHIFT),
+		etr_buf = tmc_alloc_etr_buf(drvdata, ((ssize_t)nr_pages << PAGE_SHIFT),
 					    0, node, NULL);
 		if (!IS_ERR(etr_buf))
 			goto done;

@@ -10,6 +10,7 @@
   snd_soc_get_volsw_range
   snd_soc_info_volsw_range
   snd_soc_put_volsw_range
+  snd_compr_stop_error
 
 # required by cs35l45_dlkm.ko
   devm_snd_soc_register_component
@@ -33,6 +34,14 @@
   __kfifo_free
   __kfifo_from_user
   snd_soc_bytes_info_ext
+
+# required by exfat.ko
+  truncate_setsize
+  setattr_prepare
+  clear_nlink
+  set_nlink
+  d_splice_alias
+  igrab
 
 # required by aw8697.ko
   devm_gpio_free
@@ -107,3 +116,26 @@
 
 # required by incrementalfs.ko
   revert_creds
+
+# required by cifs.ko
+  kstrtobool_from_user
+  power_supply_register
+  power_supply_unregister
+  i2c_smbus_write_word_data
+  i2c_smbus_read_word_data
+  class_for_each_device
+  device_set_of_node_from_dev
+  gpiod_put
+  gpiod_get
+  orderly_poweroff
+  create_votable
+  vote
+  destroy_votable
+  typec_partner_set_identity
+  devm_iio_device_free
+
+# required by qrtr.ko
+  __pskb_copy_fclone
+
+# required by xhci-hcd.ko
+  usb_hcd_unmap_urb_for_dma

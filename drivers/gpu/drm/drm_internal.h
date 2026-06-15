@@ -59,8 +59,8 @@ int drm_prime_fd_to_handle_ioctl(struct drm_device *dev, void *data,
 
 void drm_prime_init_file_private(struct drm_prime_file_private *prime_fpriv);
 void drm_prime_destroy_file_private(struct drm_prime_file_private *prime_fpriv);
-void drm_prime_remove_buf_handle_locked(struct drm_prime_file_private *prime_fpriv,
-					struct dma_buf *dma_buf);
+void drm_prime_remove_buf_handle(struct drm_prime_file_private *prime_fpriv,
+				 uint32_t handle);
 
 /* drm_drv.c */
 struct drm_minor *drm_minor_acquire(unsigned int minor_id);
@@ -208,7 +208,23 @@ int drm_syncobj_timeline_signal_ioctl(struct drm_device *dev, void *data,
 				      struct drm_file *file_private);
 int drm_syncobj_query_ioctl(struct drm_device *dev, void *data,
 			    struct drm_file *file_private);
-
+/* BSP.LCM - 2022.06.22 - modify for LCM add mipi_reg */
+ssize_t dsi_display_mipi_reg_write(struct drm_connector *connector,
+					char *buf, size_t count);
+ssize_t dsi_display_mipi_reg_read(struct drm_connector *connector,
+					char *buf);
+/* BSP.LCM - 2022.07.15 - modify for LCM add hbm */
+ssize_t dsi_display_set_hbm(struct drm_connector *connector,
+			int hbm_status);
+ssize_t dsi_display_get_hbm_status(struct drm_connector *connector);
+/* BSP.LCM - 2022.07.13 - modify for LCM add doze_brightness */
+ssize_t dsi_display_set_doze_brightness(struct drm_connector *connector,
+			int doze_brightness);
+ssize_t dsi_display_get_doze_brightness(struct drm_connector *connector);
+ssize_t dsi_display_set_flat_mode(struct drm_connector *connector,
+			int flat_mode);
+ssize_t dsi_display_get_flat_mode(struct drm_connector *connector);
+/* end modify */
 /* drm_framebuffer.c */
 void drm_framebuffer_print_info(struct drm_printer *p, unsigned int indent,
 				const struct drm_framebuffer *fb);

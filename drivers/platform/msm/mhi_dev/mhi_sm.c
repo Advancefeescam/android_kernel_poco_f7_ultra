@@ -96,12 +96,6 @@ static inline const char *mhi_sm_mstate_str(enum mhi_dev_state state)
 
 	return str;
 }
-enum mhi_sm_ep_pcie_state {
-	MHI_SM_EP_PCIE_LINK_DISABLE,
-	MHI_SM_EP_PCIE_D0_STATE,
-	MHI_SM_EP_PCIE_D3_HOT_STATE,
-	MHI_SM_EP_PCIE_D3_COLD_STATE,
-};
 
 static inline const char *mhi_sm_dstate_str(enum mhi_sm_ep_pcie_state state)
 {
@@ -479,7 +473,7 @@ static int mhi_sm_prepare_resume(void)
 	case MHI_DEV_READY_STATE:
 		res = ep_pcie_get_msi_config(mhi_sm_ctx->mhi_dev->phandle,
 			&cfg);
-		if (res) {
+		if (res && res != -EOPNOTSUPP) {
 			MHI_SM_ERR("Error retrieving pcie msi logic\n");
 			goto exit;
 		}
@@ -1106,8 +1100,6 @@ unlock_and_exit:
 int mhi_dev_sm_init(struct mhi_dev *mhi_dev)
 {
 	int res;
-	enum ep_pcie_link_status link_state;
-
 	MHI_SM_FUNC_ENTRY();
 
 	if (!mhi_dev) {
@@ -1137,11 +1129,7 @@ int mhi_dev_sm_init(struct mhi_dev *mhi_dev)
 	atomic_set(&mhi_sm_ctx->pending_device_events, 0);
 	atomic_set(&mhi_sm_ctx->pending_pcie_events, 0);
 
-	link_state = ep_pcie_get_linkstatus(mhi_sm_ctx->mhi_dev->phandle);
-	if (link_state == EP_PCIE_LINK_ENABLED)
-		mhi_sm_ctx->d_state = MHI_SM_EP_PCIE_D0_STATE;
-	else
-		mhi_sm_ctx->d_state = MHI_SM_EP_PCIE_LINK_DISABLE;
+	mhi_sm_ctx->d_state = MHI_SM_EP_PCIE_D0_STATE;
 
 	MHI_SM_FUNC_EXIT();
 	return 0;
@@ -1238,16 +1226,7 @@ int mhi_dev_sm_set_ready(void)
 		goto unlock_and_exit;
 	}
 
-	if (mhi_sm_ctx->d_state != MHI_SM_EP_PCIE_D0_STATE) {
-		if (ep_pcie_get_linkstatus(mhi_sm_ctx->mhi_dev->phandle) ==
-		    EP_PCIE_LINK_ENABLED) {
-			mhi_sm_ctx->d_state = MHI_SM_EP_PCIE_D0_STATE;
-		} else {
-			MHI_SM_ERR("ERROR: ep-pcie link is not enabled\n");
-			res = -EPERM;
-			goto unlock_and_exit;
-		}
-	}
+	mhi_sm_ctx->d_state = MHI_SM_EP_PCIE_D0_STATE;
 
 	/* verify that MHISTATUS is configured to RESET*/
 	mhi_dev_mmio_masked_read(mhi_sm_ctx->mhi_dev,
@@ -1338,6 +1317,17 @@ int mhi_dev_notify_sm_event(enum mhi_dev_event event)
 	INIT_WORK(&state_change_event->work, mhi_sm_dev_event_manager);
 	atomic_inc(&mhi_sm_ctx->pending_device_events);
 	queue_work(mhi_sm_ctx->mhi_sm_wq, &state_change_event->work);
+
+	/*
+	 * Wait until M0 processing is completely done.
+	 * This ensures CHDB won't get processed while resume is in
+	 * progress thus avoids race between M0 and CHDB processing.
+	 */
+	if (event == MHI_DEV_EVENT_M0_STATE) {
+		MHI_SM_DBG("Got M0, wait until resume is done\n");
+		flush_workqueue(mhi_sm_ctx->mhi_sm_wq);
+	}
+
 	res = 0;
 
 exit:

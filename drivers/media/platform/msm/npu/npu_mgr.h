@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _NPU_MGR_H
@@ -52,6 +53,8 @@ struct npu_network {
 	atomic_t ref_cnt;
 	bool is_valid;
 	bool is_active;
+	bool is_unloading;
+	bool is_executing;
 	bool fw_error;
 	bool cmd_pending;
 	bool cmd_async;
@@ -77,9 +80,9 @@ struct npu_host_ctx {
 	struct delayed_work fw_deinit_work;
 	atomic_t fw_deinit_work_cnt;
 	struct workqueue_struct *wq;
-	struct completion loopback_done;
+	struct completion misc_done;
 	struct completion fw_deinit_done;
-	struct completion property_done;
+	bool misc_pending;
 	void *prop_buf;
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];

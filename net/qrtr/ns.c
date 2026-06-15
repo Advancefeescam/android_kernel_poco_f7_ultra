@@ -104,7 +104,9 @@ unsigned int qrtr_get_service_id(unsigned int node_id, unsigned int port_id)
 	struct qrtr_node *node;
 	unsigned long index;
 
-	node = node_get(node_id);
+	/*M17T code for HQ-267803 by huitianpu at 2022/12/9 start*/
+	node = xa_load(&nodes, node_id);
+	/*M17T code for HQ-267803 by huitianpu at 2022/12/9 end*/
 	if (!node)
 		return 0;
 

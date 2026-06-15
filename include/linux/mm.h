@@ -15,6 +15,7 @@
 #include <linux/atomic.h>
 #include <linux/debug_locks.h>
 #include <linux/mm_types.h>
+#include <linux/mmap_lock.h>
 #include <linux/range.h>
 #include <linux/pfn.h>
 #include <linux/percpu-refcount.h>
@@ -30,6 +31,10 @@
 #include <linux/android_kabi.h>
 #include <linux/android_vendor.h>
 
+#ifdef CONFIG_RTMM
+struct mm_walk;
+#endif
+
 struct mempolicy;
 struct anon_vma;
 struct anon_vma_chain;
@@ -38,7 +43,16 @@ struct user_struct;
 struct writeback_control;
 struct bdi_writeback;
 
+extern int sysctl_page_lock_unfairness;
+
 void init_mm_internals(void);
+
+#ifdef CONFIG_RTMM
+struct rtmm_reclaim_proc {
+	struct vm_area_struct *vma;
+	unsigned long nr_reclaimed;
+};
+#endif
 
 #ifndef CONFIG_NEED_MULTIPLE_NODES	/* Don't use mapnrs, do it properly */
 extern unsigned long max_mapnr;
@@ -1541,6 +1555,12 @@ int generic_access_phys(struct vm_area_struct *vma, unsigned long addr,
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
 static inline void vm_write_begin(struct vm_area_struct *vma)
 {
+        /*
+         * Isolated vma might be freed without exclusive mmap_lock but
+         * speculative page fault handler still needs to know it was changed.
+         */
+        if (!RB_EMPTY_NODE(&vma->vm_rb))
+		WARN_ON_ONCE(!rwsem_is_locked(&(vma->vm_mm)->mmap_sem));
 	/*
 	 * The reads never spins and preemption
 	 * disablement is not required.
@@ -2483,6 +2503,7 @@ extern int install_special_mapping(struct mm_struct *mm,
 				   unsigned long flags, struct page **pages);
 
 unsigned long randomize_stack_top(unsigned long stack_top);
+unsigned long randomize_page(unsigned long start, unsigned long range);
 
 extern unsigned long get_unmapped_area(struct file *, unsigned long, unsigned long, unsigned long, unsigned long);
 
@@ -2693,6 +2714,8 @@ unsigned long change_prot_numa(struct vm_area_struct *vma,
 struct vm_area_struct *find_extend_vma(struct mm_struct *, unsigned long addr);
 int remap_pfn_range(struct vm_area_struct *, unsigned long addr,
 			unsigned long pfn, unsigned long size, pgprot_t);
+int remap_pfn_range_notrack(struct vm_area_struct *vma, unsigned long addr,
+		unsigned long pfn, unsigned long size, pgprot_t prot);
 int vm_insert_page(struct vm_area_struct *, unsigned long addr, struct page *);
 int vm_map_pages(struct vm_area_struct *vma, struct page **pages,
 				unsigned long num);
@@ -3060,6 +3083,11 @@ static inline int pages_identical(struct page *page1, struct page *page2)
 }
 
 extern int want_old_faultaround_pte;
+#ifdef CONFIG_RTMM
+extern unsigned long reclaim_global(unsigned long nr_to_reclaim);
+extern int rtmm_reclaim_pte_range(pmd_t *pmd, unsigned long addr,
+				unsigned long end, struct mm_walk *walk);
+#endif
 
 #ifndef CONFIG_MULTIPLE_KSWAPD
 static inline void update_kswapd_threads_node(int nid) {}

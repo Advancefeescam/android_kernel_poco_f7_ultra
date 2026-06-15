@@ -1,5 +1,6 @@
 proxy-consumer.ko
 fixed.ko
+miev.ko
 qcom_pm8008-regulator.ko
 rpmh-regulator.ko
 refgen.ko

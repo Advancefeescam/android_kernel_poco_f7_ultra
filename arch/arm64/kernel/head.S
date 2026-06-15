@@ -195,7 +195,7 @@ ENDPROC(preserve_boot_args)
  * to be composed of multiple pages. (This effectively scales the end index).
  *
  *	vstart:	virtual address of start of range
- *	vend:	virtual address of end of range
+ *	vend:	virtual address of end of range - we map [vstart, vend]
  *	shift:	shift used to transform virtual address into index
  *	ptrs:	number of entries in page table
  *	istart:	index in table corresponding to vstart
@@ -232,17 +232,18 @@ ENDPROC(preserve_boot_args)
  *
  *	tbl:	location of page table
  *	rtbl:	address to be used for first level page table entry (typically tbl + PAGE_SIZE)
- *	vstart:	start address to map
- *	vend:	end address to map - we map [vstart, vend]
+ *	vstart:	virtual address of start of range
+ *	vend:	virtual address of end of range - we map [vstart, vend - 1]
  *	flags:	flags to use to map last level entries
  *	phys:	physical address corresponding to vstart - physical memory is contiguous
  *	pgds:	the number of pgd entries
  *
  * Temporaries:	istart, iend, tmp, count, sv - these need to be different registers
- * Preserves:	vstart, vend, flags
- * Corrupts:	tbl, rtbl, istart, iend, tmp, count, sv
+ * Preserves:	vstart, flags
+ * Corrupts:	tbl, rtbl, vend, istart, iend, tmp, count, sv
  */
 	.macro map_memory, tbl, rtbl, vstart, vend, flags, phys, pgds, istart, iend, tmp, count, sv
+	sub \vend, \vend, #1
 	add \rtbl, \tbl, #PAGE_SIZE
 	mov \sv, \rtbl
 	mov \count, #0
@@ -469,15 +470,18 @@ __primary_switched:
 	b	start_kernel
 ENDPROC(__primary_switched)
 
+	.pushsection ".rodata", "a"
+SYM_DATA_START(kimage_vaddr)
+	.quad		_text - TEXT_OFFSET
+SYM_DATA_END(kimage_vaddr)
+EXPORT_SYMBOL(kimage_vaddr)
+	.popsection
+
 /*
  * end early head section, begin head code that is also used for
  * hotplug and needs to have the same protections as the text region
  */
 	.section ".idmap.text","awx"
-
-ENTRY(kimage_vaddr)
-	.quad		_text - TEXT_OFFSET
-EXPORT_SYMBOL(kimage_vaddr)
 
 /*
  * If we're fortunate enough to boot at EL2, ensure that the world is
@@ -678,15 +682,17 @@ ENDPROC(set_cpu_boot_mode_flag)
  * This is not in .bss, because we set it sufficiently early that the boot-time
  * zeroing of .bss would clobber it.
  */
-ENTRY(__boot_cpu_mode)
+SYM_DATA_START(__boot_cpu_mode)
 	.long	BOOT_CPU_MODE_EL2
 	.long	BOOT_CPU_MODE_EL1
+SYM_DATA_END(__boot_cpu_mode)
 /*
  * The booting CPU updates the failed status @__early_cpu_boot_status,
  * with MMU turned off.
  */
-ENTRY(__early_cpu_boot_status)
+SYM_DATA_START(__early_cpu_boot_status)
 	.quad 	0
+SYM_DATA_END(__early_cpu_boot_status)
 
 	.popsection
 
